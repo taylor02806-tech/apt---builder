@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, request, jsonify, render_template
 import requests
 import xml.etree.ElementTree as ET
@@ -8,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 app = Flask(__name__)
 
 # 공공데이터포털 일반 인증키 (Decoding) - 환경 변수에서 로드
-API_KEY = os.environ.get("API_KEY")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("MOLIT_API_KEY")
 
 # 거래유형(매매/전월세) 및 부동산 종류별 공공데이터 API 엔드포인트
 API_ENDPOINTS = {
