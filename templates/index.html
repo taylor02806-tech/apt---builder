@@ -656,8 +656,13 @@
         const places = new kakao.maps.services.Places();
         let marker = new kakao.maps.Marker();
 
-        kakao.maps.event.addListener(map, 'zoom_changed', function() {
-            applyClientFilters();
+        let idleTimer = null;
+        kakao.maps.event.addListener(map, 'idle', function() {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                currentLatLng = map.getCenter();
+                applyClientFilters();
+            }, 300);
         });
 
         
@@ -673,16 +678,20 @@
         
 
         function applyClientFilters() {
-            const zoomLevel = map.getLevel();
+            const bounds = map.getBounds();
+            const sw = bounds.getSouthWest();
+            const ne = bounds.getNorthEast();
+            const span = Math.max(ne.getLng() - sw.getLng(), ne.getLat() - sw.getLat());
+            
             const badgeEl = document.getElementById('zoomFilterBadge');
 
             let minPriceThreshold = 0;
             let zoomText = '';
 
-            if (zoomLevel >= 7) {
+            if (span >= 0.1) {
                 minPriceThreshold = 180000;
                 zoomText = `🔍 광역 축소 상태 (18억 이상 대장·고가 단지만 표시)`;
-            } else if (zoomLevel >= 5) {
+            } else if (span >= 0.04) {
                 minPriceThreshold = 120000;
                 zoomText = `🔍 중간 줌 상태 (12억 이상 주요 단지 표시)`;
             } else {
@@ -967,8 +976,9 @@
 
                     const contentHtml = `
                         <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
+                             style="touch-action: manipulation; pointer-events: auto;"
                              onclick="window.onMapBadgeClick('${badgeKey}')"
-                             onmouseenter="window.onMapBadgeClick('${badgeKey}')">
+                             onmouseenter="if(window.innerWidth > 768) window.onMapBadgeClick('${badgeKey}')">
                             ${leaderTagHtml}
                             <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[100px]">
                                 <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1.5">
@@ -1496,7 +1506,17 @@
         initSidoSelect();
         onTradeTypeChange();
 
+        
+        const resizeObserver = new ResizeObserver(() => {
+            if (map && currentLatLng) {
+                map.relayout();
+                map.setCenter(currentLatLng);
+            }
+        });
+        resizeObserver.observe(document.getElementById('map'));
+        
         currentLatLng = mapOption.center;
+
         marker.setPosition(currentLatLng);
         marker.setMap(map);
         setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
