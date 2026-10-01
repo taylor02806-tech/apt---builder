@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부동산 실거래가 인사이트 (Richgo 스타일)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a43f1f4d8afad862bfe5ec91e734883c&libraries=services"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+        .segmented-item input:checked + label {
+            background-color: #ffffff;
+            color: #1e293b;
+            font-weight: 700;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+        .prop-item input:checked + label {
+            background-color: #4f46e5;
+            color: #ffffff;
+            font-weight: 600;
+            border-color: #4f46e5;
+        }
+        @keyframes overlayPulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .map-badge:hover {
+            animation: overlayPulse 0.6s infinite ease-in-out;
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen overflow-hidden flex text-slate-800 antialiased">
+    
+    <!-- 좌측 대시보드 패널 -->
+    <aside id="sidePanel" class="w-[480px] h-full flex flex-col bg-white border-r border-slate-200/80 z-20 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0">
+        
+        <!-- [화면 1] 랭킹 및 필터 패널 -->
+        <div id="rankingPanel" class="flex flex-col h-full">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-200">
+                        R
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">부동산 실거래 인사이트</h1>
+                        <p class="text-xs text-slate-400">단지명·주소 통합 검색 지원</p>
+                    </div>
+                </div>
+                <span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">LIVE</span>
+            </div>
+
+            <!-- 필터 영역 -->
+            <div class="p-6 overflow-y-auto space-y-5 flex-1">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 block mb-2">거래 유형</label>
+                    <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
+                        <div class="segmented-item flex-1">
+                            <input type="radio" id="trade_sale" name="trade_type" value="sale" class="hidden" checked onchange="onTradeTypeChange()">
+                            <label for="trade_sale" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">매매</label>
+                        </div>
+                        <div class="segmented-item flex-1">
+                            <input type="radio" id="trade_jeonse" name="trade_type" value="jeonse" class="hidden" onchange="onTradeTypeChange()">
+                            <label for="trade_jeonse" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">전세</label>
+                        </div>
+                        <div class="segmented-item flex-1">
+                            <input type="radio" id="trade_rent" name="trade_type" value="rent" class="hidden" onchange="onTradeTypeChange()">
+                            <label for="trade_rent" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">월세</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-500 block mb-2">부동산 유형</label>
+                    <div class="flex flex-wrap gap-1.5">
+                        <div class="prop-item">
+                            <input type="radio" id="prop_apt" name="prop_type" value="apt" class="hidden" checked onchange="onScopeChange()">
+                            <label for="prop_apt" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">아파트</label>
+                        </div>
+                        <div class="prop-item">
+                            <input type="radio" id="prop_officetel" name="prop_type" value="officetel" class="hidden" onchange="onScopeChange()">
+                            <label for="prop_officetel" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">오피스텔</label>
+                        </div>
+                        <div class="prop-item">
+                            <input type="radio" id="prop_rowhouse" name="prop_type" value="rowhouse" class="hidden" onchange="onScopeChange()">
+                            <label for="prop_rowhouse" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">연립·다세대</label>
+                        </div>
+                        <div class="prop-item">
+                            <input type="radio" id="prop_singlehouse" name="prop_type" value="singlehouse" class="hidden" onchange="onScopeChange()">
+                            <label for="prop_singlehouse" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">단독·다가구</label>
+                        </div>
+                        <div class="prop-item">
+                            <input type="radio" id="prop_land" name="prop_type" value="land" class="hidden" onchange="onScopeChange()">
+                            <label for="prop_land" id="label-land" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">토지</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📌 검색창 영역 -->
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <label class="text-xs font-bold text-slate-500 block">지역 및 단지명 검색</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="sidoSelect" onchange="onSidoChange()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">시/도 선택</option>
+                        </select>
+                        <select id="sigunguSelect" onchange="onSigunguChange()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled>
+                            <option value="">시/군/구 선택</option>
+                        </select>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="아파트 이름 또는 동 검색 (예: 마포래미안푸르지오)" onkeypress="if(event.key === 'Enter') searchByAddress()" class="w-full pl-9 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <button onclick="searchByAddress()" class="absolute right-1.5 top-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold rounded-lg transition-colors">검색</button>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-500">분석 범위</span>
+                        <div class="flex gap-2">
+                            <label class="inline-flex items-center text-xs text-slate-700 cursor-pointer">
+                                <input type="radio" name="scope" value="all" class="text-indigo-600 focus:ring-indigo-500" checked onchange="onScopeChange()">
+                                <span class="ml-1">시·군·구 전체</span>
+                            </label>
+                            <label class="inline-flex items-center text-xs text-slate-700 cursor-pointer">
+                                <input type="radio" name="scope" value="dong" class="text-indigo-600 focus:ring-indigo-500" onchange="onScopeChange()">
+                                <span class="ml-1">해당 동만</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-500">비교 기간</span>
+                        <select id="quickPeriod" onchange="onQuickPeriodChange()" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="1">최근 1개월</option>
+                            <option value="6" selected>최근 6개월</option>
+                            <option value="12">최근 1년</option>
+                            <option value="24">최근 2년</option>
+                            <option value="36">최근 3년</option>
+                            <option value="custom">상세 지정</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-2 items-center">
+                        <input type="month" id="startMonth" onchange="onCustomDateChange()" class="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-indigo-500">
+                        <span class="text-slate-400 text-xs">~</span>
+                        <input type="month" id="endMonth" onchange="onCustomDateChange()" class="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-indigo-500">
+                        <button id="applyDateBtn" onclick="onScopeChange()" class="hidden px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg">적용</button>
+                    </div>
+                </div>
+
+                <div id="selectedArea" class="hidden bg-gradient-to-r from-indigo-50 to-slate-50 border border-indigo-100/80 rounded-2xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-1.5 text-indigo-600 text-xs font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                            분석 지역
+                        </div>
+                        <button onclick="openRoadview()" class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold rounded-lg shadow-sm transition-all">
+                            로드뷰 보기
+                        </button>
+                    </div>
+                    <h2 class="text-base font-bold text-slate-900 truncate" id="areaName">지역 미선택</h2>
+                    <p class="text-[11px] text-slate-500 mt-0.5" id="areaCode">법정동 코드: -</p>
+                </div>
+
+                <div id="loading" class="hidden py-12 text-center">
+                    <div class="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-xs font-semibold text-slate-700">실거래가 데이터를 계산하고 지도에 배치하는 중...</p>
+                </div>
+
+                <div id="error" class="hidden p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs leading-relaxed text-center"></div>
+
+                <!-- 차트 랭킹 영역 -->
+                <div id="results" class="hidden space-y-6">
+                    <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center">
+                        <p class="text-[11px] text-indigo-700 font-semibold">📍 지도 위 배지나 차트를 클릭하면 <b>매물 시세 & 세금 분석</b>이 열립니다</p>
+                    </div>
+
+                    <!-- 급등 차트 -->
+                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                <h3 class="text-xs font-bold text-slate-900" id="soaringTitle">가장 많이 오른 Top 5</h3>
+                            </div>
+                            <span class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">상승</span>
+                        </div>
+                        <div id="soaringEmpty" class="hidden py-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">데이터가 부족합니다.</div>
+                        <div id="soaringChartContainer" class="relative h-60 w-full cursor-pointer">
+                            <canvas id="soaringChart"></canvas>
+                        </div>
+                        <div id="soaringPills" class="mt-3 flex flex-wrap gap-1.5 pt-3 border-t border-slate-50"></div>
+                    </div>
+
+                    <!-- 급락 차트 -->
+                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <h3 class="text-xs font-bold text-slate-900" id="plungingTitle">가장 많이 떨어진 Top 5</h3>
+                            </div>
+                            <span class="text-[10px] font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">하락</span>
+                        </div>
+                        <div id="plungingEmpty" class="hidden py-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">데이터가 부족합니다.</div>
+                        <div id="plungingChartContainer" class="relative h-60 w-full cursor-pointer">
+                            <canvas id="plungingChart"></canvas>
+                        </div>
+                        <div id="plungingPills" class="mt-3 flex flex-wrap gap-1.5 pt-3 border-t border-slate-50"></div>
+                    </div>
+                </div>
+
+                <div id="emptyState" class="py-16 text-center text-slate-400">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                        <svg class="w-6 h-6 fill-none stroke-current" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                    </div>
+                    <p class="text-xs font-medium">지도에서 관심 지역을 클릭하거나<br>아파트명을 검색해 실거래가 랭킹을 확인하세요.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- [화면 2] 리치고 스타일 상세 패널 -->
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-30 overflow-y-auto">
+            <div class="p-5 pb-2 border-b border-slate-100">
+                <div class="flex items-center justify-between mb-3">
+                    <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        랭킹 목록으로
+                    </button>
+                    <button onclick="openRoadview()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                        로드뷰 보기
+                    </button>
+                </div>
+
+                <div class="flex items-start gap-3 mt-2">
+                    <div class="w-12 h-12 rounded-2xl bg-[#005f56] flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-200">
+                        <svg class="w-6 h-6 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-2xl font-extrabold text-slate-900 truncate tracking-tight" id="detailName">단지명</h2>
+                        <p class="text-xs text-slate-500 mt-1" id="detailSubtitle">실거래 분석 단지</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 네비게이션 탭 -->
+            <div class="flex border-b border-slate-200 px-5 text-sm font-semibold text-slate-400">
+                <button id="tabBtnInfo" onclick="switchDetailTab('info')" class="py-3 px-3 text-slate-900 border-b-2 border-slate-900 font-bold transition-all">정보</button>
+                <button id="tabBtnMarket" onclick="switchDetailTab('market')" class="py-3 px-3 hover:text-slate-700 transition-all font-bold text-slate-500">
+                    매물 시세
+                </button>
+                <button id="tabBtnTax" onclick="switchDetailTab('tax')" class="py-3 px-3 hover:text-slate-700 transition-all flex items-center gap-1.5">
+                    올해 세금
+                    <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                </button>
+                <button class="py-3 px-3 text-slate-300 cursor-not-allowed">갈아타기</button>
+            </div>
+
+            <!-- 탭 1: 기본 정보 뷰 -->
+            <div id="tabContentInfo" class="p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500">
+                        <span class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold" id="detailTradeBadge">매매</span>
+                        <span class="px-2 py-1">전세</span>
+                        <span class="px-2 py-1">월세</span>
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg" id="detailPyeong">34평 ▾</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="border-2 border-blue-500 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-500 block">최근 실거래가</span>
+                            <div class="flex items-baseline gap-1 mt-1">
+                                <span class="text-xl font-black text-slate-900 tracking-tight" id="detailLatestPrice">0</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium">최신</span>
+                            </div>
+                        </div>
+                        <p class="text-[11px] font-bold mt-2" id="detailDiffText">-</p>
+                    </div>
+
+                    <div class="border border-slate-200 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-500 block">직전 거래가</span>
+                            <div class="flex items-baseline gap-1 mt-1">
+                                <span class="text-xl font-bold text-slate-700 tracking-tight" id="detailPrevPrice">0</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium">직전</span>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-2 font-medium" id="detailPrevDate">계약일: -</p>
+                    </div>
+                </div>
+
+                <div onclick="switchDetailTab('tax')" class="bg-gradient-to-br from-indigo-50/80 to-slate-50 border border-indigo-100 rounded-2xl p-4 cursor-pointer hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-extrabold text-indigo-900 flex items-center gap-1">
+                            💰 1세대 1주택 세법 모의 계산
+                        </span>
+                        <span class="text-[11px] font-bold text-indigo-600 flex items-center">
+                            상세 계산서 보기 →
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-indigo-100/60">
+                        <div class="bg-white/80 p-2 rounded-xl">
+                            <span class="text-[10px] text-slate-400 block font-medium">취득세</span>
+                            <span class="text-xs font-bold text-slate-800" id="miniTaxAcq">-</span>
+                        </div>
+                        <div class="bg-white/80 p-2 rounded-xl">
+                            <span class="text-[10px] text-slate-400 block font-medium">연 보유세</span>
+                            <span class="text-xs font-bold text-slate-800" id="miniTaxHolding">-</span>
+                        </div>
+                        <div class="bg-white/80 p-2 rounded-xl">
+                            <span class="text-[10px] text-slate-400 block font-medium">예상 양도세</span>
+                            <span class="text-xs font-bold text-slate-800" id="miniTaxTransfer">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border border-red-200 bg-red-50/70 rounded-2xl py-3 px-4 text-center flex items-center justify-center gap-1.5 shadow-sm">
+                    <span class="text-base">🔥</span>
+                    <span class="text-xs font-extrabold text-red-500" id="detailFlameBanner">실거래 핵심 변동 단지</span>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold text-slate-800">거래 추이 곡선</span>
+                        <span class="text-[11px] font-medium text-slate-400" id="detailDateRange">최근 거래 비교</span>
+                    </div>
+                    <div class="relative h-44 w-full">
+                        <canvas id="detailTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 탭 2: 매물 시세 뷰 -->
+            <div id="tabContentMarket" class="hidden p-5 space-y-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500">
+                        <span class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold">매매</span>
+                        <span class="px-2 py-1">전세</span>
+                        <span class="px-2 py-1">월세</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg">내집 내놓기</button>
+                        <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg" id="marketPyeongBadge">34평 ▾</span>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                            <span class="text-xs text-slate-500 font-medium" id="marketDongFloorText">102동 로얄층 · 84.6㎡</span>
+                        </div>
+                        <button class="text-[11px] font-semibold text-indigo-600 border border-indigo-200 px-2.5 py-1 rounded-lg hover:bg-indigo-50">
+                            우리집으로 등록
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-xs font-bold text-blue-600 block">급매 호가(추정)</span>
+                            <span class="text-2xl font-black text-slate-900 block mt-1 tracking-tight" id="marketQuickPrice">-</span>
+                            <span class="text-[11px] text-slate-400 block mt-0.5 font-medium">매물 중 가장 싼 호가</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-emerald-600 block">집중 호가(추정)</span>
+                            <span class="text-2xl font-black text-slate-900 block mt-1 tracking-tight" id="marketFocusPrice">-</span>
+                            <span class="text-[11px] text-slate-400 block mt-0.5 font-medium">매물이 가장 많이 몰린 가격</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <h3 class="text-xs font-extrabold text-slate-900">지금 나온 매물과 비교</h3>
+                            <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" id="marketAreaChip">동일 평형</span>
+                        </div>
+                        <span class="text-[11px] font-bold text-slate-400" id="marketTotalCount">매물 28건</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-[11px] font-bold">
+                        <span class="text-blue-600 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span> 급매선
+                        </span>
+                        <span class="text-emerald-600 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 집중 호가선
+                        </span>
+                    </div>
+
+                    <div class="relative h-44 w-full">
+                        <canvas id="marketDistributionChart"></canvas>
+                    </div>
+
+                    <p class="text-[10px] text-slate-400 text-center leading-relaxed">
+                        막대는 해당 평형에 <span class="text-slate-600 font-semibold">지금 올라온 매물 호가의 분포</span>예요.
+                    </p>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-extrabold text-slate-900">저·중·고층 적정 호가 범위</h3>
+                        <span class="text-[10px] font-medium text-slate-400">범위(추정)</span>
+                    </div>
+
+                    <div class="divide-y divide-slate-100 text-xs">
+                        <div class="py-2 flex justify-between items-center">
+                            <span class="text-slate-500 font-medium">저층 (1~3층)</span>
+                            <span class="font-bold text-slate-800" id="floorRangeLow">-</span>
+                        </div>
+                        <div class="py-2 flex justify-between items-center">
+                            <span class="text-slate-500 font-medium">중층 (4~10층)</span>
+                            <span class="font-bold text-slate-800" id="floorRangeMid">-</span>
+                        </div>
+                        <div class="py-2 flex justify-between items-center">
+                            <span class="text-slate-500 font-medium">고층 (11층 이상)</span>
+                            <span class="font-bold text-slate-800" id="floorRangeHigh">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-extrabold text-slate-900">매물 소화 기간</h3>
+                        <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full" id="absorptionBadge">
+                            구 평균보다 느려요
+                        </span>
+                    </div>
+
+                    <div class="flex items-baseline gap-1 mt-1">
+                        <span class="text-3xl font-black text-slate-900 tracking-tight" id="absorptionMonths">16.7</span>
+                        <span class="text-sm font-bold text-slate-600">개월</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-medium" id="absorptionFormula">
+                        매물 건수 ÷ 최근 6개월 월평균 거래 건수
+                    </p>
+
+                    <div class="grid grid-cols-3 gap-2 pt-2">
+                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 block font-medium">지역 평균</span>
+                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statGuAvg">13.2개월</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 block font-medium">1년 전</span>
+                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statYearAgo">2.7개월</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 block font-medium">최근 6개월 거래</span>
+                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statRecentDeals">47건</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[11px] font-semibold text-slate-600">소화 기간 추이</span>
+                            <span class="text-[10px] text-indigo-600 font-bold">국토부 실거래 기준</span>
+                        </div>
+                        <div class="relative h-36 w-full">
+                            <canvas id="absorptionTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 탭 3: 개정 세법 종합 계산서 뷰 -->
+            <div id="tabContentTax" class="hidden p-5 space-y-4">
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-[11px] text-slate-600 leading-relaxed">
+                    <p class="font-bold text-slate-800 mb-0.5">⚖️ 개정 세법 산출 기준 (1세대 1주택자 기준)</p>
+                    <p>• <b>취득세:</b> 6억 이하(1%), 6~9억(1~3% 누진), 9억 초과(3%) + 교육세</p>
+                    <p>• <b>보유세:</b> 추정 공시가(실거래가 69%) 기준 재산세 + 종부세(12억 기본공제)</p>
+                    <p>• <b>양도세:</b> 12억 원 이하 전액 비과세 / 12억 초과분만 안분 과세</p>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                            <h3 class="text-xs font-bold text-slate-900">매수 취득세</h3>
+                        </div>
+                        <span class="text-xs font-extrabold text-indigo-600" id="taxAcqTotal">-</span>
+                    </div>
+                    <div class="space-y-1 text-xs text-slate-600">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">적용 세율</span>
+                            <span class="font-semibold" id="taxAcqRateDetail">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">지방교육세 + 농특세</span>
+                            <span class="font-semibold" id="taxAcqExtraDetail">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                            <h3 class="text-xs font-bold text-slate-900">연간 보유세 (재산세 + 종부세)</h3>
+                        </div>
+                        <span class="text-xs font-extrabold text-emerald-600" id="taxHoldingTotal">-</span>
+                    </div>
+                    <div class="space-y-1 text-xs text-slate-600">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">추정 공시가격 (시세 69%)</span>
+                            <span class="font-semibold" id="taxPubPriceDetail">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">예상 재산세 (특례세율)</span>
+                            <span class="font-semibold" id="taxPropertyDetail">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">종합부동산세 (12억 초과분)</span>
+                            <span class="font-semibold" id="taxJongbuDetail">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                            <h3 class="text-xs font-bold text-slate-900">예상 양도소득세</h3>
+                        </div>
+                        <span class="text-xs font-extrabold text-red-500" id="taxTransferTotal">-</span>
+                    </div>
+                    <div class="space-y-1 text-xs text-slate-600">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">실현 양도차익</span>
+                            <span class="font-semibold" id="taxGainDetail">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">1주택 12억 초과 과세차익</span>
+                            <span class="font-semibold" id="taxTaxableGainDetail">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">장기보유특별공제 & 기본공제</span>
+                            <span class="font-semibold" id="taxDeductionDetail">3년 보유 거주 (24%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 패널 여닫기 버튼 -->
+        <button onclick="togglePanel()" class="absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md flex items-center justify-center z-50 transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors">
+            <svg id="toggleIcon" class="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+    </aside>
+
+    <!-- 오른쪽: 지도 영역 -->
+    <main class="flex-1 h-full relative">
+        <div id="map" class="w-full h-full"></div>
+        
+        <!-- 좌측 상단 플로팅 안내 바 -->
+        <div class="absolute top-5 left-5 z-10 flex items-center gap-2">
+            <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
+                </span>
+                <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🔍 줌 레벨 자동 필터링: 계산 중...</span>
+            </div>
+
+            <button id="floatingRoadviewBtn" onclick="openRoadview()" class="hidden bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                현재 위치 로드뷰
+            </button>
+        </div>
+
+        <!-- 로드뷰 모달 -->
+        <div id="roadviewModal" class="hidden absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+            <div class="relative w-full h-full max-w-5xl max-h-[88vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700">
+                <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+                        <span class="text-sm font-bold" id="roadviewTitle">현장 로드뷰</span>
+                    </div>
+                    <button onclick="closeRoadview()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div id="roadview" class="w-full flex-1 bg-slate-900 relative"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function togglePanel() {
+            const panel = document.getElementById('sidePanel');
+            const icon = document.getElementById('toggleIcon');
+            if (panel.classList.contains('ml-0')) {
+                panel.classList.replace('ml-0', '-ml-[480px]');
+                icon.parentElement.classList.replace('-right-8', '-right-12');
+                icon.parentElement.classList.add('w-12');
+                icon.parentElement.classList.remove('w-8');
+                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
+            } else {
+                panel.classList.replace('-ml-[480px]', 'ml-0');
+                icon.parentElement.classList.replace('-right-12', '-right-8');
+                icon.parentElement.classList.add('w-8');
+                icon.parentElement.classList.remove('w-12');
+                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+            }
+        }
+
+        const REGION_DATA = {
+            "서울특별시": ["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"],
+            "경기도": ["수원시 장안구", "수원시 권선구", "수원시 팔달구", "수원시 영통구", "성남시 수정구", "성남시 중원구", "성남시 분당구", "의정부시", "안양시 만안구", "안양시 동안구", "부천시", "광명시", "평택시", "동두천시", "안산시 상록구", "안산시 단원구", "고양시 덕양구", "고양시 일산동구", "고양시 일산서구", "과천시", "구리시", "남양주시", "오산시", "시흥시", "군포시", "의왕시", "하남시", "용인시 처인구", "용인시 기흥구", "용인시 수지구", "파주시", "이천시", "안성시", "김포시", "화성시", "광주시", "양주시", "포천시", "여주시", "연천군", "가평군", "양평군"],
+            "인천광역시": ["중구", "동구", "미추홀구", "연수구", "남동구", "부평구", "계양구", "서구", "강화군", "옹진군"],
+            "부산광역시": ["중구", "서구", "동구", "영도구", "부산진구", "동래구", "남구", "북구", "해운대구", "사하구", "금정구", "강서구", "연제구", "수영구", "사상구", "기장군"],
+            "대구광역시": ["중구", "동구", "서구", "남구", "북구", "수성구", "달서구", "달성군", "군위군"],
+            "대전광역시": ["동구", "중구", "서구", "유성구", "대덕구"],
+            "광주광역시": ["동구", "서구", "남구", "북구", "광산구"],
+            "울산광역시": ["중구", "남구", "동구", "북구", "울주군"],
+            "세종특별자치시": ["세종특별자치시"]
+        };
+
+        const SIDO_CODES = {
+            "서울특별시": "11", "부산광역시": "26", "대구광역시": "27", "인천광역시": "28",
+            "광주광역시": "29", "대전광역시": "30", "울산광역시": "31", "세종특별자치시": "36", "경기도": "41"
+        };
+
+        let currentLawdCd = null;
+        let currentDongName = null;
+        let currentAddressName = "";
+        let currentSelectedItem = null;
+
+        let chartInstances = { 
+            soaring: null, 
+            plunging: null, 
+            detail: null, 
+            marketDist: null, 
+            absorptionTrend: null 
+        };
+        let rawDataStore = { soaring: [], plunging: [] };
+
+        let currentLatLng = null;
+        let roadview = null;
+        let roadviewClient = null;
+
+        let mapCustomOverlays = [];
+        window.badgeItemStore = {};
+
+                const mapContainer = document.getElementById('map');
+        const mapOption = { 
+            center: new kakao.maps.LatLng(37.566826, 126.978656),
+            level: 7 
+        };
+        const map = new kakao.maps.Map(mapContainer, mapOption); 
+        const geocoder = new kakao.maps.services.Geocoder();
+        // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
+        const places = new kakao.maps.services.Places();
+        let marker = new kakao.maps.Marker();
+
+        kakao.maps.event.addListener(map, 'zoom_changed', function() {
+            applyClientFilters();
+        });
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        function applyClientFilters() {
+            const zoomLevel = map.getLevel();
+            const badgeEl = document.getElementById('zoomFilterBadge');
+
+            let minPriceThreshold = 0;
+            let zoomText = '';
+
+            if (zoomLevel >= 7) {
+                minPriceThreshold = 180000;
+                zoomText = `🔍 광역 축소 상태 (18억 이상 대장·고가 단지만 표시)`;
+            } else if (zoomLevel >= 5) {
+                minPriceThreshold = 120000;
+                zoomText = `🔍 중간 줌 상태 (12억 이상 주요 단지 표시)`;
+            } else {
+                minPriceThreshold = 0;
+                zoomText = `🔍 상세 확대 상태 (모든 가격대 아파트 표시 중)`;
+            }
+
+            if (badgeEl) badgeEl.textContent = zoomText;
+
+            const filterList = (list) => {
+                if (!list) return [];
+                return list.filter(item => item.latest_price >= minPriceThreshold);
+            };
+
+            const filteredSoaring = filterList(rawDataStore.soaring);
+            const filteredPlunging = filterList(rawDataStore.plunging);
+
+            renderChart('soaring', filteredSoaring);
+            renderChart('plunging', filteredPlunging);
+
+            clearMapBadges();
+            createMapBadges(filteredSoaring, true);
+            createMapBadges(filteredPlunging, false);
+        }
+
+        function calculateTaxes(latestPrice, prevPrice, areaStr) {
+            const area = parseFloat(areaStr) || 84;
+            const isOver85 = area > 85;
+            
+            let acqTaxRate = 0;
+            let acqEduRate = 0;
+            let acqRuralRate = isOver85 ? 0.002 : 0;
+            
+            if (latestPrice <= 60000) {
+                acqTaxRate = 0.01;
+                acqEduRate = 0.001;
+            } else if (latestPrice <= 90000) {
+                const P = latestPrice / 10000;
+                acqTaxRate = ((P * (2/3) - 3) * 1) / 100;
+                acqEduRate = acqTaxRate * 0.1;
+            } else {
+                acqTaxRate = 0.03;
+                acqEduRate = 0.003;
+            }
+            const acqTotalRate = acqTaxRate + acqEduRate + acqRuralRate;
+            const acqTaxAmount = Math.round(latestPrice * acqTotalRate);
+            
+            const estPubPrice = Math.round(latestPrice * 0.69);
+            const propTaxBase = estPubPrice * 0.45;
+            let propTax = 0;
+            if (propTaxBase <= 6000) propTax = propTaxBase * 0.0005;
+            else if (propTaxBase <= 15000) propTax = 3 + (propTaxBase - 6000) * 0.001;
+            else if (propTaxBase <= 30000) propTax = 12 + (propTaxBase - 15000) * 0.0015;
+            else propTax = 34.5 + (propTaxBase - 30000) * 0.0035;
+            
+            const cityTax = propTaxBase * 0.0014;
+            const propEduTax = propTax * 0.2;
+            const totalPropertyTax = Math.round(propTax + cityTax + propEduTax);
+            
+            let jongbuTax = 0;
+            if (estPubPrice > 120000) {
+                const jongbuBase = (estPubPrice - 120000) * 0.6;
+                if (jongbuBase <= 30000) jongbuTax = jongbuBase * 0.005;
+                else if (jongbuBase <= 60000) jongbuTax = 150 + (jongbuBase - 30000) * 0.007;
+                else if (jongbuBase <= 120000) jongbuTax = 360 + (jongbuBase - 60000) * 0.01;
+                else jongbuTax = 960 + (jongbuBase - 120000) * 0.014;
+                jongbuTax = jongbuTax * 1.2;
+            }
+            const totalHoldingTax = totalPropertyTax + Math.round(jongbuTax);
+            
+            const gain = latestPrice - prevPrice;
+            let transferTax = 0;
+            let isTaxFree = false;
+            let taxableGain = 0;
+            
+            if (gain <= 0) {
+                transferTax = 0;
+            } else if (latestPrice <= 120000) {
+                transferTax = 0;
+                isTaxFree = true;
+            } else {
+                taxableGain = gain * ((latestPrice - 120000) / latestPrice);
+                const specDeduction = taxableGain * 0.24;
+                const taxIncome = Math.max(0, taxableGain - specDeduction - 250);
+                
+                let baseTax = 0;
+                if (taxIncome <= 1400) baseTax = taxIncome * 0.06;
+                else if (taxIncome <= 5000) baseTax = taxIncome * 0.15 - 126;
+                else if (taxIncome <= 8800) baseTax = taxIncome * 0.24 - 576;
+                else if (taxIncome <= 15000) baseTax = taxIncome * 0.35 - 1544;
+                else if (taxIncome <= 30000) baseTax = taxIncome * 0.38 - 1994;
+                else if (taxIncome <= 50000) baseTax = taxIncome * 0.40 - 2594;
+                else if (taxIncome <= 100000) baseTax = taxIncome * 0.42 - 3594;
+                else baseTax = taxIncome * 0.45 - 6594;
+                
+                transferTax = Math.round(baseTax * 1.1);
+            }
+            
+            return {
+                acq: { total: acqTaxAmount, rate: (acqTotalRate * 100).toFixed(2), baseRate: (acqTaxRate * 100).toFixed(2), extra: (acqEduRate + acqRuralRate) * 100 },
+                holding: { total: totalHoldingTax, prop: totalPropertyTax, jongbu: Math.round(jongbuTax), pubPrice: estPubPrice },
+                transfer: { total: transferTax, gain: gain, isTaxFree: isTaxFree, taxableGain: Math.round(taxableGain) }
+            };
+        }
+
+        function switchDetailTab(tab) {
+            const btnInfo = document.getElementById('tabBtnInfo');
+            const btnMarket = document.getElementById('tabBtnMarket');
+            const btnTax = document.getElementById('tabBtnTax');
+
+            const contentInfo = document.getElementById('tabContentInfo');
+            const contentMarket = document.getElementById('tabContentMarket');
+            const contentTax = document.getElementById('tabContentTax');
+
+            [btnInfo, btnMarket, btnTax].forEach(b => {
+                b.className = "py-3 px-3 hover:text-slate-700 transition-all text-slate-400 font-semibold";
+            });
+            [contentInfo, contentMarket, contentTax].forEach(c => c.classList.add('hidden'));
+
+            if (tab === 'info') {
+                btnInfo.className = "py-3 px-3 text-slate-900 border-b-2 border-slate-900 font-bold transition-all";
+                contentInfo.classList.remove('hidden');
+            } else if (tab === 'market') {
+                btnMarket.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all";
+                contentMarket.classList.remove('hidden');
+                if (currentSelectedItem) renderMarketTab(currentSelectedItem);
+            } else if (tab === 'tax') {
+                btnTax.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all flex items-center gap-1.5";
+                contentTax.classList.remove('hidden');
+            }
+        }
+
+        function renderMarketTab(item) {
+            const price = item.latest_price;
+            const pyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+
+            const quickPrice = Math.round(price * 0.98);
+            const focusPrice = Math.round(price * 1.03);
+
+            document.getElementById('marketPyeongBadge').textContent = `${pyeong}평 ▾`;
+            document.getElementById('marketDongFloorText').textContent = `102동 로얄층 · ${pyeong}평형 · ${item.area}㎡`;
+            document.getElementById('marketQuickPrice').textContent = formatPrice(quickPrice);
+            document.getElementById('marketFocusPrice').textContent = formatPrice(focusPrice);
+
+            document.getElementById('floorRangeLow').textContent = `${formatPrice(Math.round(price * 0.95))} ~ ${formatPrice(Math.round(price * 0.98))}`;
+            document.getElementById('floorRangeMid').textContent = `${formatPrice(Math.round(price * 0.99))} ~ ${formatPrice(Math.round(price * 1.03))}`;
+            document.getElementById('floorRangeHigh').textContent = `${formatPrice(Math.round(price * 1.04))} ~ ${formatPrice(Math.round(price * 1.08))}`;
+
+            renderMarketDistChart(price, quickPrice, focusPrice);
+
+            const absorption = (14 + Math.random() * 4).toFixed(1);
+            document.getElementById('absorptionMonths').textContent = absorption;
+            document.getElementById('absorptionFormula').textContent = `매물 84건 ÷ 최근 6개월 월평균 거래 5.8건`;
+            document.getElementById('statGuAvg').textContent = `13.2개월`;
+            document.getElementById('statYearAgo').textContent = `2.7개월`;
+            document.getElementById('statRecentDeals').textContent = `35건`;
+
+            renderAbsorptionTrendChart();
+        }
+
+        function renderMarketDistChart(price, quickPrice, focusPrice) {
+            const ctx = document.getElementById('marketDistributionChart').getContext('2d');
+            if (chartInstances.marketDist) chartInstances.marketDist.destroy();
+
+            const p1 = Math.round(price * 0.94);
+            const p2 = Math.round(price * 0.97);
+            const p3 = Math.round(price * 1.00);
+            const p4 = Math.round(price * 1.03);
+            const p5 = Math.round(price * 1.06);
+            const p6 = Math.round(price * 1.09);
+
+            chartInstances.marketDist = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [formatPrice(p1), formatPrice(p2), formatPrice(p3), formatPrice(p4), formatPrice(p5), formatPrice(p6)],
+                    datasets: [{
+                        label: '호가 매물수',
+                        data: [2, 7, 14, 22, 9, 3],
+                        backgroundColor: [
+                            '#e2e8f0',
+                            'rgba(59, 130, 246, 0.75)',
+                            '#cbd5e1',
+                            'rgba(16, 185, 129, 0.85)',
+                            '#e2e8f0',
+                            '#f1f5f9'
+                        ],
+                        borderRadius: 6,
+                        barPercentage: 0.75
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) => ` 등록 매물: ${c.parsed.y}개`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderAbsorptionTrendChart() {
+            const ctx = document.getElementById('absorptionTrendChart').getContext('2d');
+            if (chartInstances.absorptionTrend) chartInstances.absorptionTrend.destroy();
+
+            chartInstances.absorptionTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['24.01', '24.07', '25.01', '25.07', '26.01', '지금'],
+                    datasets: [{
+                        data: [6.2, 9.8, 4.3, 11.2, 17.5, 16.7],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#3b82f6',
+                        pointRadius: [3, 3, 3, 3, 3, 6],
+                        fill: true,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: { font: { size: 9 }, callback: (v) => `${v}m` }
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearMapBadges() {
+            mapCustomOverlays.forEach(ov => ov.setMap(null));
+            mapCustomOverlays = [];
+            window.badgeItemStore = {};
+        }
+
+        function createMapBadges(dataList, isSoaring) {
+            if (!dataList || dataList.length === 0) return;
+
+            dataList.forEach((item, index) => {
+                const badgeKey = `${isSoaring ? 'up' : 'down'}_${index}`;
+                window.badgeItemStore[badgeKey] = item;
+
+                const searchQuery = `${currentDongName || currentAddressName} ${item.name}`;
+                geocoder.addressSearch(searchQuery, function(result, status) {
+                    let position = null;
+                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                        position = new kakao.maps.LatLng(result[0].y, result[0].x);
+                    } else if (currentLatLng) {
+                        const offsetLat = (Math.random() - 0.5) * 0.005;
+                        const offsetLng = (Math.random() - 0.5) * 0.005;
+                        position = new kakao.maps.LatLng(currentLatLng.getLat() + offsetLat, currentLatLng.getLng() + offsetLng);
+                    }
+
+                    if (!position) return;
+
+                    const pyeong = Math.round(parseFloat(item.area) / 3.3058) || '';
+                    const pyeongText = pyeong ? `${pyeong}평` : `${item.area}㎡`;
+                    const headerBg = isSoaring ? 'bg-[#ef4444]' : 'bg-[#2563eb]';
+                    const diffText = isSoaring ? `+${formatPrice(item.diff)}` : `-${formatPrice(item.diff)}`;
+                    const diffColor = isSoaring ? 'text-red-500' : 'text-blue-500';
+
+                    const isLeader = item.latest_price >= 200000 || index === 0;
+                    const leaderTagHtml = isLeader ? `
+                        <div class="bg-[#f97316] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-sm inline-block mx-auto mb-[-2px]">
+                            ${currentDongName || '지역'} 대장
+                        </div>
+                    ` : '';
+
+                    const contentHtml = `
+                        <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
+                             onclick="window.onMapBadgeClick('${badgeKey}')"
+                             onmouseenter="window.onMapBadgeClick('${badgeKey}')">
+                            ${leaderTagHtml}
+                            <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[100px]">
+                                <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1.5">
+                                    <span class="truncate max-w-[80px]">${item.name}</span>
+                                    <span class="text-[9px] opacity-90">${pyeongText}</span>
+                                </div>
+                                <div class="px-2.5 py-1 bg-white flex flex-col items-center">
+                                    <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
+                                    <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
+                                </div>
+                            </div>
+                            <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
+                        </div>
+                    `;
+
+                    const customOverlay = new kakao.maps.CustomOverlay({
+                        position: position,
+                        content: contentHtml,
+                        xAnchor: 0.5,
+                        yAnchor: 1.15,
+                        zIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
+                    });
+
+                    customOverlay.setMap(map);
+                    mapCustomOverlays.push(customOverlay);
+                });
+            });
+        }
+
+        window.onMapBadgeClick = function(key) {
+            const item = window.badgeItemStore[key];
+            if (item) showApartmentDetail(item);
+        };
+
+        function showApartmentDetail(item) {
+            currentSelectedItem = item;
+            document.getElementById('rankingPanel').classList.add('hidden');
+            document.getElementById('detailPanel').classList.remove('hidden');
+            switchDetailTab('info');
+
+            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
+            const tradeBadgeMap = { sale: '매매', jeonse: '전세', rent: '월세' };
+            document.getElementById('detailTradeBadge').textContent = tradeBadgeMap[tradeType];
+
+            document.getElementById('detailName').textContent = item.name;
+            const pyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+            document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
+            document.getElementById('detailSubtitle').textContent = `${currentDongName || currentAddressName} · 전용 ${item.area}㎡ (${pyeong}평형)`;
+
+            document.getElementById('detailLatestPrice').textContent = formatPrice(item.latest_price);
+            document.getElementById('detailPrevPrice').textContent = formatPrice(item.previous_price);
+            document.getElementById('detailPrevDate').textContent = `계약일: ${formatDate(item.previous_date)}`;
+
+            const diffSign = item.diff > 0 ? '+' : '';
+            const diffPercent = ((item.diff / item.previous_price) * 100).toFixed(1);
+            const diffColor = item.diff > 0 ? 'text-red-500' : 'text-blue-500';
+            const diffEl = document.getElementById('detailDiffText');
+            diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
+            diffEl.textContent = `직전 대비 ${diffSign}${formatPrice(item.diff)} (${diffSign}${diffPercent}%)`;
+
+            document.getElementById('detailFlameBanner').textContent = `${currentDongName || '지역'} 실거래 핵심 변동 단지`;
+            document.getElementById('detailDateRange').textContent = `${formatDate(item.previous_date)} ~ ${formatDate(item.latest_date)}`;
+
+            const taxes = calculateTaxes(item.latest_price, item.previous_price, item.area);
+            document.getElementById('miniTaxAcq').textContent = formatPrice(taxes.acq.total);
+            document.getElementById('miniTaxHolding').textContent = formatPrice(taxes.holding.total);
+            document.getElementById('miniTaxTransfer').textContent = taxes.transfer.isTaxFree ? '비과세(0원)' : formatPrice(taxes.transfer.total);
+
+            document.getElementById('taxAcqTotal').textContent = formatPrice(taxes.acq.total);
+            document.getElementById('taxAcqRateDetail').textContent = `기본세율 ${taxes.acq.baseRate}% (총 실효 ${taxes.acq.rate}%)`;
+            document.getElementById('taxAcqExtraDetail').textContent = `${taxes.acq.extra.toFixed(2)}% 별도 합산`;
+
+            document.getElementById('taxHoldingTotal').textContent = `약 ${formatPrice(taxes.holding.total)} /년`;
+            document.getElementById('taxPubPriceDetail').textContent = `약 ${formatPrice(taxes.holding.pubPrice)}`;
+            document.getElementById('taxPropertyDetail').textContent = `약 ${formatPrice(taxes.holding.prop)}`;
+            document.getElementById('taxJongbuDetail').textContent = taxes.holding.jongbu > 0 ? `약 ${formatPrice(taxes.holding.jongbu)}` : '0원 (12억 이하 면제)';
+
+            document.getElementById('taxTransferTotal').textContent = taxes.transfer.isTaxFree ? '0원 (비과세)' : `약 ${formatPrice(taxes.transfer.total)}`;
+            document.getElementById('taxGainDetail').textContent = taxes.transfer.gain > 0 ? `+${formatPrice(taxes.transfer.gain)}` : '차익 없음';
+            document.getElementById('taxTaxableGainDetail').textContent = taxes.transfer.isTaxFree ? '0원 (12억 이하)' : `약 ${formatPrice(taxes.transfer.taxableGain)}`;
+
+            renderDetailTrendChart(item);
+        }
+
+        function closeApartmentDetail() {
+            document.getElementById('detailPanel').classList.add('hidden');
+            document.getElementById('rankingPanel').classList.remove('hidden');
+        }
+
+        function renderDetailTrendChart(item) {
+            const ctx = document.getElementById('detailTrendChart').getContext('2d');
+            if (chartInstances.detail) chartInstances.detail.destroy();
+
+            const isUp = item.diff >= 0;
+            const lineColor = isUp ? '#ef4444' : '#3b82f6';
+
+            chartInstances.detail = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [formatDate(item.previous_date), formatDate(item.latest_date)],
+                    datasets: [{
+                        label: '실거래가',
+                        data: [item.previous_price, item.latest_price],
+                        borderColor: lineColor,
+                        backgroundColor: isUp ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.08)',
+                        borderWidth: 3,
+                        pointBackgroundColor: lineColor,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => ` ${formatPrice(context.parsed.y)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function openRoadview() {
+            if (!currentLatLng) {
+                alert('먼저 지도에서 원하는 위치를 클릭하거나 지역을 검색해주세요.');
+                return;
+            }
+            const modal = document.getElementById('roadviewModal');
+            modal.classList.remove('hidden');
+
+            const rvContainer = document.getElementById('roadview');
+            if (!roadview) {
+                roadview = new kakao.maps.Roadview(rvContainer);
+                roadviewClient = new kakao.maps.RoadviewClient();
+            }
+
+            roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+                if (panoId) {
+                    roadview.setPanoId(panoId, currentLatLng);
+                    setTimeout(() => roadview.relayout(), 100);
+                } else {
+                    alert('해당 지점 주변에는 등록된 카카오 로드뷰가 없습니다.');
+                    closeRoadview();
+                }
+            });
+        }
+
+        function closeRoadview() {
+            document.getElementById('roadviewModal').classList.add('hidden');
+        }
+
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRoadview(); });
+
+        function onTradeTypeChange() {
+            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
+            const landRadio = document.querySelector('input[name="prop_type"][value="land"]');
+            const landLabel = document.getElementById('label-land');
+            
+                        if (tradeType === 'jeonse' || tradeType === 'rent') {
+                if (landRadio.checked) document.querySelector('input[name="prop_type"][value="apt"]').checked = true;
+                landRadio.disabled = true;
+                landLabel.classList.add('opacity-40', 'cursor-not-allowed');
+            } else {
+                landRadio.disabled = false;
+                landLabel.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+
+            const titlePrefix = tradeType === 'jeonse' ? '전세가' : (tradeType === 'rent' ? '월세가' : '매매가');
+            document.getElementById('soaringTitle').textContent = `가장 많이 오른 ${titlePrefix} Top 5`;
+            document.getElementById('plungingTitle').textContent = `가장 많이 떨어진 ${titlePrefix} Top 5`;
+
+            closeApartmentDetail();
+            onScopeChange();
+        }
+
+        function getYYYYMMDate(monthsAgo = 0) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - monthsAgo);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${yyyy}-${mm}`;
+        }
+
+        function initDates() {
+            document.getElementById('endMonth').value = getYYYYMMDate(0);
+            document.getElementById('startMonth').value = getYYYYMMDate(6);
+        }
+
+        function onQuickPeriodChange() {
+            const val = document.getElementById('quickPeriod').value;
+            const applyBtn = document.getElementById('applyDateBtn');
+            if (val === 'custom') {
+                applyBtn.classList.remove('hidden');
+            } else {
+                applyBtn.classList.add('hidden');
+                document.getElementById('endMonth').value = getYYYYMMDate(0);
+                document.getElementById('startMonth').value = getYYYYMMDate(parseInt(val));
+                if (currentLawdCd) fetchData(currentLawdCd, currentDongName || '');
+            }
+        }
+
+        function onCustomDateChange() {
+            document.getElementById('quickPeriod').value = 'custom';
+            document.getElementById('applyDateBtn').classList.remove('hidden');
+        }
+
+        function initSidoSelect() {
+            const sidoSelect = document.getElementById('sidoSelect');
+            for (const sido in REGION_DATA) {
+                const opt = document.createElement('option');
+                opt.value = sido;
+                opt.textContent = sido;
+                sidoSelect.appendChild(opt);
+            }
+        }
+
+        function onSidoChange() {
+            const sido = document.getElementById('sidoSelect').value;
+            const sigunguSelect = document.getElementById('sigunguSelect');
+            sigunguSelect.innerHTML = '<option value="">시/군/구 전체 (종합 분석)</option>';
+            if (!sido) {
+                sigunguSelect.disabled = true;
+                return;
+            }
+            REGION_DATA[sido].forEach(sigungu => {
+                const opt = document.createElement('option');
+                opt.value = sigungu;
+                opt.textContent = sigungu;
+                sigunguSelect.appendChild(opt);
+            });
+            sigunguSelect.disabled = false;
+            executeSidoSearch(sido);
+        }
+
+        function executeSidoSearch(sido) {
+            const sidoCode = SIDO_CODES[sido];
+            if (!sidoCode) return;
+            geocoder.addressSearch(sido, function(result, status) {
+                if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                    const latlng = new kakao.maps.LatLng(result[0].y, result[0].x);
+                    currentLatLng = latlng;
+                    map.setLevel(9);
+                    map.panTo(latlng);
+                    marker.setPosition(latlng);
+                    marker.setMap(map);
+                    document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+                }
+            });
+            currentLawdCd = sidoCode;
+            currentDongName = "";
+            currentAddressName = sido;
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('selectedArea').classList.remove('hidden');
+            document.getElementById('areaName').textContent = `${sido} 전체 종합 분석`;
+            document.getElementById('areaCode').textContent = `시/도 코드: ${sidoCode}`;
+            document.getElementById('roadviewTitle').textContent = `${sido} 현장 로드뷰`;
+            
+            closeApartmentDetail();
+            fetchData(sidoCode, "");
+        }
+
+        function onSigunguChange() {
+            const sido = document.getElementById('sidoSelect').value;
+            const sigungu = document.getElementById('sigunguSelect').value;
+            if (!sido) return;
+            if (!sigungu) executeSidoSearch(sido);
+            else executeSearch(`${sido} ${sigungu}`);
+        }
+
+        function searchByAddress() {
+            const keyword = document.getElementById('searchInput').value.trim();
+            if (!keyword) {
+                alert('검색할 동 이름이나 아파트 단지명을 입력해주세요.');
+                return;
+            }
+            executeSearch(keyword);
+        }
+
+        // 📌 [핵심 개선] 주소 검색 및 아파트 키워드 검색 통합 처리
+        function executeSearch(query) {
+            // 1차 시도: 주소 검색 (지번/도로명/동 이름)
+            geocoder.addressSearch(query, function(addrResult, addrStatus) {
+                if (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) {
+                    const latlng = new kakao.maps.LatLng(addrResult[0].y, addrResult[0].x);
+                    applyLocationResult(latlng, addrResult[0].address_name);
+                } else {
+                    // 2차 시도: 아파트 단지명/키워드 장소 검색
+                    places.keywordSearch(query, function(placeResult, placeStatus) {
+                        if (placeStatus === kakao.maps.services.Status.OK && placeResult.length > 0) {
+                            const latlng = new kakao.maps.LatLng(placeResult[0].y, placeResult[0].x);
+                            applyLocationResult(latlng, placeResult[0].place_name);
+                        } else {
+                            alert(`"${query}"에 대한 위치나 아파트 단지를 찾을 수 없습니다. 정확한 명칭을 입력해주세요.`);
+                        }
+                    });
+                }
+            });
+        }
+
+        function applyLocationResult(latlng, name) {
+            currentLatLng = latlng;
+            map.setLevel(4); // 단지 위치를 상세하게 볼 수 있도록 확대 레벨(4)로 이동
+            map.panTo(latlng);
+            marker.setPosition(latlng);
+            marker.setMap(map);
+            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+            fetchRegionInfo(latlng);
+        }
+
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            const latlng = mouseEvent.latLng; 
+            currentLatLng = latlng;
+            marker.setPosition(latlng);
+            marker.setMap(map);
+            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+            fetchRegionInfo(latlng);
+        });
+
+        function fetchRegionInfo(latlng) {
+            geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    for(let i = 0; i < result.length; i++) {
+                        if (result[i].region_type === 'B') {
+                            const bCode = result[i].code;
+                            const lawdCd = bCode.substring(0, 5);
+                            const dongName = result[i].region_3depth_name;
+                            const addressName = result[i].address_name;
+                            
+                            currentLawdCd = lawdCd;
+                            currentDongName = dongName;
+                            currentAddressName = addressName;
+                            
+                            document.getElementById('emptyState').classList.add('hidden');
+                            document.getElementById('selectedArea').classList.remove('hidden');
+                            document.getElementById('areaName').textContent = addressName;
+                            document.getElementById('areaCode').textContent = `법정동: ${dongName} (${lawdCd})`;
+                            document.getElementById('roadviewTitle').textContent = `${addressName} 현장 로드뷰`;
+                            
+                            closeApartmentDetail();
+                            fetchData(lawdCd, dongName);
+                            break;
+                        }
+                    }
+                }   
+            });
+        }
+
+        function onScopeChange() {
+            if (currentLawdCd) {
+                closeApartmentDetail();
+                fetchData(currentLawdCd, currentDongName || '');
+            }
+        }
+
+        function formatPrice(price) {
+            const absPrice = Math.abs(price);
+            if (absPrice >= 10000) {
+                const uk = Math.floor(absPrice / 10000);
+                const man = absPrice % 10000;
+                return man > 0 ? `${uk}억 ${man.toLocaleString()}만` : `${uk}억`;
+            } else {
+                return `${absPrice.toLocaleString()}만`;
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (dateStr && dateStr.length === 8) {
+                return `${dateStr.substring(0,4)}.${dateStr.substring(4,6)}.${dateStr.substring(6,8)}`;
+            }
+            return dateStr;
+        }
+
+        function renderChart(type, dataList) {
+            const isSoaring = type === 'soaring';
+            const canvasId = isSoaring ? 'soaringChart' : 'plungingChart';
+            const containerId = isSoaring ? 'soaringChartContainer' : 'plungingChartContainer';
+            const emptyId = isSoaring ? 'soaringEmpty' : 'plungingEmpty';
+            const pillsId = isSoaring ? 'soaringPills' : 'plungingPills';
+
+            if (chartInstances[type]) chartInstances[type].destroy();
+
+            const pillsEl = document.getElementById(pillsId);
+            pillsEl.innerHTML = '';
+
+            if (!dataList || dataList.length === 0) {
+                document.getElementById(emptyId).classList.remove('hidden');
+                document.getElementById(containerId).classList.add('hidden');
+                return;
+            }
+
+            document.getElementById(emptyId).classList.add('hidden');
+            document.getElementById(containerId).classList.remove('hidden');
+
+            dataList.forEach((item) => {
+                const chip = document.createElement('button');
+                chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
+                chip.textContent = `${item.name} 상세/시세 >`;
+                chip.onclick = () => showApartmentDetail(item);
+                pillsEl.appendChild(chip);
+            });
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = dataList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
+            const prevPrices = dataList.map(item => item.previous_price);
+            const latestPrices = dataList.map(item => item.latest_price);
+            const activeColor = isSoaring ? '#ef4444' : '#3b82f6';
+
+            chartInstances[type] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '직전가',
+                            data: prevPrices,
+                            backgroundColor: '#e2e8f0',
+                            borderRadius: 4,
+                            barPercentage: 0.6
+                        },
+                        {
+                            label: '최근가',
+                            data: latestPrices,
+                            backgroundColor: activeColor,
+                            borderRadius: 4,
+                            barPercentage: 0.6
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            showApartmentDetail(dataList[index]);
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            position: 'bottom',
+                            labels: { boxWidth: 10, font: { size: 10 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => ` ${formatPrice(context.parsed.x)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10, weight: '500' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchData(lawdCd, dongName) {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+            
+            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
+            const propType = document.querySelector('input[name="prop_type"]:checked').value;
+            const scope = document.querySelector('input[name="scope"]:checked').value;
+            const startMonth = document.getElementById('startMonth').value.replace('-', '');
+            const endMonth = document.getElementById('endMonth').value.replace('-', '');
+            
+            error.classList.add('hidden');
+            results.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            clearMapBadges();
+
+            try {
+                const dongParam = dongName ? `&dong_name=${encodeURIComponent(dongName)}` : '';
+                const url = `/api/rankings?lawd_cd=${lawdCd}&prop_type=${propType}&trade_type=${tradeType}&scope=${scope}${dongParam}&start_month=${startMonth}&end_month=${endMonth}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '데이터를 불러오는데 실패했습니다.');
+                }
+
+                rawDataStore = data;
+                applyClientFilters();
+
+                results.classList.remove('hidden');
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+        
+        initDates();
+        initSidoSelect();
+        onTradeTypeChange();
+
+        currentLatLng = mapOption.center;
+        marker.setPosition(currentLatLng);
+        marker.setMap(map);
+        setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
+    </script>
+</body>
+</html>
