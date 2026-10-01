@@ -9,7 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <style>
-        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+                body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; overscroll-behavior: none; }
+        #map { overscroll-behavior: none; touch-action: none !important; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
         .segmented-item input:checked + label {
@@ -655,8 +656,11 @@
         // [신규 추가] 모바일 초기 렌더링 시 제스처 및 좌표계 동기화 버그 수정
         map.setDraggable(true);
         setTimeout(() => {
-            if (map) map.relayout();
-        }, 100); 
+            if (map) {
+                map.relayout();
+                map.setCenter(mapOption.center);
+            }
+        }, 300); 
         const geocoder = new kakao.maps.services.Geocoder();
         // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
         const places = new kakao.maps.services.Places();
