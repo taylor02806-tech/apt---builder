@@ -554,7 +554,7 @@
 
     <!-- 오른쪽: 지도 영역 -->
     <main class="flex-1 h-full relative">
-        <div id="map" class="w-full h-full"></div>
+        <div id="map" class="w-full h-full" style="touch-action: none; -webkit-overflow-scrolling: auto;"></div>
         
         <!-- 좌측 상단 플로팅 안내 바 -->
         <div class="absolute top-5 left-5 z-10 flex items-center gap-2">
@@ -650,7 +650,13 @@
             center: new kakao.maps.LatLng(37.566826, 126.978656),
             level: 7 
         };
-        const map = new kakao.maps.Map(mapContainer, mapOption); 
+        const map = new kakao.maps.Map(mapContainer, mapOption);
+
+        // [신규 추가] 모바일 초기 렌더링 시 제스처 및 좌표계 동기화 버그 수정
+        map.setDraggable(true);
+        setTimeout(() => {
+            if (map) map.relayout();
+        }, 100); 
         const geocoder = new kakao.maps.services.Geocoder();
         // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
         const places = new kakao.maps.services.Places();
