@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify, render_template
 import requests
 import xml.etree.ElementTree as ET
@@ -6,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
-# 공공데이터포털 일반 인증키 (Decoding) - 여기에 본인의 키를 입력하세요!
-API_KEY = "e769c0239e1707ba1de713496a358d1e39364527f21a4b1386a455666968ab89"
+# 공공데이터포털 일반 인증키 (Decoding) - 환경 변수에서 로드
+API_KEY = os.environ.get("API_KEY")
 
 # 거래유형(매매/전월세) 및 부동산 종류별 공공데이터 API 엔드포인트
 API_ENDPOINTS = {
