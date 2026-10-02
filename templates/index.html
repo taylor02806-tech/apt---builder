@@ -1315,7 +1315,7 @@
                              onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
                             
                             <!-- 마커 본체 -->
-                            <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
+                            <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center"
                                  style="touch-action: manipulation; pointer-events: auto;"
                                  onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
                                  ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
@@ -1367,7 +1367,7 @@
                         position: position,
                         content: contentHtml,
                         xAnchor: 0.5,
-                        yAnchor: 1.15,
+                        yAnchor: 1.0,
                         zIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
                     });
 
