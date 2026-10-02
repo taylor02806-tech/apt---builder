@@ -80,39 +80,40 @@
         .map-badge {
             position: relative;
         }
-        /* 📌 [마우스 브릿지 1] 마커 주변 투명 히트 패딩(20px)을 확장하여 마우스 이동 중 허공 이탈 완벽 방지 */
+        /* 📌 [마우스 브릿지 1] 마커 주변 투명 히트 패딩(최소화) */
         .map-badge::before {
             content: '';
             position: absolute;
-            inset: -20px;
+            inset: -5px;
             pointer-events: auto !important;
             background: transparent !important;
             z-index: -1;
         }
+        /* 패널 확대/크기 변화 호버 효과 완전 제거 (크기 유지) */
         .map-badge:hover {
-            animation: overlayPulse 0.6s infinite ease-in-out;
             z-index: 999 !important;
         }
-        /* 📌 [마우스 브릿지 2] 패널 우측 경계선에 50px 너비의 투명 Safe Zone 가상 요소를 상시 유지해 허공 이탈 원천 차단 */
+        /* 📌 [마우스 브릿지 2] 패널 우측 경계선 투명 Safe Zone 축소 */
         #sidePanel::after {
             content: '';
             position: absolute;
             top: 0;
-            right: -50px;
-            width: 50px;
+            right: -15px;
+            width: 15px;
             height: 100%;
             pointer-events: auto !important;
             background: transparent !important;
             z-index: 1000 !important;
         }
-        /* 📌 [마우스 브릿지 3] 호버 프리뷰 카드와 마커 사이의 수직 Safe Zone 브릿지 (40px) */
+        /* 📌 [마우스 브릿지 3] 호버 프리뷰 카드와 마커 사이의 수직 Safe Zone 브릿지 최소화 */
         .hover-card-bridge {
             content: '';
             position: absolute;
-            bottom: -30px;
-            left: 0;
-            width: 100%;
-            height: 40px;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 15px;
             background: transparent !important;
             pointer-events: auto !important;
         }
@@ -1270,6 +1271,7 @@
             mapCustomOverlays.forEach(ov => ov.setMap(null));
             mapCustomOverlays = [];
             window.badgeItemStore = {};
+            window.customOverlayStore = {};
         }
 
         function createMapBadges(dataList, isSoaring) {
@@ -1369,6 +1371,12 @@
                         zIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
                     });
 
+                    window.customOverlayStore = window.customOverlayStore || {};
+                    window.customOverlayStore[badgeKey] = {
+                        overlay: customOverlay,
+                        originalZIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
+                    };
+
                     customOverlay.setMap(map);
                     mapCustomOverlays.push(customOverlay);
                 });
@@ -1379,6 +1387,10 @@
             hoverStateRef.isHoveringMarker = true;
             hoverStateRef.currentKey = key;
             clearHoverTimer();
+
+            if (window.customOverlayStore && window.customOverlayStore[key]) {
+                window.customOverlayStore[key].overlay.setZIndex(9999);
+            }
 
             // 1) 커스텀 오버레이 부모 컨테이너 내 프리뷰 카드 노출
             const hoverCard = document.getElementById(`hoverCard_${key}`);
@@ -1401,6 +1413,10 @@
 
         window.onOverlayGroupMouseLeave = function(key) {
             hoverStateRef.isHoveringMarker = false;
+
+            if (window.customOverlayStore && window.customOverlayStore[key]) {
+                window.customOverlayStore[key].overlay.setZIndex(window.customOverlayStore[key].originalZIndex);
+            }
 
             // 오버레이 프리뷰 카드 숨김
             const hoverCard = document.getElementById(`hoverCard_${key}`);
