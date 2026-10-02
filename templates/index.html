@@ -71,11 +71,19 @@
 
         /* 반응형 패널 토글 클래스 (모바일은 아래로 숨김, 데스크톱은 좌측으로 숨김) */
         @media (max-width: 767px) {
+            .panel-closed {
+                transform: translateY(100%) !important;
+            }
             .panel-full {
                 height: 90vh !important;
             }
             .mobile-hide-hover {
                 display: none !important;
+            }
+        }
+        @media (min-width: 768px) {
+            .panel-closed {
+                margin-left: -480px !important;
             }
         }
 
@@ -133,12 +141,11 @@
 <body class="bg-slate-100 w-screen h-screen md:h-[100dvh] flex text-slate-800 antialiased overflow-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- [레이어 1] 좌측 대시보드 및 상세 패널 (지도와 완벽히 분리된 최상위 Sibling 레이어) -->
-    <aside id="sidePanel" class="fixed md:relative inset-x-0 bottom-0 md:top-0 w-full md:w-[480px] h-[50vh] md:h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] md:shadow-xl flex-shrink-0 rounded-t-3xl md:rounded-none transition-all duration-300 ease-out translate-y-full md:translate-y-0 md:-ml-[480px]" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+    <aside id="sidePanel" class="fixed md:relative inset-x-0 bottom-0 md:top-0 w-full md:w-[480px] h-[50vh] md:h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] md:shadow-xl flex-shrink-0 rounded-t-3xl md:rounded-none transition-all duration-300 ease-out panel-closed" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
     <script>
         // 데스크톱 환경에서는 패널이 기본적으로 열려 있도록 동적 처리
         if (window.innerWidth >= 768) {
-            document.getElementById('sidePanel').classList.remove('md:-ml-[480px]');
-            document.getElementById('sidePanel').classList.add('md:ml-0');
+            document.getElementById('sidePanel').classList.remove('panel-closed');
         }
     </script>
         
@@ -732,7 +739,7 @@
             const openBtn = document.getElementById('mobileMenuOpenBtn');
             const fab = document.getElementById('mobileFab');
 
-            const isCurrentlyOpen = !panel.classList.contains('translate-y-full') && !panel.classList.contains('md:-ml-[480px]');
+            const isCurrentlyOpen = !panel.classList.contains('panel-closed');
             const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
             if (!shouldOpen) {
@@ -743,9 +750,9 @@
                 hoverStateRef.currentKey = null;
                 if (panel) panel.classList.remove('hover-bridge');
                 
-                // 메뉴 닫기 (Tailwind 순정 클래스)
-                panel.classList.add('translate-y-full', 'md:-ml-[480px]');
-                panel.classList.remove('translate-y-0', 'md:ml-0', 'panel-full');
+                // 메뉴 닫기 (반응형 CSS 클래스)
+                panel.classList.add('panel-closed');
+                panel.classList.remove('panel-full');
                 
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-8', '-right-12');
@@ -756,10 +763,9 @@
                 if (openBtn) openBtn.classList.remove('hidden');
                 if (fab) fab.classList.remove('translate-y-32');
             } else {
-                // 메뉴 열기 (Tailwind 순정 클래스)
-                panel.classList.remove('translate-y-full', 'md:-ml-[480px]');
+                // 메뉴 열기 (반응형 CSS 클래스)
+                panel.classList.remove('panel-closed');
                 panel.classList.remove('panel-full');
-                panel.classList.add('translate-y-0', 'md:ml-0');
                 
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-12', '-right-8');
