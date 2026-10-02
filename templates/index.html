@@ -1281,7 +1281,10 @@
                 const badgeKey = `${isSoaring ? 'up' : 'down'}_${index}`;
                 window.badgeItemStore[badgeKey] = item;
 
-                const searchQuery = `${currentDongName || currentAddressName} ${item.name}`;
+                // 지번(jibun)이 있으면 최우선으로 사용, 없으면 이름(아파트명 등)으로 검색
+                const targetDong = item.dong || currentDongName || currentAddressName;
+                const searchQuery = item.jibun ? `${targetDong} ${item.jibun}` : `${targetDong} ${item.name}`;
+                
                 geocoder.addressSearch(searchQuery, function(result, status) {
                     let position = null;
                     if (status === kakao.maps.services.Status.OK && result.length > 0) {

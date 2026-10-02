@@ -66,6 +66,7 @@ def parse_property_info(item, prop_type):
     name = "이름없음"
     area = "0"
     dong = (item.findtext('umdNm') or item.findtext('법정동') or "").strip()
+    jibun = (item.findtext('jibun') or item.findtext('지번') or "").strip()
 
     if prop_type == 'apt':
         name = (item.findtext('aptNm') or item.findtext('아파트') or "이름없음").strip()
@@ -78,12 +79,10 @@ def parse_property_info(item, prop_type):
         area = (item.findtext('excluUseAr') or item.findtext('전용면적') or "0").strip()
     elif prop_type == 'singlehouse':
         house_type = (item.findtext('houseType') or item.findtext('주택유형') or "단독다가구").strip()
-        jibun = (item.findtext('jibun') or "").strip()
         name = f"{dong} {house_type} {jibun}".strip() if jibun else f"{dong} {house_type}"
         area = (item.findtext('totalFloorAr') or item.findtext('plottageAr') or item.findtext('연면적') or item.findtext('대지면적') or "0").strip()
     elif prop_type == 'land':
         jimok = (item.findtext('jimok') or item.findtext('지목') or "토지").strip()
-        jibun = (item.findtext('jibun') or "").strip()
         name = f"{dong} 토지({jimok}) {jibun}".strip() if jibun else f"{dong} {jimok}"
         area = (item.findtext('dealArea') or item.findtext('거래면적') or "0").strip()
         
@@ -92,7 +91,7 @@ def parse_property_info(item, prop_type):
     except Exception:
         pass
         
-    return name, area
+    return name, area, dong, jibun
 
 def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_name, api_category, trade_type):
     """단일 월 및 자치구의 거래 데이터를 조회하는 보조 함수"""
@@ -113,7 +112,7 @@ def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_n
             if scope == 'dong' and dong_name and xml_dong != dong_name:
                 continue
                 
-            name, area = parse_property_info(item, prop_type)
+            name, area, dong, jibun = parse_property_info(item, prop_type)
             
             price_str = None
             if api_category == 'sale':
@@ -143,6 +142,8 @@ def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_n
             deals.append({
                 'name': name,
                 'area': area,
+                'dong': dong,
+                'jibun': jibun,
                 'date': date_str,
                 'price': price
             })
@@ -212,6 +213,8 @@ def get_rankings():
                     transactions[key] = {
                         'name': deal['name'],
                         'area': deal['area'],
+                        'dong': deal['dong'],
+                        'jibun': deal['jibun'],
                         'deals': []
                     }
                 transactions[key]['deals'].append(deal)
@@ -250,6 +253,8 @@ def get_rankings():
             results.append({
                 'name': data['name'],
                 'area': data['area'],
+                'dong': data['dong'],
+                'jibun': data['jibun'],
                 'latest_date': latest_date,
                 'latest_price': latest_price,
                 'previous_date': prev_date,
