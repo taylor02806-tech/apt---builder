@@ -37,11 +37,12 @@
             pointer-events: auto !important;
             background-color: #ffffff !important;
         }
-        #detailPanel, #rankingPanel {
+        #detailPanel, #rankingPanel, #rankingPanel .overflow-y-auto {
             position: relative;
             z-index: 50 !important;
             pointer-events: auto !important;
             background-color: #ffffff !important;
+            scrollbar-gutter: stable;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
@@ -93,7 +94,7 @@
             </div>
 
             <!-- 필터 영역 -->
-            <div class="p-6 overflow-y-auto space-y-5 flex-1">
+            <div class="p-6 overflow-y-auto space-y-5 flex-1" style="scrollbar-gutter: stable;">
                 <div>
                     <label class="text-xs font-bold text-slate-500 block mb-2">거래 유형</label>
                     <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
@@ -261,7 +262,7 @@
         </div>
 
         <!-- [화면 2] 리치고 스타일 상세 패널 -->
-        <div id="detailPanel" class="hidden flex-col h-full bg-white z-50 overflow-y-auto" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-50 overflow-y-auto" style="pointer-events: auto; z-index: 50; scrollbar-gutter: stable;" onclick="event.stopPropagation()">
             <div class="p-5 pb-2 border-b border-slate-100">
                 <div class="flex items-center justify-between mb-3">
                     <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -1684,13 +1685,38 @@
         onTradeTypeChange();
 
         
-        const resizeObserver = new ResizeObserver(() => {
-            if (map && currentLatLng) {
-                map.relayout();
-                map.setCenter(currentLatLng);
+        // [레이아웃 무한 루프 방지] 1px 이상 실제 크기 변화 감지 가드 + 디바운스 + setCenter 제거(relayout만 수행)
+        let lastMapWidth = 0;
+        let lastMapHeight = 0;
+        let mapResizeDebounceTimer = null;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            if (!entries || entries.length === 0) return;
+            const entry = entries[0];
+            const newWidth = Math.round(entry.contentRect.width);
+            const newHeight = Math.round(entry.contentRect.height);
+
+            // 1px 이상 실제로 변했을 때만 실행되는 가드 조건
+            if (Math.abs(newWidth - lastMapWidth) < 1 && Math.abs(newHeight - lastMapHeight) < 1) {
+                return;
             }
+
+            lastMapWidth = newWidth;
+            lastMapHeight = newHeight;
+
+            // 디바운스 적용 및 relayout만 수행 (setCenter 호출을 제거하여 idle -> applyClientFilters -> renderChart 무한 루프 원천 차단)
+            if (mapResizeDebounceTimer) clearTimeout(mapResizeDebounceTimer);
+            mapResizeDebounceTimer = setTimeout(() => {
+                if (map) {
+                    map.relayout();
+                }
+            }, 100);
         });
-        resizeObserver.observe(document.getElementById('map'));
+
+        const mapTargetEl = document.getElementById('map');
+        if (mapTargetEl) {
+            resizeObserver.observe(mapTargetEl);
+        }
         
         currentLatLng = mapOption.center;
 
