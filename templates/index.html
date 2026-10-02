@@ -9,8 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <style>
-                body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; overscroll-behavior: none; }
-        #map { overscroll-behavior: none; touch-action: none !important; }
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; overscroll-behavior: none; }
+        #map, #map * { touch-action: none !important; overscroll-behavior: none; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
         .segmented-item input:checked + label {
@@ -554,7 +554,7 @@
     </aside>
 
     <!-- 오른쪽: 지도 영역 -->
-    <main class="flex-1 h-full relative">
+    <main class="flex-1 h-full relative" style="touch-action: none;">
         <div id="map" class="w-full h-full" style="touch-action: none; -webkit-overflow-scrolling: auto;"></div>
         
         <!-- 좌측 상단 플로팅 안내 바 -->
@@ -653,14 +653,15 @@
         };
         const map = new kakao.maps.Map(mapContainer, mapOption);
 
-        // [신규 추가] 모바일 초기 렌더링 시 제스처 및 좌표계 동기화 버그 수정
+        // [모바일 제스처 최적화] 지도가 생성된 직후 setTimeout 200ms 뒤 map.relayout() 및 window resize 강제 1회 발생
         map.setDraggable(true);
         setTimeout(() => {
             if (map) {
                 map.relayout();
                 map.setCenter(mapOption.center);
+                window.dispatchEvent(new Event('resize'));
             }
-        }, 300); 
+        }, 200); 
         const geocoder = new kakao.maps.services.Geocoder();
         // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
         const places = new kakao.maps.services.Places();
