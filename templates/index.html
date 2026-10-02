@@ -33,12 +33,15 @@
         }
         #sidePanel {
             position: relative;
-            z-index: 40 !important;
+            z-index: 50 !important;
             pointer-events: auto !important;
+            background-color: #ffffff !important;
         }
         #detailPanel, #rankingPanel {
+            position: relative;
+            z-index: 50 !important;
             pointer-events: auto !important;
-            z-index: 40 !important;
+            background-color: #ffffff !important;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
@@ -67,10 +70,10 @@
 <body class="bg-slate-100 h-screen flex text-slate-800 antialiased overflow-x-auto overflow-y-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- 좌측 대시보드 패널 -->
-    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-40 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 40;" onclick="event.stopPropagation()">
+    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-50 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
         
         <!-- [화면 1] 랭킹 및 필터 패널 -->
-        <div id="rankingPanel" class="flex flex-col h-full" style="pointer-events: auto;" onclick="event.stopPropagation()">
+        <div id="rankingPanel" class="flex flex-col h-full" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-200">
@@ -258,7 +261,7 @@
         </div>
 
         <!-- [화면 2] 리치고 스타일 상세 패널 -->
-        <div id="detailPanel" class="hidden flex-col h-full bg-white z-40 overflow-y-auto" style="pointer-events: auto; z-index: 40;" onclick="event.stopPropagation()">
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-50 overflow-y-auto" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
             <div class="p-5 pb-2 border-b border-slate-100">
                 <div class="flex items-center justify-between mb-3">
                     <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -676,13 +679,54 @@
             }, 320);
         }
 
-        // [상세 패널 클릭 버블링 방지] 패널 내부 클릭/터치 이벤트가 지도 캔버스로 전파되지 않도록 차단
+        // [상세 패널 및 사이드바 터치/클릭 방어벽]
+        let isInteractingWithPanel = false;
+        let panelInteractionTimer = null;
+        let lastPointerDownTarget = null;
+        let lastPointerCoords = { x: -9999, y: -9999 };
+
+        function flagPanelInteraction() {
+            isInteractingWithPanel = true;
+            if (panelInteractionTimer) clearTimeout(panelInteractionTimer);
+            panelInteractionTimer = setTimeout(() => {
+                isInteractingWithPanel = false;
+            }, 700);
+        }
+
+        // 전체 화면의 마지막 터치/포인터 대상 및 좌표 기록 (캡처 단계)
+        ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+            document.addEventListener(type, function(e) {
+                lastPointerDownTarget = e.target;
+                const touch = e.touches ? e.touches[0] : e;
+                if (touch) {
+                    lastPointerCoords = { x: touch.clientX, y: touch.clientY };
+                }
+                const sidePanel = document.getElementById('sidePanel');
+                const openBtn = document.getElementById('mobileMenuOpenBtn');
+                if ((sidePanel && sidePanel.contains(e.target)) || (openBtn && openBtn.contains(e.target))) {
+                    flagPanelInteraction();
+                }
+            }, true);
+        });
+
+        // 사이드 패널 내부의 모든 포인터/클릭 이벤트 전파 차단 및 interaction 플래그 활성화 (캡처 단계)
         const sidePanelEl = document.getElementById('sidePanel');
         if (sidePanelEl) {
             ['click', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'pointerdown', 'pointerup'].forEach(evtType => {
                 sidePanelEl.addEventListener(evtType, function(e) {
+                    flagPanelInteraction();
                     e.stopPropagation();
-                });
+                }, true);
+            });
+        }
+
+        const openBtnEl = document.getElementById('mobileMenuOpenBtn');
+        if (openBtnEl) {
+            ['click', 'mousedown', 'touchstart', 'pointerdown'].forEach(evtType => {
+                openBtnEl.addEventListener(evtType, function(e) {
+                    flagPanelInteraction();
+                    e.stopPropagation();
+                }, true);
             });
         }
 
@@ -1109,11 +1153,13 @@
         }
 
         window.onMapBadgeClick = function(key) {
+            flagPanelInteraction();
             const item = window.badgeItemStore[key];
             if (item) showApartmentDetail(item);
         };
 
         function showApartmentDetail(item) {
+            flagPanelInteraction();
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
             if (panel && panel.classList.contains('-ml-[480px]')) {
@@ -1410,11 +1456,28 @@
         }
 
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            // 상세 패널(사이드바) 내부 클릭 시 지도 클릭 및 패널 닫기/초기화 차단
-            const sidePanel = document.getElementById('sidePanel');
-            const target = (window.event && window.event.target) || (mouseEvent && mouseEvent.originalEvent && mouseEvent.originalEvent.target);
-            if (sidePanel && target && sidePanel.contains(target)) {
+            // [패널 클릭 뚫림 방지 1] 최근 700ms 이내에 사이드 패널/상세 패널과 상호작용한 경우 지도 클릭 무시
+            if (isInteractingWithPanel) {
                 return;
+            }
+
+            const sidePanel = document.getElementById('sidePanel');
+            const openBtn = document.getElementById('mobileMenuOpenBtn');
+
+            // [패널 클릭 뚫림 방지 2] 마지막 터치/포인터 대상이 사이드 패널 또는 메뉴 열기 버튼 내부인 경우 무시
+            if (lastPointerDownTarget) {
+                if (sidePanel && sidePanel.contains(lastPointerDownTarget)) return;
+                if (openBtn && openBtn.contains(lastPointerDownTarget)) return;
+            }
+
+            // [패널 클릭 뚫림 방지 3] 사이드 패널이 열려 있을 때, 클릭 좌표가 패널 사각 영역(Rect) 내부라면 지도 클릭 무시
+            if (sidePanel && !sidePanel.classList.contains('-ml-[480px]')) {
+                const rect = sidePanel.getBoundingClientRect();
+                const x = lastPointerCoords.x;
+                const y = lastPointerCoords.y;
+                if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                    return;
+                }
             }
 
             const latlng = mouseEvent.latLng; 
