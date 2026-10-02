@@ -68,6 +68,22 @@
             font-weight: 600;
             border-color: #4f46e5;
         }
+
+        /* 반응형 패널 토글 클래스 (모바일은 아래로 숨김, 데스크톱은 좌측으로 숨김) */
+        @media (max-width: 767px) {
+            .panel-closed {
+                transform: translateY(100%) !important;
+            }
+            .mobile-hide-hover {
+                display: none !important;
+            }
+        }
+        @media (min-width: 768px) {
+            .panel-closed {
+                margin-left: -480px !important;
+            }
+        }
+
         @keyframes overlayPulse {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-3px); }
@@ -122,8 +138,16 @@
 <body class="bg-slate-100 h-screen flex text-slate-800 antialiased overflow-x-auto overflow-y-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- [레이어 1] 좌측 대시보드 및 상세 패널 (지도와 완벽히 분리된 최상위 Sibling 레이어) -->
-    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+    <aside id="sidePanel" class="fixed md:relative inset-x-0 bottom-0 top-[5vh] md:top-0 w-full md:w-[480px] h-[95vh] md:h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] md:shadow-xl flex-shrink-0 rounded-t-3xl md:rounded-none transition-transform md:transition-[margin-left] duration-500 ease-in-out" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
         
+        <!-- 모바일 전용 핸들 및 닫기 버튼 -->
+        <div class="md:hidden flex items-center justify-center pt-4 pb-2 relative shrink-0">
+            <div class="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+            <button onclick="togglePanel(false)" class="absolute right-4 top-3 p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
         <!-- [화면 1] 랭킹 및 필터 패널 -->
         <div id="rankingPanel" class="flex flex-col h-full z-[1000]" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -145,7 +169,7 @@
             </div>
 
             <!-- 필터 영역 -->
-            <div class="p-6 overflow-y-auto space-y-5 flex-1" style="scrollbar-gutter: stable;">
+            <div class="p-6 overflow-y-auto overscroll-contain space-y-5 flex-1" style="scrollbar-gutter: stable;">
                 <div>
                     <label class="text-xs font-bold text-slate-500 block mb-2">거래 유형</label>
                     <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
@@ -313,7 +337,7 @@
         </div>
 
         <!-- [화면 2] 리치고 스타일 상세 패널 (지도와 분리된 독립 최상위 레이어) -->
-        <div id="detailPanel" class="hidden flex-col h-full bg-white z-[1000] overflow-y-auto" style="pointer-events: auto; z-index: 1000; scrollbar-gutter: stable;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-[1000] overflow-y-auto overscroll-contain" style="pointer-events: auto; z-index: 1000; scrollbar-gutter: stable;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
             <div class="p-5 pb-2 border-b border-slate-100">
                 <div class="flex items-center justify-between mb-3">
                     <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -640,7 +664,7 @@
         </div>
 
         <!-- 패널 여닫기 버튼 -->
-        <button onclick="togglePanel()" class="absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md flex items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors" style="pointer-events: auto; z-index: 1001;">
+        <button onclick="togglePanel()" class="hidden md:flex absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors" style="pointer-events: auto; z-index: 1001;">
             <svg id="toggleIcon" class="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
             </svg>
@@ -650,6 +674,12 @@
     <!-- 오른쪽: 지도 영역 -->
     <main class="flex-1 h-full relative" style="touch-action: pan-x pan-y; overflow-x: auto; z-index: 1; pointer-events: auto;">
         <div id="map" class="w-full h-full" style="touch-action: manipulation; pointer-events: auto; position: relative; z-index: 1;"></div>
+        
+        <!-- 모바일 전용 FAB (패널 열기 버튼) -->
+        <button id="mobileFab" class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl font-bold flex items-center gap-2 transition-transform duration-500 translate-y-32 pointer-events-auto" onclick="togglePanel(true)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            목록 보기
+        </button>
         
         <!-- 좌측 상단 플로팅 안내 바 (터치 가로챔 방지: 컨테이너 pointer-events-none, 버튼/배지만 auto) -->
         <div class="absolute top-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
@@ -685,14 +715,6 @@
             </div>
         </div>
 
-        <!-- 모바일 전용 메뉴 다시 열기 플로팅 버튼 (메뉴 닫힘 시 우측 하단 노출, z-index 9999, pointer-events-auto) -->
-        <button id="mobileMenuOpenBtn" 
-                onclick="togglePanel(true)" 
-                class="hidden fixed bottom-6 right-5 z-[9999] px-4 py-3 bg-slate-900/90 hover:bg-slate-900 active:bg-black text-white rounded-full shadow-2xl border border-slate-700 font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all duration-300 transform active:scale-95 pointer-events-auto cursor-pointer"
-                title="메뉴 열기">
-            <span class="text-sm">📊</span>
-            <span class="tracking-tight">메뉴 열기</span>
-        </button>
     </div>
 
     <script>
@@ -700,8 +722,9 @@
             const panel = document.getElementById('sidePanel');
             const icon = document.getElementById('toggleIcon');
             const openBtn = document.getElementById('mobileMenuOpenBtn');
+            const fab = document.getElementById('mobileFab');
 
-            const isCurrentlyOpen = panel.classList.contains('ml-0');
+            const isCurrentlyOpen = !panel.classList.contains('panel-closed');
             const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
             if (!shouldOpen) {
@@ -712,7 +735,7 @@
                 hoverStateRef.currentKey = null;
                 if (panel) panel.classList.remove('hover-bridge');
                 // 메뉴 닫기
-                panel.classList.replace('ml-0', '-ml-[480px]');
+                panel.classList.add('panel-closed');
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-8', '-right-12');
                     icon.parentElement.classList.add('w-12');
@@ -720,9 +743,10 @@
                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
                 }
                 if (openBtn) openBtn.classList.remove('hidden');
+                if (fab) fab.classList.remove('translate-y-32');
             } else {
                 // 메뉴 열기
-                panel.classList.replace('-ml-[480px]', 'ml-0');
+                panel.classList.remove('panel-closed');
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-12', '-right-8');
                     icon.parentElement.classList.add('w-8');
@@ -730,6 +754,7 @@
                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
                 }
                 if (openBtn) openBtn.classList.add('hidden');
+                if (fab) fab.classList.add('translate-y-32');
             }
 
             setTimeout(() => {
@@ -1341,7 +1366,7 @@
 
                     const panelHtml = `
                         <div id="hoverCard_${badgeKey}" 
-                             class="hidden relative select-none"
+                             class="hidden mobile-hide-hover relative select-none"
                              style="pointer-events: auto; touch-action: manipulation;"
                              onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
                              onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
@@ -2105,6 +2130,35 @@
         marker.setPosition(currentLatLng);
         marker.setMap(map);
         setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
+
+        // 모바일 스와이프(아래로 드래그) 닫기 로직
+        const sidePanelEl = document.getElementById('sidePanel');
+        let touchStartY = 0;
+        let touchEndY = 0;
+        sidePanelEl.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: true});
+        sidePanelEl.addEventListener('touchend', (e) => {
+            touchEndY = e.changedTouches[0].screenY;
+            // 모바일 환경(768px 미만)이고, 화면 상단에서 아래로 100px 이상 스와이프했으며, 스크롤이 최상단일 때 닫기
+            if (window.innerWidth < 768 && touchEndY - touchStartY > 100) {
+                // rankingPanel이나 detailPanel의 scrollY가 0인지 체크
+                const rankingPanel = document.getElementById('rankingPanel');
+                const detailPanel = document.getElementById('detailPanel');
+                let isAtTop = true;
+                if (!rankingPanel.classList.contains('hidden')) {
+                    const scrollContainer = rankingPanel.querySelector('.overflow-y-auto');
+                    if (scrollContainer && scrollContainer.scrollTop > 10) isAtTop = false;
+                } else if (!detailPanel.classList.contains('hidden')) {
+                    if (detailPanel.scrollTop > 10) isAtTop = false;
+                }
+                
+                if (isAtTop) {
+                    togglePanel(false);
+                }
+            }
+        }, {passive: true});
+
     </script>
 </body>
 </html>
