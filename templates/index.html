@@ -758,10 +758,12 @@
             }
 
             setTimeout(() => {
-                if (map) {
+                if (window.map) {
+                    const center = map.getCenter();
                     map.relayout();
+                    map.setCenter(center);
                 }
-            }, 320);
+            }, 500);
         }
 
         // [상세 패널 및 사이드바 터치/클릭 방어벽]
@@ -2114,8 +2116,10 @@
             // 디바운스 적용 및 relayout만 수행 (setCenter 호출을 제거하여 idle -> applyClientFilters -> renderChart 무한 루프 원천 차단)
             if (mapResizeDebounceTimer) clearTimeout(mapResizeDebounceTimer);
             mapResizeDebounceTimer = setTimeout(() => {
-                if (map) {
+                if (window.map) {
+                    const center = map.getCenter();
                     map.relayout();
+                    map.setCenter(center);
                 }
             }, 100);
         });
