@@ -1307,8 +1307,7 @@
                         </div>
                     ` : '';
 
-                    const contentHtml = `
-                        <!-- 📌 [요청 사항 3] 마커와 프리뷰 패널을 하나의 커스텀 오버레이 부모 컨테이너로 일체화 래핑 -->
+                    const markerHtml = `
                         <div class="custom-overlay-group relative select-none"
                              style="pointer-events: auto; touch-action: manipulation;"
                              onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
@@ -1334,15 +1333,22 @@
                                 </div>
                                 <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
                             </div>
+                        </div>
+                    `;
 
-                            <!-- [동일 부모 컨테이너 내 호버 프리뷰 팝업 및 40px 투명 브릿지] -->
-                            <div id="hoverCard_${badgeKey}" 
-                                 class="hidden absolute bottom-[108%] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] pointer-events-auto cursor-pointer"
-                                 style="pointer-events: auto; z-index: 1050;"
+                    const panelHtml = `
+                        <div id="hoverCard_${badgeKey}" 
+                             class="hidden relative select-none"
+                             style="pointer-events: auto; touch-action: manipulation;"
+                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
+                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
+                            
+                            <div class="absolute bottom-[48px] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] cursor-pointer"
+                                 style="pointer-events: auto;"
                                  onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
                                  
-                                <!-- 📌 [요청 사항 2] 마커와 패널 사이의 틈새를 완전히 메우는 40px 투명 브릿지 (Safe Zone) -->
-                                <div class="hover-card-bridge"></div>
+                                <!-- 마커와 패널 사이를 잇는 투명 브릿지 -->
+                                <div class="absolute bottom-[-48px] left-1/2 transform -translate-x-1/2 w-[60px] h-[48px] bg-transparent" style="pointer-events: auto !important;"></div>
 
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
                                     <div class="truncate pr-2">
@@ -1363,22 +1369,32 @@
                         </div>
                     `;
 
-                    const customOverlay = new kakao.maps.CustomOverlay({
+                    const markerOverlay = new kakao.maps.CustomOverlay({
                         position: position,
-                        content: contentHtml,
+                        content: markerHtml,
                         xAnchor: 0.5,
                         yAnchor: 1.0,
                         zIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
                     });
 
+                    const panelOverlay = new kakao.maps.CustomOverlay({
+                        position: position,
+                        content: panelHtml,
+                        xAnchor: 0.5,
+                        yAnchor: 1.0,
+                        zIndex: 1050
+                    });
+
                     window.customOverlayStore = window.customOverlayStore || {};
                     window.customOverlayStore[badgeKey] = {
-                        overlay: customOverlay,
+                        overlay: markerOverlay,
                         originalZIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
                     };
 
-                    customOverlay.setMap(map);
-                    mapCustomOverlays.push(customOverlay);
+                    markerOverlay.setMap(map);
+                    panelOverlay.setMap(map);
+                    mapCustomOverlays.push(markerOverlay);
+                    mapCustomOverlays.push(panelOverlay);
                 });
             });
         }
