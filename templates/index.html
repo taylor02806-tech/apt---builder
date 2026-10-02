@@ -71,7 +71,7 @@
 <body class="bg-slate-100 h-screen flex text-slate-800 antialiased overflow-x-auto overflow-y-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- 좌측 대시보드 패널 -->
-    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-50 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
+    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-50 shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
         
         <!-- [화면 1] 랭킹 및 필터 패널 -->
         <div id="rankingPanel" class="flex flex-col h-full" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
@@ -675,7 +675,6 @@
             setTimeout(() => {
                 if (map) {
                     map.relayout();
-                    if (currentLatLng) map.setCenter(currentLatLng);
                 }
             }, 320);
         }
@@ -823,11 +822,26 @@
 
         
 
-        function applyClientFilters() {
+        let lastFilterState = {
+            level: null,
+            centerLat: null,
+            centerLng: null,
+            threshold: null,
+            dataHash: ''
+        };
+
+        function applyClientFilters(force = false) {
+            if (!map) return;
             const bounds = map.getBounds();
+            if (!bounds) return;
+
             const sw = bounds.getSouthWest();
             const ne = bounds.getNorthEast();
             const span = Math.max(ne.getLng() - sw.getLng(), ne.getLat() - sw.getLat());
+            const currentLevel = map.getLevel();
+            const center = map.getCenter();
+            const currentLat = center.getLat();
+            const currentLng = center.getLng();
             
             const badgeEl = document.getElementById('zoomFilterBadge');
 
@@ -846,6 +860,29 @@
             }
 
             if (badgeEl) badgeEl.textContent = zoomText;
+
+            // 데이터 변경 여부 감지용 해시
+            const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}`;
+
+            // 이전 상태와 비교: 줌 레벨, 가격 필터 임계치, 원본 데이터, 또는 유의미한 지도 이동(약 20m 이상)이 없는 경우 중복 배지 생성 방지
+            const latDiff = lastFilterState.centerLat ? Math.abs(currentLat - lastFilterState.centerLat) : 999;
+            const lngDiff = lastFilterState.centerLng ? Math.abs(currentLng - lastFilterState.centerLng) : 999;
+            const isLevelChanged = lastFilterState.level !== currentLevel;
+            const isThresholdChanged = lastFilterState.threshold !== minPriceThreshold;
+            const isDataChanged = lastFilterState.dataHash !== currentDataHash;
+            const isCenterMoved = latDiff > 0.0002 || lngDiff > 0.0002;
+
+            if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved) {
+                return; // 변동 없음 -> 무한 배지 생성 및 idle 이벤트 순환 루프 원천 차단!
+            }
+
+            lastFilterState = {
+                level: currentLevel,
+                centerLat: currentLat,
+                centerLng: currentLng,
+                threshold: minPriceThreshold,
+                dataHash: currentDataHash
+            };
 
             const filterList = (list) => {
                 if (!list) return [];
@@ -1669,7 +1706,7 @@
                 }
 
                 rawDataStore = data;
-                applyClientFilters();
+                applyClientFilters(true);
 
                 results.classList.remove('hidden');
             } catch (err) {
