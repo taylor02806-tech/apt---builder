@@ -186,7 +186,7 @@
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                                <h3 class="text-xs font-bold text-slate-900" id="soaringTitle">가장 많이 오른 Top 5</h3>
+                                <h3 class="text-xs font-bold text-slate-900" id="soaringTitle">가장 많이 오른 Top 3</h3>
                             </div>
                             <span class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">상승</span>
                         </div>
@@ -202,7 +202,7 @@
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                                <h3 class="text-xs font-bold text-slate-900" id="plungingTitle">가장 많이 떨어진 Top 5</h3>
+                                <h3 class="text-xs font-bold text-slate-900" id="plungingTitle">가장 많이 떨어진 Top 3</h3>
                             </div>
                             <span class="text-[10px] font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">하락</span>
                         </div>
@@ -716,8 +716,8 @@
                 return list.filter(item => item.latest_price >= minPriceThreshold);
             };
 
-            const filteredSoaring = filterList(rawDataStore.soaring);
-            const filteredPlunging = filterList(rawDataStore.plunging);
+            const filteredSoaring = filterList(rawDataStore.soaring).slice(0, 3);
+            const filteredPlunging = filterList(rawDataStore.plunging).slice(0, 3);
 
             renderChart('soaring', filteredSoaring);
             renderChart('plunging', filteredPlunging);
@@ -1173,8 +1173,8 @@
             }
 
             const titlePrefix = tradeType === 'jeonse' ? '전세가' : (tradeType === 'rent' ? '월세가' : '매매가');
-            document.getElementById('soaringTitle').textContent = `가장 많이 오른 ${titlePrefix} Top 5`;
-            document.getElementById('plungingTitle').textContent = `가장 많이 떨어진 ${titlePrefix} Top 5`;
+            document.getElementById('soaringTitle').textContent = `가장 많이 오른 ${titlePrefix} Top 3`;
+            document.getElementById('plungingTitle').textContent = `가장 많이 떨어진 ${titlePrefix} Top 3`;
 
             closeApartmentDetail();
             onScopeChange();
@@ -1399,7 +1399,10 @@
             document.getElementById(emptyId).classList.add('hidden');
             document.getElementById(containerId).classList.remove('hidden');
 
-            dataList.forEach((item) => {
+            // 최대 3개까지만 나오도록 slice(0, 3) 처리 (비교군이 1~2개여도 정상 렌더링)
+            const displayList = dataList.slice(0, 3);
+
+            displayList.forEach((item) => {
                 const chip = document.createElement('button');
                 chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
                 chip.textContent = `${item.name} 상세/시세 >`;
@@ -1408,9 +1411,9 @@
             });
 
             const ctx = document.getElementById(canvasId).getContext('2d');
-            const labels = dataList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
-            const prevPrices = dataList.map(item => item.previous_price);
-            const latestPrices = dataList.map(item => item.latest_price);
+            const labels = displayList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
+            const prevPrices = displayList.map(item => item.previous_price);
+            const latestPrices = displayList.map(item => item.latest_price);
             const activeColor = isSoaring ? '#ef4444' : '#3b82f6';
 
             chartInstances[type] = new Chart(ctx, {
@@ -1441,7 +1444,7 @@
                     onClick: (event, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
-                            showApartmentDetail(dataList[index]);
+                            showApartmentDetail(displayList[index]);
                         }
                     },
                     plugins: {
