@@ -749,9 +749,16 @@
                 hoverStateRef.isHoveringPanel = false;
                 hoverStateRef.currentKey = null;
                 if (panel) panel.classList.remove('hover-bridge');
-                // 메뉴 닫기
+                
+                // 메뉴 닫기 (클래스 + 인라인 스타일 강제 적용)
                 panel.classList.add('panel-closed');
                 panel.classList.remove('panel-full');
+                if (window.innerWidth < 768) {
+                    panel.style.transform = 'translateY(100%)';
+                } else {
+                    panel.style.marginLeft = '-480px';
+                }
+                
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-8', '-right-12');
                     icon.parentElement.classList.add('w-12');
@@ -761,9 +768,15 @@
                 if (openBtn) openBtn.classList.remove('hidden');
                 if (fab) fab.classList.remove('translate-y-32');
             } else {
-                // 메뉴 열기
+                // 메뉴 열기 (클래스 + 인라인 스타일 강제 해제)
                 panel.classList.remove('panel-closed');
                 panel.classList.remove('panel-full');
+                if (window.innerWidth < 768) {
+                    panel.style.transform = 'translateY(0)';
+                } else {
+                    panel.style.marginLeft = '0';
+                }
+                
                 if (icon && icon.parentElement) {
                     icon.parentElement.classList.replace('-right-12', '-right-8');
                     icon.parentElement.classList.add('w-8');
