@@ -72,7 +72,12 @@
                         <p class="text-xs text-slate-400">단지명·주소 통합 검색 지원</p>
                     </div>
                 </div>
-                <span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">LIVE</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">LIVE</span>
+                    <button onclick="togglePanel(false)" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors" title="메뉴 닫기">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
             </div>
 
             <!-- 필터 영역 -->
@@ -251,9 +256,14 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                         랭킹 목록으로
                     </button>
-                    <button onclick="openRoadview()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-                        로드뷰 보기
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="openRoadview()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                            로드뷰 보기
+                        </button>
+                        <button onclick="togglePanel(false)" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors" title="메뉴 닫기">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex items-start gap-3 mt-2">
@@ -607,25 +617,54 @@
                 <div id="roadview" class="w-full flex-1 bg-slate-900 relative"></div>
             </div>
         </div>
+
+        <!-- 모바일 전용 메뉴 다시 열기 플로팅 버튼 (메뉴 닫힘 시 우측 하단 노출, z-index 9999, pointer-events-auto) -->
+        <button id="mobileMenuOpenBtn" 
+                onclick="togglePanel(true)" 
+                class="hidden fixed bottom-6 right-5 z-[9999] px-4 py-3 bg-slate-900/90 hover:bg-slate-900 active:bg-black text-white rounded-full shadow-2xl border border-slate-700 font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all duration-300 transform active:scale-95 pointer-events-auto cursor-pointer"
+                title="메뉴 열기">
+            <span class="text-sm">📊</span>
+            <span class="tracking-tight">메뉴 열기</span>
+        </button>
     </main>
 
     <script>
-        function togglePanel() {
+        function togglePanel(forceOpen = null) {
             const panel = document.getElementById('sidePanel');
             const icon = document.getElementById('toggleIcon');
-            if (panel.classList.contains('ml-0')) {
+            const openBtn = document.getElementById('mobileMenuOpenBtn');
+
+            const isCurrentlyOpen = panel.classList.contains('ml-0');
+            const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+            if (!shouldOpen) {
+                // 메뉴 닫기
                 panel.classList.replace('ml-0', '-ml-[480px]');
-                icon.parentElement.classList.replace('-right-8', '-right-12');
-                icon.parentElement.classList.add('w-12');
-                icon.parentElement.classList.remove('w-8');
-                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
+                if (icon && icon.parentElement) {
+                    icon.parentElement.classList.replace('-right-8', '-right-12');
+                    icon.parentElement.classList.add('w-12');
+                    icon.parentElement.classList.remove('w-8');
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
+                }
+                if (openBtn) openBtn.classList.remove('hidden');
             } else {
+                // 메뉴 열기
                 panel.classList.replace('-ml-[480px]', 'ml-0');
-                icon.parentElement.classList.replace('-right-12', '-right-8');
-                icon.parentElement.classList.add('w-8');
-                icon.parentElement.classList.remove('w-12');
-                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+                if (icon && icon.parentElement) {
+                    icon.parentElement.classList.replace('-right-12', '-right-8');
+                    icon.parentElement.classList.add('w-8');
+                    icon.parentElement.classList.remove('w-12');
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+                }
+                if (openBtn) openBtn.classList.add('hidden');
             }
+
+            setTimeout(() => {
+                if (map) {
+                    map.relayout();
+                    if (currentLatLng) map.setCenter(currentLatLng);
+                }
+            }, 320);
         }
 
         const REGION_DATA = {
@@ -1058,6 +1097,10 @@
 
         function showApartmentDetail(item) {
             currentSelectedItem = item;
+            const panel = document.getElementById('sidePanel');
+            if (panel && panel.classList.contains('-ml-[480px]')) {
+                togglePanel(true);
+            }
             document.getElementById('rankingPanel').classList.add('hidden');
             document.getElementById('detailPanel').classList.remove('hidden');
             switchDetailTab('info');
