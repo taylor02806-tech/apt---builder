@@ -33,13 +33,13 @@
         }
         #sidePanel {
             position: relative;
-            z-index: 50 !important;
+            z-index: 1000 !important;
             pointer-events: auto !important;
             background-color: #ffffff !important;
         }
         #detailPanel, #rankingPanel, #rankingPanel .overflow-y-auto {
             position: relative;
-            z-index: 50 !important;
+            z-index: 1000 !important;
             pointer-events: auto !important;
             background-color: #ffffff !important;
             scrollbar-gutter: stable;
@@ -71,10 +71,10 @@
 <body class="bg-slate-100 h-screen flex text-slate-800 antialiased overflow-x-auto overflow-y-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- 좌측 대시보드 패널 -->
-    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-50 shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
+    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out ml-0" style="pointer-events: auto; z-index: 1000;" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" onpointerdown="event.stopPropagation()">
         
         <!-- [화면 1] 랭킹 및 필터 패널 -->
-        <div id="rankingPanel" class="flex flex-col h-full" style="pointer-events: auto; z-index: 50;" onclick="event.stopPropagation()">
+        <div id="rankingPanel" class="flex flex-col h-full z-[1000]" style="pointer-events: auto; z-index: 1000;" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" onpointerdown="event.stopPropagation()">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-200">
@@ -262,7 +262,7 @@
         </div>
 
         <!-- [화면 2] 리치고 스타일 상세 패널 -->
-        <div id="detailPanel" class="hidden flex-col h-full bg-white z-50 overflow-y-auto" style="pointer-events: auto; z-index: 50; scrollbar-gutter: stable;" onclick="event.stopPropagation()">
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-[1000] overflow-y-auto" style="pointer-events: auto; z-index: 1000; scrollbar-gutter: stable;" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" onpointerdown="event.stopPropagation()">
             <div class="p-5 pb-2 border-b border-slate-100">
                 <div class="flex items-center justify-between mb-3">
                     <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -589,7 +589,7 @@
         </div>
 
         <!-- 패널 여닫기 버튼 -->
-        <button onclick="togglePanel()" class="absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md flex items-center justify-center z-50 transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors">
+        <button onclick="togglePanel()" class="absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md flex items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors" style="pointer-events: auto; z-index: 1001;">
             <svg id="toggleIcon" class="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
             </svg>
@@ -690,45 +690,71 @@
             if (panelInteractionTimer) clearTimeout(panelInteractionTimer);
             panelInteractionTimer = setTimeout(() => {
                 isInteractingWithPanel = false;
-            }, 700);
+            }, 800);
         }
 
         // 전체 화면의 마지막 터치/포인터 대상 및 좌표 기록 (캡처 단계)
-        ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+        ['pointerdown', 'mousedown', 'touchstart', 'touchend', 'click'].forEach(type => {
             document.addEventListener(type, function(e) {
                 lastPointerDownTarget = e.target;
-                const touch = e.touches ? e.touches[0] : e;
-                if (touch) {
+                const touch = (e.touches && e.touches.length > 0) ? e.touches[0] : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0] : e);
+                if (touch && typeof touch.clientX === 'number') {
                     lastPointerCoords = { x: touch.clientX, y: touch.clientY };
                 }
                 const sidePanel = document.getElementById('sidePanel');
+                const detailPanel = document.getElementById('detailPanel');
+                const rankingPanel = document.getElementById('rankingPanel');
                 const openBtn = document.getElementById('mobileMenuOpenBtn');
-                if ((sidePanel && sidePanel.contains(e.target)) || (openBtn && openBtn.contains(e.target))) {
+                const roadviewModal = document.getElementById('roadviewModal');
+                if (
+                    (sidePanel && sidePanel.contains(e.target)) || 
+                    (detailPanel && detailPanel.contains(e.target)) ||
+                    (rankingPanel && rankingPanel.contains(e.target)) ||
+                    (openBtn && openBtn.contains(e.target)) ||
+                    (roadviewModal && roadviewModal.contains(e.target))
+                ) {
                     flagPanelInteraction();
                 }
             }, true);
         });
 
-        // 사이드 패널 내부의 모든 포인터/클릭 이벤트 전파 차단 및 interaction 플래그 활성화 (캡처 단계)
-        const sidePanelEl = document.getElementById('sidePanel');
-        if (sidePanelEl) {
-            ['click', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'pointerdown', 'pointerup'].forEach(evtType => {
-                sidePanelEl.addEventListener(evtType, function(e) {
-                    flagPanelInteraction();
-                    e.stopPropagation();
-                }, true);
-            });
-        }
+        // 📌 [요청 사항 1] 정보 패널/모달/바텀시트의 루트 요소에 'click', 'dblclick', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'pointerdown' 이벤트 리스너를 걸어 event.stopPropagation() 적용
+        const stopPropagationEvents = [
+            'click',
+            'dblclick',
+            'mousedown',
+            'mouseup',
+            'touchstart',
+            'touchend',
+            'pointerdown',
+            'pointerup'
+        ];
 
-        const openBtnEl = document.getElementById('mobileMenuOpenBtn');
-        if (openBtnEl) {
-            ['click', 'mousedown', 'touchstart', 'pointerdown'].forEach(evtType => {
-                openBtnEl.addEventListener(evtType, function(e) {
-                    flagPanelInteraction();
-                    e.stopPropagation();
-                }, true);
+        function registerPanelEventStoppers() {
+            const panelRoots = [
+                document.getElementById('sidePanel'),
+                document.getElementById('rankingPanel'),
+                document.getElementById('detailPanel'),
+                document.getElementById('roadviewModal'),
+                document.getElementById('mobileMenuOpenBtn')
+            ].filter(Boolean);
+
+            panelRoots.forEach(panel => {
+                stopPropagationEvents.forEach(evtType => {
+                    // 1) 캡처 단계: interaction 플래그 즉각 설정 (지도나 윈도우 리스너보다 선행 실행)
+                    panel.addEventListener(evtType, function(e) {
+                        flagPanelInteraction();
+                    }, true);
+
+                    // 2) 버블링 단계: 내부 UI 컴포넌트 동작 후 최상위 루트에서 상위 부모 및 지도로의 이벤트 전파 원천 차단
+                    panel.addEventListener(evtType, function(e) {
+                        flagPanelInteraction();
+                        e.stopPropagation();
+                    }, false);
+                });
             });
         }
+        registerPanelEventStoppers();
 
         const REGION_DATA = {
             "서울특별시": ["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"],
@@ -1494,27 +1520,79 @@
         }
 
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            // [패널 클릭 뚫림 방지 1] 최근 700ms 이내에 사이드 패널/상세 패널과 상호작용한 경우 지도 클릭 무시
+            // 📌 [요청 사항 2] 지도 라이브러리 맵 클릭 이벤트 리스너에서 패널 영역 내부를 클릭한 경우 무시하는 방어 로직
+
+            // [방어 1] 최근 패널/모달/상세뷰와 상호작용한 경우 즉시 무시
             if (isInteractingWithPanel) {
                 return;
             }
 
             const sidePanel = document.getElementById('sidePanel');
+            const detailPanel = document.getElementById('detailPanel');
+            const rankingPanel = document.getElementById('rankingPanel');
             const openBtn = document.getElementById('mobileMenuOpenBtn');
+            const roadviewModal = document.getElementById('roadviewModal');
 
-            // [패널 클릭 뚫림 방지 2] 마지막 터치/포인터 대상이 사이드 패널 또는 메뉴 열기 버튼 내부인 경우 무시
-            if (lastPointerDownTarget) {
-                if (sidePanel && sidePanel.contains(lastPointerDownTarget)) return;
-                if (openBtn && openBtn.contains(lastPointerDownTarget)) return;
+            // [방어 2] 현재 브라우저 활성 이벤트 타겟 검사
+            const activeEvt = window.event;
+            if (activeEvt && activeEvt.target) {
+                const target = activeEvt.target;
+                if (sidePanel && sidePanel.contains(target)) return;
+                if (detailPanel && detailPanel.contains(target)) return;
+                if (rankingPanel && rankingPanel.contains(target)) return;
+                if (openBtn && openBtn.contains(target)) return;
+                if (roadviewModal && roadviewModal.contains(target)) return;
             }
 
-            // [패널 클릭 뚫림 방지 3] 사이드 패널이 열려 있을 때, 클릭 좌표가 패널 사각 영역(Rect) 내부라면 지도 클릭 무시
-            if (sidePanel && !sidePanel.classList.contains('-ml-[480px]')) {
-                const rect = sidePanel.getBoundingClientRect();
-                const x = lastPointerCoords.x;
-                const y = lastPointerCoords.y;
-                if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-                    return;
+            // [방어 3] 마지막 터치/포인터 타겟 검사
+            if (lastPointerDownTarget) {
+                if (sidePanel && sidePanel.contains(lastPointerDownTarget)) return;
+                if (detailPanel && detailPanel.contains(lastPointerDownTarget)) return;
+                if (rankingPanel && rankingPanel.contains(lastPointerDownTarget)) return;
+                if (openBtn && openBtn.contains(lastPointerDownTarget)) return;
+                if (roadviewModal && roadviewModal.contains(lastPointerDownTarget)) return;
+            }
+
+            // [방어 4] 클릭 좌표군 산출 (터치 좌표 및 카카오맵 지도 뷰포트 투영 좌표)
+            let checkPoints = [];
+            if (lastPointerCoords && lastPointerCoords.x > -1000) {
+                checkPoints.push({ x: lastPointerCoords.x, y: lastPointerCoords.y });
+            }
+            if (map && map.getProjection && mouseEvent && mouseEvent.latLng) {
+                try {
+                    const point = map.getProjection().containerPointFromCoords(mouseEvent.latLng);
+                    const mapRect = mapContainer.getBoundingClientRect();
+                    checkPoints.push({ x: mapRect.left + point.x, y: mapRect.top + point.y });
+                } catch (e) {}
+            }
+
+            // [방어 5] 패널 사각 영역(BoundingClientRect) 및 elementFromPoint 검사
+            for (const pt of checkPoints) {
+                if (pt.x >= 0 && pt.y >= 0) {
+                    const elAtPoint = document.elementFromPoint(pt.x, pt.y);
+                    if (elAtPoint) {
+                        if (sidePanel && sidePanel.contains(elAtPoint)) return;
+                        if (detailPanel && detailPanel.contains(elAtPoint)) return;
+                        if (rankingPanel && rankingPanel.contains(elAtPoint)) return;
+                        if (openBtn && openBtn.contains(elAtPoint)) return;
+                        if (roadviewModal && roadviewModal.contains(elAtPoint)) return;
+                    }
+                }
+
+                // sidePanel 사각 영역 검사 (열려 있는 경우)
+                if (sidePanel && !sidePanel.classList.contains('-ml-[480px]')) {
+                    const rect = sidePanel.getBoundingClientRect();
+                    if (pt.x >= rect.left && pt.x <= rect.right && pt.y >= rect.top && pt.y <= rect.bottom) {
+                        return;
+                    }
+                }
+
+                // detailPanel 사각 영역 검사 (열려 있는 경우)
+                if (detailPanel && !detailPanel.classList.contains('hidden')) {
+                    const rect = detailPanel.getBoundingClientRect();
+                    if (pt.x >= rect.left && pt.x <= rect.right && pt.y >= rect.top && pt.y <= rect.bottom) {
+                        return;
+                    }
                 }
             }
 
