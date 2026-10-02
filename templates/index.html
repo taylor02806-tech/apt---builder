@@ -72,33 +72,49 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-3px); }
         }
+        .custom-overlay-group {
+            position: relative;
+            pointer-events: auto !important;
+            touch-action: manipulation;
+        }
         .map-badge {
             position: relative;
         }
-        /* 📌 [마우스 브릿지 1] 마커 주변 투명 히트 패딩(12px)을 확장하여 마우스 이동 중 허공 이탈 방지 */
+        /* 📌 [마우스 브릿지 1] 마커 주변 투명 히트 패딩(20px)을 확장하여 마우스 이동 중 허공 이탈 완벽 방지 */
         .map-badge::before {
             content: '';
             position: absolute;
-            inset: -12px;
-            pointer-events: auto;
-            background: transparent;
+            inset: -20px;
+            pointer-events: auto !important;
+            background: transparent !important;
             z-index: -1;
         }
         .map-badge:hover {
             animation: overlayPulse 0.6s infinite ease-in-out;
             z-index: 999 !important;
         }
-        /* 📌 [마우스 브릿지 2] 마커 호버 시 패널 우측 경계선에 28px 너비의 투명 브릿지 영역을 확장해 마우스가 패널로 안전하게 건너갈 수 있도록 보장 */
-        #sidePanel.hover-bridge::after {
+        /* 📌 [마우스 브릿지 2] 패널 우측 경계선에 50px 너비의 투명 Safe Zone 가상 요소를 상시 유지해 허공 이탈 원천 차단 */
+        #sidePanel::after {
             content: '';
             position: absolute;
             top: 0;
-            right: -28px;
-            width: 28px;
+            right: -50px;
+            width: 50px;
             height: 100%;
-            pointer-events: auto;
-            background: transparent;
-            z-index: 1000;
+            pointer-events: auto !important;
+            background: transparent !important;
+            z-index: 1000 !important;
+        }
+        /* 📌 [마우스 브릿지 3] 호버 프리뷰 카드와 마커 사이의 수직 Safe Zone 브릿지 (40px) */
+        .hover-card-bridge {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: transparent !important;
+            pointer-events: auto !important;
         }
     </style>
 </head>
@@ -688,10 +704,11 @@
             const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
             if (!shouldOpen) {
-                clearPanelCloseTimer();
-                isPanelPinned = false;
-                isHoveringMarker = false;
-                isHoveringPanel = false;
+                clearHoverTimer();
+                hoverStateRef.isPinned = false;
+                hoverStateRef.isHoveringMarker = false;
+                hoverStateRef.isHoveringPanel = false;
+                hoverStateRef.currentKey = null;
                 if (panel) panel.classList.remove('hover-bridge');
                 // 메뉴 닫기
                 panel.classList.replace('ml-0', '-ml-[480px]');
@@ -812,32 +829,35 @@
         }
         registerPanelEventStoppers();
 
-        // 📌 [Hover Intent & 패널 깜빡임/무한 루프 방지 상태 관리]
-        let panelCloseTimer = null;
-        let isHoveringMarker = false;
-        let isHoveringPanel = false;
-        let isPanelPinned = false; // 마커를 직접 '클릭'하여 연 경우 영구 고정
-        let activeHoverBadgeKey = null;
+        // 📌 [요청 사항 1] 동기적 타이머 제어 (useRef 패턴의 동기식 상태 객체 hoverStateRef)
+        const hoverStateRef = {
+            timerId: null,
+            isHoveringMarker: false,
+            isHoveringPanel: false,
+            isPinned: false, // 마커를 직접 '클릭'하여 연 경우 영구 고정
+            currentKey: null
+        };
 
-        function clearPanelCloseTimer() {
-            if (panelCloseTimer) {
-                clearTimeout(panelCloseTimer);
-                panelCloseTimer = null;
+        function clearHoverTimer() {
+            if (hoverStateRef.timerId !== null) {
+                clearTimeout(hoverStateRef.timerId);
+                hoverStateRef.timerId = null;
             }
         }
 
-        // 1. 타이머를 이용한 딜레이 적용: 마우스가 벗어났을 때 280ms 딜레이 후 닫기
-        function schedulePanelClose(delay = 280) {
-            clearPanelCloseTimer();
-            panelCloseTimer = setTimeout(() => {
-                // 3. 최종 닫힘 처리: 마커와 패널 양쪽 모두에서 완전히 벗어났고, 클릭으로 고정된 상태가 아닐 때 비로소 닫힘
-                if (!isHoveringMarker && !isHoveringPanel && !isPanelPinned) {
+        // 1. 타이머를 이용한 딜레이 적용: 마커 mouseleave 시 400ms의 setTimeout 적용 (동기적 추적)
+        function startCloseTimer(delay = 400) {
+            clearHoverTimer();
+            hoverStateRef.timerId = setTimeout(() => {
+                // 패널/마커 모두 벗어났고 클릭 고정 상태가 아닐 때만 닫기
+                if (!hoverStateRef.isHoveringMarker && !hoverStateRef.isHoveringPanel && !hoverStateRef.isPinned) {
                     closeApartmentDetail();
+                    hoverStateRef.currentKey = null;
                 }
             }, delay);
         }
 
-        // 2. 패널 영역 유지(Hover Intent): 패널로 마우스 이동 시 닫기 타이머 취소 및 유지
+        // 2. 패널 영역 유지(Hover Intent): 패널에 mouseenter 시 그 즉시 clearTimeout을 실행하여 렌더링 지연으로 인한 깜빡임 원천 차단
         function initPanelHoverIntent() {
             const sidePanel = document.getElementById('sidePanel');
             const detailPanel = document.getElementById('detailPanel');
@@ -845,14 +865,14 @@
             [sidePanel, detailPanel].forEach(el => {
                 if (!el) return;
                 el.addEventListener('mouseenter', function() {
-                    isHoveringPanel = true;
-                    // 마커에서 벗어나 패널 영역으로 안전하게 진입했으므로 닫기 예약 즉시 취소!
-                    clearPanelCloseTimer();
+                    hoverStateRef.isHoveringPanel = true;
+                    // 패널 영역 내부로 진입했으므로 닫기 타이머 즉각(동기적) 취소!
+                    clearHoverTimer();
                 });
-                el.addEventListener('mouseleave', function(e) {
-                    isHoveringPanel = false;
-                    // 패널에서 벗어났을 때 마커 위가 아니고 고정된 상태가 아니면 딜레이 후 닫기
-                    schedulePanelClose(280);
+                el.addEventListener('mouseleave', function() {
+                    hoverStateRef.isHoveringPanel = false;
+                    // 패널에서 완전히 벗어났을 때 400ms 딜레이 후 닫기
+                    startCloseTimer(400);
                 });
             });
         }
@@ -1286,26 +1306,58 @@
                     ` : '';
 
                     const contentHtml = `
-                        <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
-                             style="touch-action: manipulation; pointer-events: auto;"
-                             onmouseenter="window.onMapBadgeMouseEnter('${badgeKey}')"
-                             onmouseleave="window.onMapBadgeMouseLeave('${badgeKey}')"
-                             onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                             ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                             onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                             onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
-                            ${leaderTagHtml}
-                            <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[100px]">
-                                <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1.5">
-                                    <span class="truncate max-w-[80px]">${item.name}</span>
-                                    <span class="text-[9px] opacity-90">${pyeongText}</span>
+                        <!-- 📌 [요청 사항 3] 마커와 프리뷰 패널을 하나의 커스텀 오버레이 부모 컨테이너로 일체화 래핑 -->
+                        <div class="custom-overlay-group relative select-none"
+                             style="pointer-events: auto; touch-action: manipulation;"
+                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
+                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
+                            
+                            <!-- 마커 본체 -->
+                            <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
+                                 style="touch-action: manipulation; pointer-events: auto;"
+                                 onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
+                                ${leaderTagHtml}
+                                <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[100px]">
+                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1.5">
+                                        <span class="truncate max-w-[80px]">${item.name}</span>
+                                        <span class="text-[9px] opacity-90">${pyeongText}</span>
+                                    </div>
+                                    <div class="px-2.5 py-1 bg-white flex flex-col items-center">
+                                        <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
+                                        <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
+                                    </div>
                                 </div>
-                                <div class="px-2.5 py-1 bg-white flex flex-col items-center">
-                                    <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
-                                    <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
+                                <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
+                            </div>
+
+                            <!-- [동일 부모 컨테이너 내 호버 프리뷰 팝업 및 40px 투명 브릿지] -->
+                            <div id="hoverCard_${badgeKey}" 
+                                 class="hidden absolute bottom-[108%] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] pointer-events-auto cursor-pointer"
+                                 style="pointer-events: auto; z-index: 1050;"
+                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
+                                 
+                                <!-- 📌 [요청 사항 2] 마커와 패널 사이의 틈새를 완전히 메우는 40px 투명 브릿지 (Safe Zone) -->
+                                <div class="hover-card-bridge"></div>
+
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+                                    <div class="truncate pr-2">
+                                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">${pyeongText}</span>
+                                        <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${item.name}</h4>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
+                                </div>
+                                <div class="flex justify-between items-baseline text-xs mb-1">
+                                    <span class="text-slate-500 font-medium text-[11px]">최근 실거래가</span>
+                                    <span class="font-black text-slate-900 text-sm">${formatPrice(item.latest_price)}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[11px]">
+                                    <span class="text-slate-400">직전 거래 대비</span>
+                                    <span class="font-bold ${diffColor}">${diffText}</span>
                                 </div>
                             </div>
-                            <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
                         </div>
                     `;
 
@@ -1323,49 +1375,70 @@
             });
         }
 
-        window.onMapBadgeMouseEnter = function(key) {
-            isHoveringMarker = true;
-            activeHoverBadgeKey = key;
-            clearPanelCloseTimer();
+        window.onOverlayGroupMouseEnter = function(key) {
+            hoverStateRef.isHoveringMarker = true;
+            hoverStateRef.currentKey = key;
+            clearHoverTimer();
 
-            // 패널 우측에 마우스 브릿지 영역 활성화
+            // 1) 커스텀 오버레이 부모 컨테이너 내 프리뷰 카드 노출
+            const hoverCard = document.getElementById(`hoverCard_${key}`);
+            if (hoverCard) {
+                hoverCard.classList.remove('hidden');
+            }
+
+            // 2) 패널 측 안전 브릿지 활성화
             const sidePanel = document.getElementById('sidePanel');
             if (sidePanel) sidePanel.classList.add('hover-bridge');
 
+            // 3) 좌측 상세 패널 프리뷰 동기화
             const item = window.badgeItemStore[key];
             if (item) {
-                // 이미 고정된 상세 패널이 있더라도 다른 단지 위로 마우스를 올리면 호버 프리뷰로 갱신
-                if (!isPanelPinned || !currentSelectedItem || currentSelectedItem.name !== item.name) {
+                if (!hoverStateRef.isPinned || !currentSelectedItem || currentSelectedItem.name !== item.name) {
                     showApartmentDetail(item, false); // isPinned = false (호버 모드)
                 }
             }
         };
 
+        window.onOverlayGroupMouseLeave = function(key) {
+            hoverStateRef.isHoveringMarker = false;
+
+            // 오버레이 프리뷰 카드 숨김
+            const hoverCard = document.getElementById(`hoverCard_${key}`);
+            if (hoverCard) {
+                hoverCard.classList.add('hidden');
+            }
+
+            // 1. 타이머를 이용한 딜레이 적용: 400ms 딜레이 후 닫기 예약
+            startCloseTimer(400);
+        };
+
+        // 개별 배지 이벤트 호환용
+        window.onMapBadgeMouseEnter = function(key) {
+            window.onOverlayGroupMouseEnter(key);
+        };
         window.onMapBadgeMouseLeave = function(key) {
-            isHoveringMarker = false;
-            // 1. 타이머를 이용한 딜레이 적용: 마커에서 마우스가 벗어났을 때 280ms 딜레이를 두고 패널 닫기 예약
-            schedulePanelClose(280);
+            window.onOverlayGroupMouseLeave(key);
         };
 
         window.onMapBadgeClick = function(key) {
             if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                try { kakao.maps.event.preventMap(); } catch(err) {}
+                try { kakao.maps.event.preventMap(); } catch (err) {}
             }
             flagPanelInteraction();
-            clearPanelCloseTimer();
-            isPanelPinned = true; // 사용자가 직접 '클릭'하여 연 경우 영구 고정
+            clearHoverTimer();
+            hoverStateRef.isPinned = true; // 사용자가 직접 '클릭'하여 연 경우 영구 고정
             const item = window.badgeItemStore[key];
             if (item) showApartmentDetail(item, true); // isPinned = true
         };
 
         function showApartmentDetail(item, isPinned = true) {
             if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                try { kakao.maps.event.preventMap(); } catch(err) {}
+                try { kakao.maps.event.preventMap(); } catch (err) {}
             }
             flagPanelInteraction();
-            clearPanelCloseTimer();
+            clearHoverTimer();
             if (isPinned) {
-                isPanelPinned = true;
+                hoverStateRef.isPinned = true;
             }
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
@@ -1421,11 +1494,11 @@
         }
 
         function closeApartmentDetail() {
-            clearPanelCloseTimer();
-            isPanelPinned = false;
-            isHoveringMarker = false;
-            isHoveringPanel = false;
-            activeHoverBadgeKey = null;
+            clearHoverTimer();
+            hoverStateRef.isPinned = false;
+            hoverStateRef.isHoveringMarker = false;
+            hoverStateRef.isHoveringPanel = false;
+            hoverStateRef.currentKey = null;
             currentSelectedItem = null;
             const sidePanel = document.getElementById('sidePanel');
             if (sidePanel) sidePanel.classList.remove('hover-bridge');
