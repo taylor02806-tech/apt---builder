@@ -1357,6 +1357,7 @@
                                     <div class="truncate pr-2">
                                         <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">${pyeongText}</span>
                                         <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${item.name}</h4>
+                                        <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (item.dong || currentDongName || currentAddressName) + ' ' + item.jibun : (item.dong || currentDongName || currentAddressName)}</p>
                                     </div>
                                     <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
                                 </div>
@@ -1491,7 +1492,10 @@
             document.getElementById('detailName').textContent = item.name;
             const pyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
             document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
-            document.getElementById('detailSubtitle').textContent = `${currentDongName || currentAddressName} · 전용 ${item.area}㎡ (${pyeong}평형)`;
+            
+            const targetDong = item.dong || currentDongName || currentAddressName;
+            const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
+            document.getElementById('detailSubtitle').textContent = `${addressText} · 전용 ${item.area}㎡ (${pyeong}평형)`;
 
             document.getElementById('detailLatestPrice').textContent = formatPrice(item.latest_price);
             document.getElementById('detailPrevPrice').textContent = formatPrice(item.previous_price);
