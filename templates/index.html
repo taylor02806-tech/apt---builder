@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" style="overflow-x: auto; touch-action: pan-x pan-y;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,8 +9,28 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <style>
-        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; overscroll-behavior: none; }
-        #map, #map * { touch-action: none !important; overscroll-behavior: none; }
+        html, body {
+            overflow-x: auto;
+            touch-action: pan-x pan-y;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            overscroll-behavior-y: none;
+        }
+        main {
+            overflow-x: auto;
+            touch-action: pan-x pan-y;
+            position: relative;
+            z-index: 1;
+            pointer-events: auto;
+        }
+        #map, #map * {
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+        #map {
+            position: relative;
+            z-index: 1;
+            pointer-events: auto;
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
         .segmented-item input:checked + label {
@@ -35,10 +55,10 @@
         }
     </style>
 </head>
-<body class="bg-slate-100 h-screen overflow-hidden flex text-slate-800 antialiased">
+<body class="bg-slate-100 h-screen flex text-slate-800 antialiased overflow-x-auto overflow-y-hidden" style="touch-action: pan-x pan-y;">
     
     <!-- 좌측 대시보드 패널 -->
-    <aside id="sidePanel" class="w-[480px] h-full flex flex-col bg-white border-r border-slate-200/80 z-20 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0">
+    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-20 shadow-xl flex-shrink-0 relative transition-all duration-300 ease-in-out ml-0">
         
         <!-- [화면 1] 랭킹 및 필터 패널 -->
         <div id="rankingPanel" class="flex flex-col h-full">
@@ -554,12 +574,12 @@
     </aside>
 
     <!-- 오른쪽: 지도 영역 -->
-    <main class="flex-1 h-full relative" style="touch-action: none;">
-        <div id="map" class="w-full h-full" style="touch-action: none; -webkit-overflow-scrolling: auto;"></div>
+    <main class="flex-1 h-full relative" style="touch-action: pan-x pan-y; overflow-x: auto; z-index: 1; pointer-events: auto;">
+        <div id="map" class="w-full h-full" style="touch-action: manipulation; pointer-events: auto; position: relative; z-index: 1;"></div>
         
-        <!-- 좌측 상단 플로팅 안내 바 -->
-        <div class="absolute top-5 left-5 z-10 flex items-center gap-2">
-            <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2">
+        <!-- 좌측 상단 플로팅 안내 바 (터치 가로챔 방지: 컨테이너 pointer-events-none, 버튼/배지만 auto) -->
+        <div class="absolute top-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
+            <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 pointer-events-auto">
                 <span class="relative flex h-2.5 w-2.5">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
@@ -567,7 +587,7 @@
                 <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🔍 줌 레벨 자동 필터링: 계산 중...</span>
             </div>
 
-            <button id="floatingRoadviewBtn" onclick="openRoadview()" class="hidden bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+            <button id="floatingRoadviewBtn" onclick="openRoadview()" class="hidden bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all pointer-events-auto">
                 현재 위치 로드뷰
             </button>
         </div>
@@ -661,7 +681,19 @@
                 map.setCenter(mapOption.center);
                 window.dispatchEvent(new Event('resize'));
             }
-        }, 200); 
+        }, 200);
+
+        // [모바일 제스처 최적화] window load 완료 시점에 map.relayout() 강제 호출
+        window.addEventListener('load', function() {
+            if (map) {
+                map.setDraggable(true);
+                map.relayout();
+                if (mapOption && mapOption.center) {
+                    map.setCenter(mapOption.center);
+                }
+                window.dispatchEvent(new Event('resize'));
+            }
+        }); 
         const geocoder = new kakao.maps.services.Geocoder();
         // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
         const places = new kakao.maps.services.Places();
