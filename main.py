@@ -1,7 +1,7 @@
 import hashlib
 import random
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from dateutil.relativedelta import relativedelta
 from fastapi import FastAPI, Query
@@ -40,6 +40,7 @@ class RecentTransactionItem(BaseModel):
 class ComplexHistoryResponse(BaseModel):
     dong: str
     name: str
+    build_year: Optional[int] = None
     history: List[MonthlyHistoryItem]
     recent_transactions: List[RecentTransactionItem]
 
@@ -96,15 +97,24 @@ def generate_mock_complex_data(dong: str, name: str, total_months: int = 120):
         tx_price = (tx_price // 100) * 100
         tx_floor = f"{rng.randint(2, 28)}층"
 
-        recent_transactions.append(
-            RecentTransactionItem(
-                date=tx_date,
-                price=tx_price,
-                floor=tx_floor
-            )
-        )
+    # 3. 단지별 준공년도 매핑
+    known_years = {
+        '신현대11차': 1983, '신현대9차': 1982, '신현대': 1983, '현대1,2차': 1976, '현대': 1978,
+        '은마': 1979, '은마아파트': 1979, '미도': 1983, '선경': 1983, '개포우성': 1983, '개포주공': 1982,
+        '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007, '파크리오': 2008,
+        '아크로리버파크': 2016, '래미안원베일리': 2023, '반포자이': 2009, '반포래미안퍼스티지': 2009,
+        '올림픽선수기자촌': 1988, '아시아선수촌': 1986, '헬리오시티': 2018, '마포래미안푸르지오': 2014,
+        '디에이치아너힐즈': 2019, '래미안대치팰리스': 2015, '고덕그라시움': 2019, '목동': 1986
+    }
+    build_year = None
+    for k, v in known_years.items():
+        if k in name:
+            build_year = v
+            break
+    if not build_year:
+        build_year = rng.randint(1985, 2022)
 
-    return history, recent_transactions
+    return history, recent_transactions, build_year
 
 
 # --- Endpoints ---
@@ -127,10 +137,11 @@ def get_complex_history(
     dong: str = Query(..., description="법정동 이름 (예: 반포동)"),
     name: str = Query(..., description="아파트 단지명 (예: 아크로리버파크)")
 ):
-    history, recent_transactions = generate_mock_complex_data(dong, name)
+    history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
     return ComplexHistoryResponse(
         dong=dong,
         name=name,
+        build_year=build_year,
         history=history,
         recent_transactions=recent_transactions
     )

@@ -62,11 +62,14 @@ def generate_month_list(start, end):
     return sorted(months, reverse=True)
 
 def parse_property_info(item, prop_type):
-    """부동산 종류에 따라 XML 노드에서 이름과 면적을 추출 (영문 및 한글 태그 호환)"""
+    """부동산 종류에 따라 XML 노드에서 이름과 면적, 준공년도를 추출 (영문 및 한글 태그 호환)"""
     name = "이름없음"
     area = "0"
     dong = (item.findtext('umdNm') or item.findtext('법정동') or "").strip()
     jibun = (item.findtext('jibun') or item.findtext('지번') or "").strip()
+
+    build_year_str = (item.findtext('buildYear') or item.findtext('건축년도') or "").strip()
+    build_year = int(build_year_str) if build_year_str.isdigit() else None
 
     if prop_type == 'apt':
         name = (item.findtext('aptNm') or item.findtext('아파트') or "이름없음").strip()
@@ -91,7 +94,7 @@ def parse_property_info(item, prop_type):
     except Exception:
         pass
         
-    return name, area, dong, jibun
+    return name, area, dong, jibun, build_year
 
 def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_name, api_category, trade_type):
     """단일 월 및 자치구의 거래 데이터를 조회하는 보조 함수"""
@@ -112,7 +115,7 @@ def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_n
             if scope == 'dong' and dong_name and xml_dong != dong_name:
                 continue
                 
-            name, area, dong, jibun = parse_property_info(item, prop_type)
+            name, area, dong, jibun, build_year = parse_property_info(item, prop_type)
             
             price_str = None
             if api_category == 'sale':
@@ -145,7 +148,8 @@ def fetch_month_deals(api_url, district_code, deal_ymd, prop_type, scope, dong_n
                 'dong': dong,
                 'jibun': jibun,
                 'date': date_str,
-                'price': price
+                'price': price,
+                'build_year': build_year
             })
     except Exception as e:
         print(f"[{api_category}] API 요청 오류 ({district_code}, {deal_ymd}): {str(e)}")
@@ -215,8 +219,11 @@ def get_rankings():
                         'area': deal['area'],
                         'dong': deal['dong'],
                         'jibun': deal['jibun'],
+                        'build_year': deal.get('build_year'),
                         'deals': []
                     }
+                elif not transactions[key].get('build_year') and deal.get('build_year'):
+                    transactions[key]['build_year'] = deal.get('build_year')
                 transactions[key]['deals'].append(deal)
 
     results = []
@@ -255,6 +262,7 @@ def get_rankings():
                 'area': data['area'],
                 'dong': data['dong'],
                 'jibun': data['jibun'],
+                'build_year': data.get('build_year'),
                 'latest_date': latest_date,
                 'latest_price': latest_price,
                 'previous_date': prev_date,
@@ -272,6 +280,7 @@ def get_rankings():
                 'area': data['area'],
                 'dong': data['dong'],
                 'jibun': data['jibun'],
+                'build_year': data.get('build_year'),
                 'latest_date': latest_date,
                 'latest_price': latest_price,
                 'previous_date': latest_date,

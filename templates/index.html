@@ -434,6 +434,25 @@
                     </div>
                 </div>
 
+                <!-- 단지 준공 및 건물 노후도 분석 카드 -->
+                <div id="detailBuildingAgeCard" class="hidden bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-center justify-between transition-all">
+                    <div class="flex items-center gap-3">
+                        <div id="detailAgeBadgeIcon" class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-xs shadow-sm bg-blue-500 shrink-0">
+                            신축
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-black text-slate-900" id="detailAgeBuildYear">2020년 준공</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700" id="detailAgeElapsed">4년차</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-0.5" id="detailAgeDescription">준공 5년 이하의 신축 아파트입니다.</p>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-lg bg-white border border-slate-200 shadow-xs" id="detailAgeCategoryTag">신축</span>
+                    </div>
+                </div>
+
                 <div onclick="switchDetailTab('tax')" class="bg-gradient-to-br from-indigo-50/80 to-slate-50 border border-indigo-100 rounded-2xl p-4 cursor-pointer hover:shadow-md transition-shadow">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-extrabold text-indigo-900 flex items-center gap-1">💰 1세대 1주택 세법 모의 계산</span>
@@ -991,6 +1010,118 @@
             }
         }
 
+        // 🔥 [주요 아파트 단지 준공년도 표준 데이터베이스 및 연식 분석 로직]
+        const KNOWN_COMPLEX_BUILD_YEARS = {
+            '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983, '현대1,2차': 1976, '현대3차': 1977,
+            '현대4차': 1977, '현대5차': 1977, '현대6,7차': 1978, '현대8차': 1980, '현대10차': 1982, '현대13차': 1982, '현대14차': 1987,
+            '압구정현대': 1976, '은마': 1979, '은마아파트': 1979, '미도': 1983, '선경': 1983, '개포우성': 1983,
+            '개포주공': 1982, '개포래미안블레스티지': 2019, '디에이치아너힐즈': 2019, '개포래미안포레스트': 2020, '디에이치퍼스티어아이파크': 2024,
+            '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007, '레이크팰리스': 2006, '파크리오': 2008,
+            '올림픽선수기자촌': 1988, '올림픽훼밀리타운': 1988, '아시아선수촌': 1986, '헬리오시티': 2018,
+            '아크로리버파크': 2016, '래미안원베일리': 2023, '반포자이': 2009, '반포래미안퍼스티지': 2009,
+            '반포주공1단지': 1973, '신반포2차': 1978, '신반포4차': 1979, '아크로리버뷰신반포': 2018, '래미안원펜타스': 2024,
+            '래미안대치팰리스': 2015, '도곡렉슬': 2006, '타워팰리스': 2002, '역삼래미안': 2005, '역삼푸르지오': 2006,
+            '마포래미안푸르지오': 2014, '마포프레스티지자이': 2021, '신촌그랑자이': 2020, '경희궁자이': 2017,
+            'DMC래미안e편한세상': 2012, '고덕그라시움': 2019, '고덕아르테온': 2020, '올림픽파크포레온': 2024,
+            '목동신시가지1단지': 1985, '목동신시가지2단지': 1986, '목동신시가지3단지': 1986, '목동신시가지4단지': 1986,
+            '목동신시가지5단지': 1986, '목동신시가지6단지': 1986, '목동신시가지7단지': 1986, '목동신시가지8단지': 1987,
+            '목동신시가지9단지': 1987, '목동신시가지10단지': 1987, '목동신시가지11단지': 1988, '목동신시가지12단지': 1988,
+            '목동신시가지13단지': 1987, '목동신시가지14단지': 1987, '여의도시범': 1971, '여의도삼익': 1974,
+            '여의도한양': 1975, '상계주공': 1988, '중계주공': 1992, '판교푸르지오그랑블': 2011, '과천위버필드': 2021
+        };
+
+        function getBuildingAgeInfo(item) {
+            if (!item) return null;
+            const currentYear = new Date().getFullYear();
+            let buildYear = null;
+
+            if (item.build_year) {
+                const parsed = parseInt(item.build_year);
+                if (!isNaN(parsed) && parsed >= 1950 && parsed <= currentYear + 2) {
+                    buildYear = parsed;
+                }
+            }
+
+            if (!buildYear && item.name) {
+                for (const [key, yr] of Object.entries(KNOWN_COMPLEX_BUILD_YEARS)) {
+                    if (item.name.includes(key)) {
+                        buildYear = yr;
+                        break;
+                    }
+                }
+            }
+
+            if (!buildYear && item.name) {
+                const yearMatch = item.name.match(/\b(19\d\d|20\d\d)\b/);
+                if (yearMatch) {
+                    const candidate = parseInt(yearMatch[1]);
+                    if (candidate >= 1970 && candidate <= currentYear) {
+                        buildYear = candidate;
+                    }
+                }
+            }
+
+            if (!buildYear) {
+                return null;
+            }
+
+            const age = Math.max(0, currentYear - buildYear);
+
+            if (age <= 5) {
+                return {
+                    buildYear,
+                    age,
+                    category: 'new',
+                    color: '#3b82f6',
+                    bgLight: 'bg-blue-50',
+                    textColor: 'text-blue-600',
+                    borderColor: 'border-blue-500',
+                    label: '신축 (5년 이하)',
+                    shortLabel: '신축',
+                    desc: '준공 5년 이하의 신축 아파트'
+                };
+            } else if (age < 20) {
+                return {
+                    buildYear,
+                    age,
+                    category: 'semi-new',
+                    color: '#10b981',
+                    bgLight: 'bg-emerald-50',
+                    textColor: 'text-emerald-600',
+                    borderColor: 'border-emerald-500',
+                    label: '준신축/기축 (5~19년)',
+                    shortLabel: '준신축',
+                    desc: '준공 5~19년의 안정된 기축 단지'
+                };
+            } else if (age < 30) {
+                return {
+                    buildYear,
+                    age,
+                    category: 'aging',
+                    color: '#8b5cf6',
+                    bgLight: 'bg-purple-50',
+                    textColor: 'text-purple-600',
+                    borderColor: 'border-purple-500',
+                    label: '노후 진행 (20~29년)',
+                    shortLabel: '노후 진행',
+                    desc: '준공 20~29년으로 설비 노후화 및 리모델링 고려 단계'
+                };
+            } else {
+                return {
+                    buildYear,
+                    age,
+                    category: 'reconstruction',
+                    color: '#ec4899',
+                    bgLight: 'bg-pink-50',
+                    textColor: 'text-pink-600',
+                    borderColor: 'border-pink-500',
+                    label: '30년 이상 (재건축 연한 도래)',
+                    shortLabel: '재건축 대상',
+                    desc: '준공 30년 초과로 도시정비법상 재건축 추진 연한 도래'
+                };
+            }
+        }
+
         // 2. 노후도 레이어 토글 함수
         function toggleBuildingAgeLayer(forceState = null) {
             isBuildingAgeActive = forceState !== null ? forceState : !isBuildingAgeActive;
@@ -1003,7 +1134,6 @@
                     btn.classList.remove('bg-white/95', 'text-slate-700');
                 }
                 if (legend) legend.classList.remove('hidden');
-                renderBuildingAgeDots();
             } else {
                 if (btn) {
                     btn.classList.remove('bg-pink-500', 'text-white', 'border-pink-600');
@@ -1012,6 +1142,8 @@
                 if (legend) legend.classList.add('hidden');
                 clearBuildingAgeDots();
             }
+            // 지도 배지 전체를 노후도 모드로 즉시 갱신
+            applyClientFilters(true);
         }
 
         function clearBuildingAgeDots() {
@@ -1019,69 +1151,8 @@
             buildingAgeOverlays = [];
         }
 
-        // 지도 뷰포트 내 건물 연식별 컬러 점 생성
         function renderBuildingAgeDots() {
             clearBuildingAgeDots();
-            if (!isBuildingAgeActive || !map) return;
-
-            const bounds = map.getBounds();
-            if (!bounds) return;
-
-            const sw = bounds.getSouthWest();
-            const ne = bounds.getNorthEast();
-            const latSpan = ne.getLat() - sw.getLat();
-            const lngSpan = ne.getLng() - sw.getLng();
-
-            // 너무 축소된 상태(레벨이 높을 때)에서는 과도한 렌더링 방지
-            if (map.getLevel() > 5) {
-                return;
-            }
-
-            // 아실/호갱노노 표준 연식 컬러 팔레트
-            const ageStyles = [
-                { color: '#3b82f6', label: '신축 (5년 이하)' },
-                { color: '#10b981', label: '준신축/기축 (5~19년)' },
-                { color: '#8b5cf6', label: '노후 진행 (20~29년)' },
-                { color: '#ec4899', label: '30년 이상 (재건축 연한 도래)' }
-            ];
-
-            // 뷰포트 그리드를 기반으로 한 연식 점 생성
-            const rows = 9;
-            const cols = 9;
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const noiseLat = (Math.sin(r * 4.3 + c * 2.1) + 1) / 2;
-                    const noiseLng = (Math.cos(c * 3.7 + r * 1.9) + 1) / 2;
-
-                    const dotLat = sw.getLat() + (latSpan * (r + 0.5 + (noiseLat - 0.5) * 0.7)) / rows;
-                    const dotLng = sw.getLng() + (lngSpan * (c + 0.5 + (noiseLng - 0.5) * 0.7)) / cols;
-
-                    // 연식 판별 시드
-                    const seed = Math.floor((Math.sin(dotLat * 1000 + dotLng * 1000) + 1) * 2);
-                    const ageGroup = ageStyles[seed % 4];
-
-                    const dotContent = `
-                        <div class="group relative cursor-pointer select-none" style="touch-action: manipulation;">
-                            <div class="w-3 h-3 rounded-full border border-white shadow-md transition-transform hover:scale-150" style="background-color: ${ageGroup.color};"></div>
-                            <div class="opacity-0 group-hover:opacity-100 pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 text-white text-[9px] rounded font-bold whitespace-nowrap shadow-xl transition-opacity z-50">
-                                ${ageGroup.label}
-                            </div>
-                        </div>
-                    `;
-
-                    const overlay = new kakao.maps.CustomOverlay({
-                        position: new kakao.maps.LatLng(dotLat, dotLng),
-                        content: dotContent,
-                        xAnchor: 0.5,
-                        yAnchor: 0.5,
-                        zIndex: 25,
-                        clickable: true
-                    });
-
-                    overlay.setMap(map);
-                    buildingAgeOverlays.push(overlay);
-                }
-            }
         }
 
         let idleTimer = null;
@@ -1121,7 +1192,10 @@
             let minPriceThreshold = 0;
             let zoomText = '';
 
-            if (span >= 0.1) {
+            if (isBuildingAgeActive) {
+                minPriceThreshold = 0;
+                zoomText = `🏢 아파트 단지별 준공년도 및 노후도(연식) 표시 중`;
+            } else if (span >= 0.1) {
                 minPriceThreshold = 180000;
                 zoomText = `🔍 광역 축소 상태 (18억 이상 단지별 최고가 표시)`;
             } else if (span >= 0.04) {
@@ -1238,13 +1312,36 @@
                     const diffColor = isUp ? 'text-red-500' : (isDown ? 'text-blue-500' : 'text-slate-500');
                     const diffText = isUp ? `+${formatPrice(item.diff)}` : (isDown ? `-${formatPrice(Math.abs(item.diff))}` : '보합');
 
-                    const leaderTagHtml = item.isDongLeader
-                        ? `<div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
-                               👑 ${item.dong ? item.dong + ' 1위' : '최고가'}
-                           </div>`
-                        : `<div class="bg-[#4f46e5] text-white text-[9px] font-bold px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
-                               🏢 단지 최고가
-                           </div>`;
+                    const ageInfo = getBuildingAgeInfo(item);
+
+                    // 노후도 레이어가 활성화된 경우 연식 정보 우선 표시
+                    let leaderTagHtml = '';
+                    let badgeHeaderBgStyle = '';
+                    let badgeHeaderRight = pyeongText;
+                    let badgeSubText = diffText;
+                    let badgeSubColor = '';
+                    let badgeSubClass = `text-[9px] font-bold ${diffColor} mt-0.5 leading-none`;
+
+                    if (isBuildingAgeActive && ageInfo) {
+                        leaderTagHtml = `
+                            <div class="text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]" style="background-color: ${ageInfo.color};">
+                                🏢 ${ageInfo.buildYear}년 (${ageInfo.age}년차 · ${ageInfo.shortLabel})
+                            </div>
+                        `;
+                        badgeHeaderBgStyle = `background-color: ${ageInfo.color};`;
+                        badgeHeaderRight = `${ageInfo.age}년차`;
+                        badgeSubText = ageInfo.shortLabel;
+                        badgeSubColor = `color: ${ageInfo.color};`;
+                        badgeSubClass = 'text-[9px] font-bold mt-0.5 leading-none';
+                    } else {
+                        leaderTagHtml = item.isDongLeader
+                            ? `<div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                                   👑 ${item.dong ? item.dong + ' 1위' : '최고가'}
+                               </div>`
+                            : `<div class="bg-[#4f46e5] text-white text-[9px] font-bold px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                                   🏢 단지 최고가
+                               </div>`;
+                    }
 
                     const dongNameTag = item.isDongLeader
                         ? `👑 ${item.dong ? item.dong + ' 1위' : '동 최고가'}`
@@ -1264,13 +1361,13 @@
                                  onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
                                 ${leaderTagHtml}
                                 <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[96px]">
-                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1">
+                                    <div class="${isBuildingAgeActive && ageInfo ? '' : headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1" style="${badgeHeaderBgStyle}">
                                         <span class="truncate max-w-[70px]">${item.name}</span>
-                                        <span class="text-[9px] opacity-90">${pyeongText}</span>
+                                        <span class="text-[9px] opacity-90">${badgeHeaderRight}</span>
                                     </div>
                                     <div class="px-2 py-1 bg-white flex flex-col items-center">
                                         <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
-                                        <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
+                                        <span class="${badgeSubClass}" style="${badgeSubColor}">${badgeSubText}</span>
                                     </div>
                                 </div>
                                 <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
@@ -1298,6 +1395,12 @@
                                         <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (targetDong + ' ' + item.jibun) : targetDong}</p>
                                     </div>
                                     <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] py-1 border-b border-slate-100 mb-1">
+                                    <span class="text-slate-500 font-medium">🗓️ 준공연도 / 연식</span>
+                                    <span class="font-extrabold" style="color: ${ageInfo ? ageInfo.color : '#64748b'};">
+                                        ${ageInfo ? `${ageInfo.buildYear}년 (${ageInfo.age}년차 · ${ageInfo.shortLabel})` : '건축년도 확인중'}
+                                    </span>
                                 </div>
                                 <div class="flex justify-between items-baseline text-xs mb-1">
                                     <span class="text-slate-500 font-medium text-[11px]">단지 최고 실거래가</span>
@@ -1500,8 +1603,51 @@
 
             const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
             const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
-            document.getElementById('detailSubtitle').textContent = `${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형)`;
+
+            const ageInfo = getBuildingAgeInfo(item);
+            const ageBadgeHtml = ageInfo
+                ? `<span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor} border ${ageInfo.borderColor}/50 shadow-xs">
+                       <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
+                       <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
+                   </span>`
+                : '';
+
+            document.getElementById('detailSubtitle').innerHTML = `
+                <div class="flex flex-col gap-1">
+                    <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형)</span>
+                    ${ageBadgeHtml ? `<div>${ageBadgeHtml}</div>` : ''}
+                </div>
+            `;
             document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
+
+            // 단지 준공 및 노후도 정보 카드 업데이트
+            const ageCard = document.getElementById('detailBuildingAgeCard');
+            if (ageCard) {
+                if (ageInfo) {
+                    ageCard.classList.remove('hidden');
+                    const iconEl = document.getElementById('detailAgeBadgeIcon');
+                    if (iconEl) {
+                        iconEl.textContent = ageInfo.shortLabel;
+                        iconEl.style.backgroundColor = ageInfo.color;
+                    }
+                    const yrEl = document.getElementById('detailAgeBuildYear');
+                    if (yrEl) yrEl.textContent = `${ageInfo.buildYear}년 준공`;
+                    const elEl = document.getElementById('detailAgeElapsed');
+                    if (elEl) {
+                        elEl.textContent = `${ageInfo.age}년차`;
+                        elEl.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor}`;
+                    }
+                    const descEl = document.getElementById('detailAgeDescription');
+                    if (descEl) descEl.textContent = ageInfo.desc;
+                    const catEl = document.getElementById('detailAgeCategoryTag');
+                    if (catEl) {
+                        catEl.textContent = ageInfo.label;
+                        catEl.style.color = ageInfo.color;
+                    }
+                } else {
+                    ageCard.classList.add('hidden');
+                }
+            }
 
             const latestPriceEl = document.getElementById('detailLatestPrice');
             const prevPriceEl = document.getElementById('detailPrevPrice');

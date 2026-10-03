@@ -93,6 +93,9 @@ def fetch_single_month(prop_type, url, api_key, lawd_cd, ymd):
             else:
                 day = "01"
                 
+            build_year_str = (item.findtext('buildYear') or item.findtext('건축년도') or "").strip()
+            build_year = int(build_year_str) if build_year_str.isdigit() else None
+                
             deal_ymd = ymd + day
             
             items_data.append({
@@ -100,7 +103,8 @@ def fetch_single_month(prop_type, url, api_key, lawd_cd, ymd):
                 "area": area,
                 "price": price,
                 "date": deal_ymd,
-                "dong": dong
+                "dong": dong,
+                "build_year": build_year
             })
     except Exception:
         pass
@@ -183,6 +187,7 @@ def get_soaring_plunging(lawd_cd, prop_type="apt", scope="all", dong_name=None, 
                     "previous_price": int(previous['price']),
                     "latest_date": latest['date'],
                     "previous_date": previous['date'],
+                    "build_year": latest.get('build_year'),
                     "diff": int(diff)
                 })
                 
