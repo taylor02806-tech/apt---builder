@@ -1169,18 +1169,43 @@
             }
         }
 
+        // 토스트 알림 팝업 함수
+        function showToast(message) {
+            let toast = document.getElementById('appToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'appToast';
+                toast.className = 'fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[3000] bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2.5 transition-all duration-300 opacity-0 pointer-events-none translate-y-4 max-w-sm text-center border border-white/10';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            if (window.toastTimeout) clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            }, 3800);
+        }
+
         // 개별 연립주택/단지 깔끔한 명칭 포맷 함수
         function getBuildingDisplayName(item) {
             if (!item) return '건물 정보';
             const targetDong = item.dong || currentDongName || currentAddressName || '';
             let name = (item.name || '').trim();
-            const isRowhouse = item.prop_type === 'rowhouse' || (name && (name.includes('빌라') || name.includes('연립')));
+            const isSingle = item.prop_type === 'singlehouse' || (name && (name.includes('단독') || name.includes('다가구')));
+            const isRowhouse = !isSingle && (item.prop_type === 'rowhouse' || (name && (name.includes('빌라') || name.includes('연립'))));
 
-            if (!name || name === '이름없음' || /^[\(\[\d\-]+[\)\]]?$/.test(name)) {
+            if (!name || name === '이름없음' || /^[\(\[\d\-]+[\)\]]?$/.test(name) || name === '단독' || name === '다가구' || name === '단독다가구') {
                 if (item.jibun) {
-                    return isRowhouse ? `${targetDong} ${item.jibun} 연립·다세대` : `${targetDong} ${item.jibun} 주택`;
+                    if (isRowhouse) return `${targetDong} ${item.jibun} 연립·다세대`;
+                    if (isSingle) return `${targetDong} ${item.jibun} 단독·다가구`;
+                    return `${targetDong} ${item.jibun} 주택`;
                 }
-                return isRowhouse ? '연립·다세대 주택' : '일반 건물';
+                if (isRowhouse) return '연립·다세대 주택';
+                if (isSingle) return '단독·다가구 주택';
+                return '일반 건물';
             }
 
             if (item.jibun && !name.includes(item.jibun) && isRowhouse) {
@@ -1255,8 +1280,10 @@
 
             const displayName = getBuildingDisplayName(item);
             const isReconstruction = ageInfo.category === 'reconstruction';
-            const isRowhouse = item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립')));
-            const typeLabel = isRowhouse ? '연립·다세대' : (item.name && item.name.includes('오피스텔') ? '오피스텔' : '아파트');
+            const isSingle = item.prop_type === 'singlehouse' || (item.name && (item.name.includes('단독') || item.name.includes('다가구')));
+            const isRowhouse = !isSingle && (item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립'))));
+            const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
+            const typeLabel = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
             const dotContent = `
                 <div class="age-dot-wrapper group flex items-center justify-center p-2 -m-2 select-none"
@@ -1449,12 +1476,18 @@
                             window.activeAgeDotKeys = window.activeAgeDotKeys || new Set();
                             if (window.activeAgeDotKeys.has(complexKey)) return;
 
+                            const isApt = place.place_name.includes('아파트') || (place.category_name && place.category_name.includes('아파트'));
+                            const isOffi = place.place_name.includes('오피스텔');
+                            const isRow = place.place_name.includes('빌라') || place.place_name.includes('연립') || place.place_name.includes('다세대') || place.place_name.includes('맨션');
+                            const isSingle = !isApt && !isOffi && !isRow && (place.place_name.includes('단독') || place.place_name.includes('주택'));
+                            const detectedPropType = isApt ? 'apt' : (isOffi ? 'officetel' : (isRow ? 'rowhouse' : (isSingle ? 'singlehouse' : 'rowhouse')));
+
                             const item = {
                                 name: place.place_name,
                                 dong: dong,
                                 jibun: jibun,
-                                prop_type: 'rowhouse',
-                                area: '60',
+                                prop_type: detectedPropType,
+                                area: isApt ? '84' : '60',
                                 latest_price: 0
                             };
 
@@ -1602,6 +1635,26 @@
             }
             const maxBadges = (span >= 0.04) ? 40 : 80;
             createMapBadges(mapDisplayList.slice(0, maxBadges));
+
+            // 지도 클릭 또는 검색으로 단지 포커스가 예약된 경우 상세 정보 자동 활성화
+            if (window.pendingComplexFocus) {
+                const searchTarget = window.pendingComplexFocus.replace(/아파트$/, '').trim();
+                const matched = complexList.find(c => {
+                    const cName = (c.name || '').replace(/아파트$/, '').trim();
+                    return cName.includes(searchTarget) || searchTarget.includes(cName);
+                }) || (rawDataStore.items || []).find(c => {
+                    const cName = (c.name || '').replace(/아파트$/, '').trim();
+                    return cName.includes(searchTarget) || searchTarget.includes(cName);
+                });
+
+                if (matched) {
+                    showApartmentDetail(matched);
+                } else if (window.pendingClickedItem) {
+                    showApartmentDetail(window.pendingClickedItem);
+                }
+                window.pendingComplexFocus = null;
+                window.pendingClickedItem = null;
+            }
         }
 
         function clearMapBadges() {
@@ -1753,18 +1806,39 @@
                     }
                 };
 
+                const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').replace(/-+$/, '').trim();
+                const cleanJibunQuery = cleanJibun ? `${targetDong} ${cleanJibun}번지` : null;
+
+                const validateAndRender = (pos, roadBldName = '', placeCat = '') => {
+                    // 단독·다가구 주택인 경우 아파트 단지 건물 위에 오배치되지 않도록 안전 검증
+                    if (item.prop_type === 'singlehouse') {
+                        const isAptName = /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|팰리스)/.test(roadBldName);
+                        const isAptCat = placeCat.includes('아파트');
+                        if (isAptName || isAptCat) {
+                            return; // 아파트 단지 부지 위에는 단독주택 핀을 꽂지 않음
+                        }
+                    }
+                    tryRenderBadge(pos);
+                };
+
                 geocoder.addressSearch(searchQuery, function(result, status) {
                     if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                        tryRenderBadge(new kakao.maps.LatLng(result[0].y, result[0].x));
+                        const roadBld = result[0].road_address?.building_name || '';
+                        validateAndRender(new kakao.maps.LatLng(result[0].y, result[0].x), roadBld);
+                    } else if (cleanJibunQuery) {
+                        geocoder.addressSearch(cleanJibunQuery, function(cResult, cStatus) {
+                            if (cStatus === kakao.maps.services.Status.OK && cResult.length > 0) {
+                                const roadBld = cResult[0].road_address?.building_name || '';
+                                validateAndRender(new kakao.maps.LatLng(cResult[0].y, cResult[0].x), roadBld);
+                            }
+                        });
                     } else {
                         places.keywordSearch(`${targetDong} ${item.name}`, function(pResult, pStatus) {
                             if (pStatus === kakao.maps.services.Status.OK && pResult.length > 0) {
-                                tryRenderBadge(new kakao.maps.LatLng(pResult[0].y, pResult[0].x));
-                            } else if (currentLatLng) {
-                                const offsetLat = (Math.random() - 0.5) * 0.005;
-                                const offsetLng = (Math.random() - 0.5) * 0.005;
-                                tryRenderBadge(new kakao.maps.LatLng(currentLatLng.getLat() + offsetLat, currentLatLng.getLng() + offsetLng));
+                                const place = pResult[0];
+                                validateAndRender(new kakao.maps.LatLng(place.y, place.x), place.place_name, place.category_name || '');
                             }
+                            // 💡 정확한 위치 확인이 불가능한 단독주택의 경우 임의 좌표(Math.random)로 아파트 옥상에 잘못 배치되는 현상을 완벽 차단
                         });
                     }
                 });
@@ -1911,8 +1985,10 @@
             const displayName = getBuildingDisplayName(item);
             document.getElementById('detailName').textContent = displayName;
 
-            const isRowhouse = item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립')));
-            const typeTag = isRowhouse ? '연립·다세대' : (item.name && item.name.includes('오피스텔') ? '오피스텔' : '아파트');
+            const isSingle = item.prop_type === 'singlehouse' || (item.name && (item.name.includes('단독') || item.name.includes('다가구')));
+            const isRowhouse = !isSingle && (item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립'))));
+            const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
+            const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
             const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
             const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
@@ -2873,40 +2949,98 @@
             marker.setMap(map);
             document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
 
-            // 🔥 노후도 레이어 활성화 중 클릭 시: 점이 없는 건물도 정확한 지번 주소를 역지오코딩하여 즉시 노후도 점을 생성하고 패널을 열어줌
-            if (isBuildingAgeActive) {
-                geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
-                    if (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) {
-                        const addr = addrResult[0].address;
-                        const roadAddr = addrResult[0].road_address;
-                        const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
-                        const mainNo = addr ? addr.main_address_no : '';
-                        const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
-                        const jibun = mainNo + subNo;
-                        const bldName = roadAddr && roadAddr.building_name ? roadAddr.building_name : `${targetDong} ${jibun} 건물`;
+            handleMapClickLocation(latlng);
+        });
 
-                        const clickedItem = {
-                            name: bldName,
-                            dong: targetDong,
-                            jibun: jibun,
-                            prop_type: 'rowhouse',
-                            area: '60',
-                            latest_price: 0
-                        };
+        function handleMapClickLocation(latlng, hintQuery = '') {
+            // 1. 역지오코딩으로 지번 및 건물명 추출
+            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
+                const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
+                const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
 
+                const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
+                const mainNo = addr ? addr.main_address_no : '';
+                const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
+                const jibun = mainNo + subNo;
+                const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
+
+                // 2. 카카오 장소 검색으로 반경 55m 내 아파트 단지 확인
+                places.keywordSearch('아파트', function(pResult, pStatus) {
+                    let nearbyApt = null;
+                    if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
+                        for (let i = 0; i < pResult.length; i++) {
+                            const p = pResult[i];
+                            const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                            if (dist <= 55) {
+                                nearbyApt = p;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 3. 클릭 위치가 아파트인지 지능형 판별
+                    const isAptByName = buildingName && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|파크|팰리스|우성|현대|한신|삼호|주공)/.test(buildingName);
+                    const isAptByPlace = nearbyApt && (nearbyApt.place_name.includes('아파트') || (nearbyApt.category_name && nearbyApt.category_name.includes('아파트')));
+                    const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
+                    const isApartment = isAptByName || isAptByPlace || isAptByHint;
+
+                    let finalName = '';
+                    let finalPropType = 'apt';
+
+                    if (isApartment) {
+                        finalName = (nearbyApt ? nearbyApt.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
+                        // 101동 등 동 표시 제거하여 단지 대표명 추출
+                        finalName = finalName.replace(/\s*\d+동.*$/, '').trim();
+                        finalPropType = 'apt';
+                    } else if (buildingName && buildingName.includes('오피스텔')) {
+                        finalName = buildingName;
+                        finalPropType = 'officetel';
+                    } else if (buildingName && /(빌라|연립|다세대|맨션)/.test(buildingName)) {
+                        finalName = buildingName;
+                        finalPropType = 'rowhouse';
+                    } else {
+                        finalName = buildingName || (jibun ? `${targetDong} ${jibun} 단독주택` : `${targetDong} 주택`);
+                        finalPropType = 'singlehouse';
+                    }
+
+                    // 4. 🔥 사용자 요청 핵심 해결: 사용자가 '단독·다가구' 등 다른 모드에서 아파트를 클릭한 경우
+                    const currentPropChecked = document.querySelector('input[name="prop_type"]:checked')?.value;
+                    if (isApartment && currentPropChecked !== 'apt') {
+                        const aptRadio = document.getElementById('prop_apt');
+                        if (aptRadio) {
+                            aptRadio.checked = true;
+                            showToast(`🏢 <strong>${finalName}</strong> (아파트 단지 감지)<br><span class="text-[11px] text-indigo-200">'단독·다가구'에서 <strong>'아파트'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
+                        }
+                    }
+
+                    const clickedItem = {
+                        name: finalName,
+                        dong: targetDong,
+                        jibun: jibun,
+                        prop_type: finalPropType,
+                        area: finalPropType === 'apt' ? '84' : '60',
+                        latest_price: 0
+                    };
+
+                    // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
+                    if (isBuildingAgeActive) {
                         const ageInfo = getBuildingAgeInfo(clickedItem);
                         if (ageInfo) {
                             createAgeDotOverlay(latlng, clickedItem, ageInfo);
-                            showApartmentDetail(clickedItem);
                         }
                     }
-                });
-            }
 
-            fetchRegionInfo(latlng);
-        });
+                    // 6. 단지 정보 패널 예약
+                    window.pendingComplexFocus = finalName;
+                    window.pendingClickedItem = clickedItem;
 
-        function fetchRegionInfo(latlng) {
+                    // 7. 법정동 실거래가 데이터 갱신
+                    fetchRegionInfo(latlng, false);
+                }, { location: latlng, radius: 55 });
+            });
+        }
+
+        function fetchRegionInfo(latlng, shouldCloseDetail = true) {
             geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
                     for(let i = 0; i < result.length; i++) {
@@ -2926,7 +3060,9 @@
                             document.getElementById('areaCode').textContent = `법정동: ${dongName} (${lawdCd})`;
                             document.getElementById('roadviewTitle').textContent = `${addressName} 현장 로드뷰`;
                             
-                            closeApartmentDetail();
+                            if (shouldCloseDetail && !window.pendingComplexFocus) {
+                                closeApartmentDetail();
+                            }
                             fetchData(lawdCd, dongName);
                             break;
                         }
@@ -3122,12 +3258,12 @@
             geocoder.addressSearch(query, function(addrResult, addrStatus) {
                 if (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) {
                     const latlng = new kakao.maps.LatLng(addrResult[0].y, addrResult[0].x);
-                    applyLocationResult(latlng);
+                    applyLocationResult(latlng, query);
                 } else {
                     places.keywordSearch(query, function(placeResult, placeStatus) {
                         if (placeStatus === kakao.maps.services.Status.OK && placeResult.length > 0) {
                             const latlng = new kakao.maps.LatLng(placeResult[0].y, placeResult[0].x);
-                            applyLocationResult(latlng);
+                            applyLocationResult(latlng, query);
                         } else {
                             alert(`"${query}"에 대한 위치를 찾을 수 없습니다.`);
                         }
@@ -3136,13 +3272,13 @@
             });
         }
 
-        function applyLocationResult(latlng) {
+        function applyLocationResult(latlng, query = '') {
             currentLatLng = latlng;
             map.setLevel(4);
             map.panTo(latlng);
             marker.setPosition(latlng);
             marker.setMap(map);
-            fetchRegionInfo(latlng);
+            handleMapClickLocation(latlng, query);
         }
 
         function openRoadview() {

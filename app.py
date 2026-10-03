@@ -303,10 +303,11 @@ def get_complex_history():
     dong = request.args.get('dong', '')
     name = request.args.get('name', '')
     from main import generate_mock_complex_data
-    history, recent_transactions = generate_mock_complex_data(dong, name)
+    history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
     return jsonify({
         'dong': dong,
         'name': name,
+        'build_year': build_year,
         'history': [h.model_dump() for h in history],
         'recent_transactions': [t.model_dump() for t in recent_transactions]
     })
