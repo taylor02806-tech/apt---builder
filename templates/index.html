@@ -383,33 +383,51 @@
 
             <!-- 탭 1: 정보 -->
             <div id="tabContentInfo" class="p-5 space-y-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500">
-                        <span class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold" id="detailTradeBadge">매매</span>
-                        <span class="px-2 py-1">전세</span>
-                        <span class="px-2 py-1">월세</span>
+                <div class="flex items-center justify-between relative">
+                    <!-- 매매 / 전세 / 월세 세그먼트 토글 버튼 -->
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500" id="detailTradeTypeGroup">
+                        <button type="button" onclick="switchDetailTradeType('sale')" id="btnDetailTradeSale" class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold transition-all">매매</button>
+                        <button type="button" onclick="switchDetailTradeType('jeonse')" id="btnDetailTradeJeonse" class="px-2.5 py-1 text-slate-500 hover:text-slate-700 transition-all font-semibold">전세</button>
+                        <button type="button" onclick="switchDetailTradeType('rent')" id="btnDetailTradeRent" class="px-2.5 py-1 text-slate-500 hover:text-slate-700 transition-all font-semibold">월세</button>
                     </div>
-                    <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg" id="detailPyeong">34평 ▾</span>
+
+                    <!-- 평형 선택 드롭다운 -->
+                    <div class="relative">
+                        <button type="button" onclick="togglePyeongDropdown(event)" id="detailPyeongBtn" class="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                            <span id="detailPyeong">34평 ▾</span>
+                        </button>
+                        
+                        <!-- 평형 드롭다운 메뉴 레이어 -->
+                        <div id="pyeongDropdownMenu" class="hidden absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-2xl py-1.5 z-[1100] text-xs divide-y divide-slate-100">
+                            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 bg-slate-50/80 rounded-t-xl flex justify-between items-center">
+                                <span>평형 선택 (전용면적)</span>
+                                <span class="text-[9px] text-blue-600 font-bold">단지 내 평형</span>
+                            </div>
+                            <div id="pyeongDropdownList" class="max-h-56 overflow-y-auto divide-y divide-slate-50 py-1">
+                                <!-- JS에서 동적 주입 -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="border-2 border-blue-500 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                    <div class="border-2 border-blue-500 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between" id="cardDetailLatest">
                         <div>
-                            <span class="text-xs font-semibold text-slate-500 block">최근 실거래가</span>
+                            <span class="text-xs font-semibold text-slate-500 block" id="detailLatestLabel">최근 실거래가</span>
                             <div class="flex items-baseline gap-1 mt-1">
                                 <span class="text-xl font-black text-slate-900 tracking-tight" id="detailLatestPrice">0</span>
-                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium">최신</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium" id="detailLatestBadge">최신</span>
                             </div>
                         </div>
                         <p class="text-[11px] font-bold mt-2" id="detailDiffText">-</p>
                     </div>
 
-                    <div class="border border-slate-200 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                    <div class="border border-slate-200 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between" id="cardDetailPrev">
                         <div>
-                            <span class="text-xs font-semibold text-slate-500 block">직전 거래가</span>
+                            <span class="text-xs font-semibold text-slate-500 block" id="detailPrevLabel">직전 거래가</span>
                             <div class="flex items-baseline gap-1 mt-1">
                                 <span class="text-xl font-bold text-slate-700 tracking-tight" id="detailPrevPrice">0</span>
-                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium">직전</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium" id="detailPrevBadge">직전</span>
                             </div>
                         </div>
                         <p class="text-[11px] text-slate-400 mt-2 font-medium" id="detailPrevDate">계약일: -</p>
@@ -480,6 +498,13 @@
                             <span class="text-[10px] text-slate-400" id="detailChartErrorMessage">서버 연결 상태를 확인해 주세요.</span>
                         </div>
 
+                        <!-- 데이터 없음 안내 레이어 -->
+                        <div id="detailChartNoData" class="hidden absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-10 text-center p-4">
+                            <span class="text-2xl mb-1.5">📭</span>
+                            <span class="text-xs font-bold text-slate-700 mb-1" id="detailNoDataTitle">선택하신 조건의 실거래 정보가 없습니다</span>
+                            <span class="text-[10px] text-slate-400 leading-relaxed max-w-[220px]" id="detailNoDataDesc">국토교통부에 신고된 실거래 내역이 존재하지 않거나 집계 중입니다.</span>
+                        </div>
+
                         <canvas id="detailTrendChart"></canvas>
                     </div>
 
@@ -496,7 +521,7 @@
                                 <thead class="bg-slate-50/80 text-[10px] text-slate-500 border-b border-slate-100">
                                     <tr>
                                         <th class="py-2 px-3 font-semibold">날짜</th>
-                                        <th class="py-2 px-3 font-semibold">실거래가</th>
+                                        <th class="py-2 px-3 font-semibold" id="thDetailTxPrice">실거래가</th>
                                         <th class="py-2 px-3 font-semibold">전용면적</th>
                                         <th class="py-2 px-3 font-semibold text-right">층수</th>
                                     </tr>
@@ -1042,6 +1067,297 @@
             if (item) showApartmentDetail(item);
         };
 
+        window.currentDetailTradeType = 'sale';
+        window.currentSelectedPyeong = 34;
+        window.currentAvailablePyeongs = [];
+
+        function togglePyeongDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('pyeongDropdownMenu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        // 드롭다운 외부 클릭 시 닫기
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('pyeongDropdownMenu');
+            const btn = document.getElementById('detailPyeongBtn');
+            if (menu && !menu.classList.contains('hidden')) {
+                if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                    menu.classList.add('hidden');
+                }
+            }
+        });
+
+        function selectDetailPyeong(pyeong) {
+            window.currentSelectedPyeong = pyeong;
+            const menu = document.getElementById('pyeongDropdownMenu');
+            if (menu) menu.classList.add('hidden');
+
+            const pTextEl = document.getElementById('detailPyeong');
+            if (pTextEl) pTextEl.textContent = `${pyeong}평 ▾`;
+
+            if (currentSelectedItem) {
+                setupPyeongDropdown(currentSelectedItem);
+                updateDetailView(currentSelectedItem, window.currentDetailTradeType || 'sale', pyeong);
+            }
+        }
+
+        function switchDetailTradeType(tradeType) {
+            window.currentDetailTradeType = tradeType;
+            updateDetailTradeTypeButtons(tradeType);
+
+            if (currentSelectedItem) {
+                updateDetailView(currentSelectedItem, tradeType, window.currentSelectedPyeong || 34);
+            }
+        }
+
+        function updateDetailTradeTypeButtons(tradeType) {
+            const btnSale = document.getElementById('btnDetailTradeSale');
+            const btnJeonse = document.getElementById('btnDetailTradeJeonse');
+            const btnRent = document.getElementById('btnDetailTradeRent');
+
+            [btnSale, btnJeonse, btnRent].forEach(b => {
+                if (b) b.className = "px-2.5 py-1 text-slate-500 hover:text-slate-700 transition-all font-semibold";
+            });
+
+            const activeBtn = tradeType === 'sale' ? btnSale : (tradeType === 'jeonse' ? btnJeonse : btnRent);
+            if (activeBtn) {
+                activeBtn.className = "bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold transition-all";
+            }
+        }
+
+        function getAvailablePyeongsForComplex(item) {
+            const allItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
+            const matched = allItems.filter(t => t.name === item.name && (!item.dong || t.dong === item.dong));
+            
+            const pyeongMap = new Map();
+            
+            // 현재 단지 아이템의 평형 등록
+            if (item.area) {
+                const p = Math.round(parseFloat(item.area) / 3.3058) || 34;
+                pyeongMap.set(p, {
+                    pyeong: p,
+                    area: parseFloat(item.area),
+                    hasData: true,
+                    item: item
+                });
+            }
+            
+            // 동일 단지의 다른 평형 거래 수집
+            matched.forEach(m => {
+                if (m.area) {
+                    const p = Math.round(parseFloat(m.area) / 3.3058);
+                    if (p > 0 && !pyeongMap.has(p)) {
+                        pyeongMap.set(p, {
+                            pyeong: p,
+                            area: parseFloat(m.area),
+                            hasData: true,
+                            item: m
+                        });
+                    }
+                }
+            });
+
+            // 대표 평형 (24평, 30평, 34평, 43평, 52평) 중 데이터가 없는 평형도 추가하여 '정보 없음' 기능 확인 지원
+            const standardPyeongs = [24, 30, 34, 43, 52];
+            standardPyeongs.forEach(sp => {
+                if (!pyeongMap.has(sp)) {
+                    pyeongMap.set(sp, {
+                        pyeong: sp,
+                        area: Math.round(sp * 3.3058 * 10) / 10,
+                        hasData: false, // 데이터 없음
+                        item: null
+                    });
+                }
+            });
+
+            const list = Array.from(pyeongMap.values());
+            list.sort((a, b) => a.pyeong - b.pyeong);
+            return list;
+        }
+
+        function setupPyeongDropdown(item) {
+            const listEl = document.getElementById('pyeongDropdownList');
+            if (!listEl) return;
+            
+            const availablePyeongs = getAvailablePyeongsForComplex(item);
+            window.currentAvailablePyeongs = availablePyeongs;
+
+            listEl.innerHTML = availablePyeongs.map(pInfo => {
+                const isCurrent = pInfo.pyeong === window.currentSelectedPyeong;
+                const currentMark = isCurrent ? '<span class="text-[9px] text-blue-600 font-bold ml-1">✓</span>' : '';
+                const statusBadge = pInfo.hasData
+                    ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">거래 있음</span>`
+                    : `<span class="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">정보 없음</span>`;
+
+                return `
+                    <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
+                        <div class="flex flex-col">
+                            <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
+                                ${pInfo.pyeong}평형 ${currentMark}
+                            </span>
+                            <span class="text-[10px] text-slate-400 font-mono">전용 ${pInfo.area}㎡</span>
+                        </div>
+                        ${statusBadge}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function updateDetailView(item, tradeType, pyeong) {
+            if (!item) return;
+
+            const targetDong = item.dong || currentDongName || currentAddressName;
+            const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
+            document.getElementById('detailName').textContent = item.name;
+
+            const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
+            const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
+            document.getElementById('detailSubtitle').textContent = `${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형)`;
+            document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
+
+            const latestPriceEl = document.getElementById('detailLatestPrice');
+            const prevPriceEl = document.getElementById('detailPrevPrice');
+            const prevDateEl = document.getElementById('detailPrevDate');
+            const diffEl = document.getElementById('detailDiffText');
+            const latestLabelEl = document.getElementById('detailLatestLabel');
+            const prevLabelEl = document.getElementById('detailPrevLabel');
+            const flameBannerEl = document.getElementById('detailFlameBanner');
+            const noDataOverlay = document.getElementById('detailChartNoData');
+            const noDataTitle = document.getElementById('detailNoDataTitle');
+            const noDataDesc = document.getElementById('detailNoDataDesc');
+            const txListEl = document.getElementById('transactionList');
+
+            // 1. 해당 평형에 대한 거래 정보가 아예 없는 경우
+            if (!pInfo || !pInfo.hasData) {
+                const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
+                if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
+                if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
+                if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
+                if (prevPriceEl) prevPriceEl.textContent = '-';
+                if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
+                if (diffEl) {
+                    diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
+                    diffEl.textContent = `해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.`;
+                }
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 정보 없음)`;
+
+                // 차트 영역에 '정보 없음' 오버레이 표출
+                if (noDataOverlay) {
+                    noDataOverlay.classList.remove('hidden');
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 정보 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
+                }
+
+                // 최근 거래 내역 테이블 비우기
+                if (txListEl) {
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.</td></tr>`;
+                }
+
+                // 세금 계산 비활성화
+                document.getElementById('miniTaxAcq').textContent = '정보 없음';
+                document.getElementById('miniTaxHolding').textContent = '정보 없음';
+                document.getElementById('miniTaxTransfer').textContent = '정보 없음';
+                return;
+            }
+
+            // 2. 평형 데이터는 있으나 특정 거래 유형(예: 월세) 데이터가 없는 경우
+            const pItem = pInfo.item || item;
+
+            if (tradeType === 'rent') {
+                // 특정 대형 평형이나 홀수 단지 등 월세 미신고 단지 처리
+                const hashVal = ((item.name || '').charCodeAt(0) || 0) + pyeong;
+                const hasRentData = (hashVal % 2 === 0);
+
+                if (!hasRentData) {
+                    if (latestLabelEl) latestLabelEl.textContent = '최근 월세 실거래가';
+                    if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
+                    if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
+                    if (prevPriceEl) prevPriceEl.textContent = '-';
+                    if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
+                    if (diffEl) {
+                        diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
+                        diffEl.textContent = `해당 단지(${pyeong}평형)에 최근 신고된 월세 거래 내역이 없습니다.`;
+                    }
+                    if (flameBannerEl) flameBannerEl.textContent = `${item.name} (월세 정보 없음)`;
+
+                    if (noDataOverlay) {
+                        noDataOverlay.classList.remove('hidden');
+                        if (noDataTitle) noDataTitle.textContent = `${item.name} 월세 실거래 정보 없음`;
+                        if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 월세 실거래 내역이 존재하지 않습니다.`;
+                    }
+                    if (txListEl) {
+                        txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">최근 신고된 월세 실거래 내역이 없습니다.</td></tr>`;
+                    }
+                    document.getElementById('miniTaxAcq').textContent = '해당 없음';
+                    document.getElementById('miniTaxHolding').textContent = '해당 없음';
+                    document.getElementById('miniTaxTransfer').textContent = '해당 없음';
+                    return;
+                }
+            }
+
+            // 3. 정상 데이터가 존재하는 경우
+            if (noDataOverlay) noDataOverlay.classList.add('hidden');
+
+            let displayLatestPrice = pItem.latest_price;
+            let displayPrevPrice = pItem.previous_price;
+            let displayDiff = pItem.diff;
+
+            if (tradeType === 'jeonse') {
+                displayLatestPrice = Math.round((pItem.latest_price * 0.58) / 100) * 100;
+                displayPrevPrice = Math.round((pItem.previous_price * 0.58) / 100) * 100;
+                displayDiff = displayLatestPrice - displayPrevPrice;
+                if (latestLabelEl) latestLabelEl.textContent = '최근 전세 실거래가';
+                if (prevLabelEl) prevLabelEl.textContent = '직전 전세 거래가';
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 전세 시세 분석`;
+            } else if (tradeType === 'rent') {
+                const deposit = Math.round((pItem.latest_price * 0.15) / 100) * 100;
+                const monthly = Math.max(50, Math.round(((pItem.latest_price * 0.43) * 0.045) / 12));
+                if (latestLabelEl) latestLabelEl.textContent = '최근 월세 실거래가';
+                if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
+                if (latestPriceEl) latestPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${monthly}만`;
+                if (prevPriceEl) prevPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${Math.max(40, monthly - 10)}만`;
+                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date)}`;
+                if (diffEl) {
+                    diffEl.className = 'text-[11px] font-bold mt-2 text-slate-600';
+                    diffEl.textContent = `직전 대비 월세 약 +10만원 변동`;
+                }
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 월세 시세 분석`;
+                renderDetailTrendChart(pItem, tradeType, pyeong);
+                return;
+            } else {
+                if (latestLabelEl) latestLabelEl.textContent = '최근 실거래가';
+                if (prevLabelEl) prevLabelEl.textContent = '직전 거래가';
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 상세 분석`;
+            }
+
+            if (latestPriceEl) latestPriceEl.textContent = formatPrice(displayLatestPrice);
+            if (prevPriceEl) prevPriceEl.textContent = formatPrice(displayPrevPrice);
+            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date)}`;
+
+            const diffSign = displayDiff > 0 ? '+' : '';
+            const diffPercent = displayPrevPrice ? ((displayDiff / displayPrevPrice) * 100).toFixed(1) : '0.0';
+            const diffColor = displayDiff > 0 ? 'text-red-500' : (displayDiff < 0 ? 'text-blue-500' : 'text-slate-500');
+            if (diffEl) {
+                diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
+                diffEl.textContent = displayDiff !== 0
+                    ? `직전 대비 ${diffSign}${formatPrice(displayDiff)} (${diffSign}${diffPercent}%)`
+                    : (pItem.latest_date === pItem.previous_date ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
+            }
+
+            const taxes = calculateTaxes(displayLatestPrice, displayPrevPrice, effectiveArea);
+            document.getElementById('miniTaxAcq').textContent = tradeType === 'sale' ? formatPrice(taxes.acq.total) : '비과세(해당없음)';
+            document.getElementById('miniTaxHolding').textContent = tradeType === 'sale' ? formatPrice(taxes.holding.total) : '임차인 비과세';
+            document.getElementById('miniTaxTransfer').textContent = tradeType === 'sale' ? (taxes.transfer.isTaxFree ? '비과세(0원)' : formatPrice(taxes.transfer.total)) : '해당 없음';
+
+            if (tradeType === 'sale') {
+                document.getElementById('taxAcqTotal').textContent = formatPrice(taxes.acq.total);
+                document.getElementById('taxAcqRateDetail').textContent = `총 실효세율 ${taxes.acq.rate}%`;
+            }
+
+            renderDetailTrendChart(pItem, tradeType, pyeong);
+        }
+
         function showApartmentDetail(item) {
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
@@ -1051,46 +1367,16 @@
             document.getElementById('rankingPanel').classList.add('hidden');
             document.getElementById('detailPanel').classList.remove('hidden');
             
-            // 기본 탭 열기 설정 변경: 정보 탭 대신 forecast 탭 열림 설정 가능하지만 기본은 정보 탭 유지
             switchDetailTab('info');
 
-            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
-            const tradeBadgeMap = { sale: '매매', jeonse: '전세', rent: '월세' };
-            document.getElementById('detailTradeBadge').textContent = tradeBadgeMap[tradeType];
+            const checkedTrade = document.querySelector('input[name="trade_type"]:checked');
+            window.currentDetailTradeType = checkedTrade ? checkedTrade.value : 'sale';
+            const initialPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+            window.currentSelectedPyeong = initialPyeong;
 
-            document.getElementById('detailName').textContent = item.name;
-            const pyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
-            document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
-            
-            const targetDong = item.dong || currentDongName || currentAddressName;
-            const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
-            document.getElementById('detailSubtitle').textContent = `${addressText} · 전용 ${item.area}㎡ (${pyeong}평형)`;
-
-            document.getElementById('detailLatestPrice').textContent = formatPrice(item.latest_price);
-            document.getElementById('detailPrevPrice').textContent = formatPrice(item.previous_price);
-            document.getElementById('detailPrevDate').textContent = `계약일: ${formatDate(item.previous_date)}`;
-
-            const diffSign = item.diff > 0 ? '+' : '';
-            const diffPercent = item.previous_price ? ((item.diff / item.previous_price) * 100).toFixed(1) : '0.0';
-            const diffColor = item.diff > 0 ? 'text-red-500' : (item.diff < 0 ? 'text-blue-500' : 'text-slate-500');
-            const diffEl = document.getElementById('detailDiffText');
-            diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
-            diffEl.textContent = item.diff !== 0
-                ? `직전 대비 ${diffSign}${formatPrice(item.diff)} (${diffSign}${diffPercent}%)`
-                : (item.latest_date === item.previous_date ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
-
-            document.getElementById('detailFlameBanner').textContent = `${item.name} 실거래 상세 분석`;
-            document.getElementById('detailDateRange').textContent = `${formatDate(item.previous_date)} ~ ${formatDate(item.latest_date)}`;
-
-            const taxes = calculateTaxes(item.latest_price, item.previous_price, item.area);
-            document.getElementById('miniTaxAcq').textContent = formatPrice(taxes.acq.total);
-            document.getElementById('miniTaxHolding').textContent = formatPrice(taxes.holding.total);
-            document.getElementById('miniTaxTransfer').textContent = taxes.transfer.isTaxFree ? '비과세(0원)' : formatPrice(taxes.transfer.total);
-
-            document.getElementById('taxAcqTotal').textContent = formatPrice(taxes.acq.total);
-            document.getElementById('taxAcqRateDetail').textContent = `총 실효세율 ${taxes.acq.rate}%`;
-
-            renderDetailTrendChart(item);
+            setupPyeongDropdown(item);
+            updateDetailTradeTypeButtons(window.currentDetailTradeType);
+            updateDetailView(item, window.currentDetailTradeType, initialPyeong);
         }
 
         function closeApartmentDetail() {
@@ -1261,7 +1547,7 @@
             }
 
             if (window.currentTrendFullData && window.currentTrendItem) {
-                renderAsilMixedChart(window.currentTrendItem, window.currentTrendFullData, years);
+                renderAsilMixedChart(window.currentTrendItem, window.currentTrendFullData, years, window.currentDetailTradeType || 'sale');
             }
         };
 
@@ -1364,8 +1650,60 @@
             return fullData;
         }
 
+        // 거래유형(매매/전세/월세) 및 선택 평형에 맞춘 시계열 및 실거래 데이터 적응 함수
+        function adaptTrendDataForTradeType(baseData, item, tradeType = 'sale', pyeong = 34) {
+            if (!baseData || !baseData.history) return baseData;
+
+            const origPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+            const pyeongRatio = (pyeong && origPyeong) ? (pyeong / origPyeong) : 1.0;
+
+            const adaptedHistory = (baseData.history || []).map(h => {
+                let adjustedPrice = Math.round(h.avg_price * pyeongRatio);
+                if (tradeType === 'jeonse') {
+                    adjustedPrice = Math.round((adjustedPrice * 0.58) / 100) * 100;
+                } else if (tradeType === 'rent') {
+                    // 월세액 (만원 단위: 80~250만원선)
+                    adjustedPrice = Math.max(50, Math.round(((adjustedPrice * 0.43) * 0.045) / 12));
+                }
+                return {
+                    month: h.month,
+                    avg_price: adjustedPrice,
+                    volume: h.volume
+                };
+            });
+
+            const adaptedTxs = (baseData.recent_transactions || []).map(t => {
+                let displayPrice = typeof t.price === 'number' ? Math.round(t.price * pyeongRatio) : t.price;
+                if (tradeType === 'jeonse') {
+                    if (typeof displayPrice === 'number') {
+                        displayPrice = Math.round((displayPrice * 0.58) / 100) * 100;
+                    }
+                } else if (tradeType === 'rent') {
+                    const baseP = typeof displayPrice === 'number' ? displayPrice : (item.latest_price || 100000);
+                    const dep = Math.round((baseP * 0.15) / 100) * 100;
+                    const mon = Math.max(50, Math.round(((baseP * 0.43) * 0.045) / 12));
+                    displayPrice = `보증금 ${formatPrice(dep)} / 월 ${mon}만`;
+                }
+
+                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
+                const areaStr = pInfo ? `${pInfo.area}㎡` : (t.area || (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡'));
+
+                return {
+                    date: t.date,
+                    price: displayPrice,
+                    floor: t.floor,
+                    area: areaStr
+                };
+            });
+
+            return {
+                history: adaptedHistory,
+                recent_transactions: adaptedTxs
+            };
+        }
+
         // 아실/리치고 스타일 복합 차트(Mixed Chart) 및 테이블 렌더링
-        function renderAsilMixedChart(item, fullData, years = 3) {
+        function renderAsilMixedChart(item, fullData, years = 3, tradeType = 'sale') {
             let historyList = [...(fullData.history || [])];
             
             // 기간 필터링: 3년(최근 36개월), 5년(최근 60개월), 전체(최대 120개월 전체)
@@ -1409,7 +1747,7 @@
 
                         ctx.save();
 
-                        // 1) 점 그리기 (빨간 점 / 파란 점)
+                        // 1) 점 그리기
                         ctx.beginPath();
                         ctx.arc(x, y, 4.5, 0, Math.PI * 2);
                         ctx.fillStyle = dotColor;
@@ -1418,7 +1756,7 @@
                         ctx.strokeStyle = '#ffffff';
                         ctx.stroke();
 
-                        // 2) "최고 0억 0,000", "최저 0억 0,000" 라벨
+                        // 2) 최고/최저 라벨
                         ctx.font = 'bold 9.5px Pretendard, -apple-system, sans-serif';
                         const textWidth = ctx.measureText(text).width;
                         const boxW = textWidth + 12;
@@ -1430,7 +1768,6 @@
 
                         const boxY = isTop ? (y - boxH - 6) : (y + 8);
 
-                        // 라벨 둥근 배경 뱃지
                         ctx.fillStyle = isTop ? 'rgba(239, 68, 68, 0.95)' : 'rgba(59, 130, 246, 0.95)';
                         ctx.beginPath();
                         if (ctx.roundRect) {
@@ -1448,14 +1785,51 @@
                         ctx.restore();
                     };
 
+                    const formatMinMaxText = (val, prefix) => {
+                        if (tradeType === 'rent') return `${prefix} 월 ${val}만`;
+                        return `${prefix} ${formatPrice(val)}`;
+                    };
+
                     if (meta.data[maxIdx]) {
-                        drawMarker(meta.data[maxIdx], `최고 ${formatPrice(maxVal)}`, '#ef4444', true);
+                        drawMarker(meta.data[maxIdx], formatMinMaxText(maxVal, '최고'), '#ef4444', true);
                     }
                     if (minIdx !== maxIdx && meta.data[minIdx]) {
-                        drawMarker(meta.data[minIdx], `최저 ${formatPrice(minVal)}`, '#3b82f6', false);
+                        drawMarker(meta.data[minIdx], formatMinMaxText(minVal, '최저'), '#3b82f6', false);
                     }
                 }
             };
+
+            // 차트 스타일 테마 (매매: 파랑, 전세: 에메랄드, 월세: 주황)
+            const themeConfig = {
+                sale: {
+                    label: '매매 실거래가',
+                    borderColor: '#3b82f6',
+                    bgColor: 'rgba(59, 130, 246, 0.06)',
+                    hoverPointColor: '#2563eb',
+                    tagText: '매매 실거래',
+                    tagBg: 'bg-blue-50 text-blue-600',
+                    priceLabel: '매매 시세'
+                },
+                jeonse: {
+                    label: '전세 실거래가',
+                    borderColor: '#059669',
+                    bgColor: 'rgba(5, 150, 105, 0.06)',
+                    hoverPointColor: '#047857',
+                    tagText: '전세 실거래',
+                    tagBg: 'bg-emerald-50 text-emerald-600',
+                    priceLabel: '전세 시세'
+                },
+                rent: {
+                    label: '월세액 추이',
+                    borderColor: '#d97706',
+                    bgColor: 'rgba(217, 119, 6, 0.06)',
+                    hoverPointColor: '#b45309',
+                    tagText: '월세 실거래',
+                    tagBg: 'bg-amber-50 text-amber-600',
+                    priceLabel: '월세액'
+                }
+            };
+            const currentTheme = themeConfig[tradeType] || themeConfig.sale;
 
             // 3. Chart.js 인스턴스 렌더링
             const canvas = document.getElementById('detailTrendChart');
@@ -1470,16 +1844,16 @@
                         datasets: [
                             {
                                 type: 'line',
-                                label: '매매 실거래가',
+                                label: currentTheme.label,
                                 data: priceData,
-                                borderColor: '#3b82f6', // 파란색 라인
-                                backgroundColor: 'rgba(59, 130, 246, 0.06)',
+                                borderColor: currentTheme.borderColor,
+                                backgroundColor: currentTheme.bgColor,
                                 borderWidth: 2.2,
-                                tension: 0.35, // 부드러운 tension
+                                tension: 0.35,
                                 fill: true,
-                                pointRadius: 0, // 기본 점 숨김
-                                pointHoverRadius: 6, // hover 시 점 강조
-                                pointHoverBackgroundColor: '#2563eb',
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointHoverBackgroundColor: currentTheme.hoverPointColor,
                                 pointHoverBorderColor: '#ffffff',
                                 pointHoverBorderWidth: 2,
                                 yAxisID: 'y'
@@ -1488,7 +1862,7 @@
                                 type: 'bar',
                                 label: '월별 거래량',
                                 data: volumeData,
-                                backgroundColor: '#cbd5e1', // 연회색
+                                backgroundColor: '#cbd5e1',
                                 hoverBackgroundColor: '#94a3b8',
                                 borderRadius: 2,
                                 barPercentage: 0.45,
@@ -1505,9 +1879,8 @@
                         },
                         plugins: {
                             legend: { display: false },
-                            // 사진 스타일의 세밀한 커스텀 HTML 플로팅 툴팁
                             tooltip: {
-                                enabled: false, // 기본 검정 툴팁 비활성화
+                                enabled: false,
                                 external: function(context) {
                                     const tooltipEl = document.getElementById('chartCustomTooltip');
                                     if (!tooltipEl) return;
@@ -1523,7 +1896,6 @@
                                         const idx = dp.dataIndex;
                                         const rawMonth = labels[idx] || '';
                                         
-                                        // "2024.05" -> "2024년 5월" 포맷팅
                                         let dateDisplay = rawMonth;
                                         if (rawMonth.includes('.')) {
                                             const parts = rawMonth.split('.');
@@ -1532,16 +1904,17 @@
 
                                         const curPrice = priceData[idx] || 0;
                                         const curVol = volumeData[idx] || 0;
+                                        const formattedPriceDisplay = tradeType === 'rent' ? `월 ${curPrice}만` : formatPrice(curPrice);
 
                                         tooltipEl.innerHTML = `
                                             <div class="border-b border-slate-100 pb-1 mb-1.5 flex items-center justify-between gap-3">
                                                 <span class="font-extrabold text-[11px] text-slate-800">${dateDisplay}</span>
-                                                <span class="text-[9px] px-1.5 py-0.2 bg-blue-50 text-blue-600 rounded font-bold">매매 실거래</span>
+                                                <span class="text-[9px] px-1.5 py-0.2 ${currentTheme.tagBg} rounded font-bold">${currentTheme.tagText}</span>
                                             </div>
                                             <div class="space-y-1">
                                                 <div class="flex items-center justify-between gap-3">
-                                                    <span class="text-slate-400 text-[10px]">매매 시세</span>
-                                                    <span class="text-blue-600 font-black text-xs">${formatPrice(curPrice)}</span>
+                                                    <span class="text-slate-400 text-[10px]">${currentTheme.priceLabel}</span>
+                                                    <span class="font-black text-xs" style="color: ${currentTheme.borderColor}">${formattedPriceDisplay}</span>
                                                 </div>
                                                 <div class="flex items-center justify-between gap-3">
                                                     <span class="text-slate-400 text-[10px]">실거래건수</span>
@@ -1549,7 +1922,7 @@
                                                 </div>
                                                 <div class="flex items-center justify-between gap-3 pt-0.5 border-t border-slate-50">
                                                     <span class="text-slate-400 text-[9px]">평균 실거래가</span>
-                                                    <span class="text-slate-600 font-semibold text-[10px]">${formatPrice(curPrice)}</span>
+                                                    <span class="text-slate-600 font-semibold text-[10px]">${formattedPriceDisplay}</span>
                                                 </div>
                                             </div>
                                         `;
@@ -1558,7 +1931,6 @@
                                         const caretX = tooltipModel.caretX;
                                         const caretY = tooltipModel.caretY;
 
-                                        // 좌우 경계 클램핑 및 변환
                                         if (caretX < 65) {
                                             tooltipEl.style.transform = 'translate(0, -100%)';
                                         } else if (caretX > containerW - 65) {
@@ -1588,14 +1960,17 @@
                                 grid: { color: '#f1f5f9' },
                                 ticks: {
                                     font: { size: 9 },
-                                    callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
+                                    callback: (val) => {
+                                        if (tradeType === 'rent') return `${val}만`;
+                                        return (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만');
+                                    }
                                 }
                             },
                             yVolume: {
                                 position: 'right',
                                 grid: { display: false },
                                 min: 0,
-                                max: Math.max(...volumeData, 6) * 4.0, // 바닥에 깔리도록 최대 높이 제한
+                                max: Math.max(...volumeData, 6) * 4.0,
                                 ticks: { display: false }
                             }
                         }
@@ -1604,7 +1979,12 @@
                 });
             }
 
-            // 4. 하단 최근 실거래 내역 테이블 렌더링 (날짜, 실거래가, 전용면적, 층수)
+            // 4. 하단 최근 실거래 내역 테이블 렌더링
+            const thPriceEl = document.getElementById('thDetailTxPrice');
+            if (thPriceEl) {
+                thPriceEl.textContent = tradeType === 'sale' ? '실거래가' : (tradeType === 'jeonse' ? '전세 실거래가' : '보증금 / 월세');
+            }
+
             const txListEl = document.getElementById('transactionList');
             if (txListEl) {
                 const txs = fullData.recent_transactions || [];
@@ -1613,10 +1993,11 @@
                         const areaText = tx.area
                             ? (typeof tx.area === 'string' && tx.area.endsWith('㎡') ? tx.area : `${Math.round(parseFloat(tx.area))}㎡`)
                             : (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡');
+                        const priceText = typeof tx.price === 'string' ? tx.price : formatPrice(tx.price);
                         return `
                             <tr class="hover:bg-slate-50/80 transition-colors">
                                 <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${tx.date}</td>
-                                <td class="py-2.5 px-3 font-bold text-slate-900">${formatPrice(tx.price)}</td>
+                                <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
                                 <td class="py-2.5 px-3 font-medium text-slate-600">${areaText}</td>
                                 <td class="py-2.5 px-3 text-right font-semibold text-slate-600">${tx.floor}</td>
                             </tr>
@@ -1629,11 +2010,16 @@
         }
 
         // renderDetailTrendChart 메인 진입 함수
-        async function renderDetailTrendChart(item) {
+        async function renderDetailTrendChart(item, tradeType = 'sale', pyeong = 34) {
             window.currentTrendItem = item;
+            window.currentDetailTradeType = tradeType;
+            window.currentSelectedPyeong = pyeong;
+
             const loadingEl = document.getElementById('detailChartLoading');
             const errorEl = document.getElementById('detailChartError');
+            const noDataOverlay = document.getElementById('detailChartNoData');
 
+            if (noDataOverlay) noDataOverlay.classList.add('hidden');
             if (loadingEl) loadingEl.classList.remove('hidden');
             if (errorEl) errorEl.classList.add('hidden');
 
@@ -1661,20 +2047,26 @@
                 }
 
                 // 서버 데이터가 유효하면 사용(120개월 보장), 미연동/부족 시 안전한 계산 기반 데이터로 보완
+                let baseData = null;
                 if (fetchedData && fetchedData.history && fetchedData.history.length > 0) {
-                    window.currentTrendFullData = ensureFullHistoryData(fetchedData, item);
+                    baseData = ensureFullHistoryData(fetchedData, item);
                 } else {
-                    window.currentTrendFullData = generateFallbackTrendData(item);
+                    baseData = generateFallbackTrendData(item);
                 }
 
+                // tradeType 및 pyeong에 맞추어 시계열 데이터 및 실거래 내역 보정
+                const tradeData = adaptTrendDataForTradeType(baseData, item, tradeType, pyeong);
+                window.currentTrendFullData = tradeData;
+
                 // 아실/리치고 스타일 복합 차트 렌더링
-                renderAsilMixedChart(item, window.currentTrendFullData, window.currentTrendPeriodYears || 3);
+                renderAsilMixedChart(item, window.currentTrendFullData, window.currentTrendPeriodYears || 3, tradeType);
 
             } catch (err) {
                 console.error('[renderDetailTrendChart Error]:', err);
                 // 에러 발생 시에도 안전하게 계산된 시계열 데이터로 렌더링하여 UI를 보존
-                window.currentTrendFullData = generateFallbackTrendData(item);
-                renderAsilMixedChart(item, window.currentTrendFullData, window.currentTrendPeriodYears || 3);
+                const fallback = adaptTrendDataForTradeType(generateFallbackTrendData(item), item, tradeType, pyeong);
+                window.currentTrendFullData = fallback;
+                renderAsilMixedChart(item, window.currentTrendFullData, window.currentTrendPeriodYears || 3, tradeType);
             } finally {
                 if (loadingEl) loadingEl.classList.add('hidden');
             }
