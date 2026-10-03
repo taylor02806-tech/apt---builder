@@ -289,5 +289,19 @@ def get_rankings():
         'items': items
     })
 
+@app.route('/api/complex-history', methods=['GET'])
+def get_complex_history():
+    dong = request.args.get('dong', '')
+    name = request.args.get('name', '')
+    from main import generate_mock_complex_data
+    history, recent_transactions = generate_mock_complex_data(dong, name)
+    return jsonify({
+        'dong': dong,
+        'name': name,
+        'history': [h.model_dump() for h in history],
+        'recent_transactions': [t.model_dump() for t in recent_transactions]
+    })
+
 if __name__ == '__main__':
     app.run(port=5001, debug=True)
+

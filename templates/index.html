@@ -444,11 +444,47 @@
 
                 <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-bold text-slate-800">거래 추이 곡선</span>
-                        <span class="text-[11px] font-medium text-slate-400" id="detailDateRange">최근 거래 비교</span>
+                        <span class="text-xs font-bold text-slate-800">거래 추이 곡선 (3년)</span>
+                        <span class="text-[11px] font-medium text-slate-400" id="detailDateRange">월별 시세 추이</span>
                     </div>
-                    <div class="relative h-44 w-full">
+                    <div class="relative h-52 w-full">
+                        <!-- 차트 로딩 인디케이터 -->
+                        <div id="detailChartLoading" class="hidden absolute inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 transition-opacity">
+                            <div class="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+                            <span class="text-[11px] text-slate-500 font-medium">36개월 시세 데이터를 불러오는 중...</span>
+                        </div>
+                        <!-- 차트 에러 안내 -->
+                        <div id="detailChartError" class="hidden absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-10 text-center p-4">
+                            <span class="text-sm font-bold text-red-500 mb-1">⚠️ 시세 데이터를 불러올 수 없습니다</span>
+                            <span class="text-[11px] text-slate-400" id="detailChartErrorMessage">서버 연결 상태를 확인해 주세요.</span>
+                        </div>
                         <canvas id="detailTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 최근 실거래 내역 테이블 -->
+                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span>📋</span> 최근 실거래 내역
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-medium">최신 3건</span>
+                    </div>
+                    <div class="overflow-hidden rounded-xl border border-slate-100">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-[10px] text-slate-500 border-b border-slate-100">
+                                <tr>
+                                    <th class="py-2 px-3 font-semibold">계약일</th>
+                                    <th class="py-2 px-3 font-semibold">거래금액</th>
+                                    <th class="py-2 px-3 font-semibold text-right">층수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionList" class="divide-y divide-slate-100 text-[11px] font-medium text-slate-700 bg-white">
+                                <tr>
+                                    <td colspan="3" class="py-3 text-center text-slate-400 text-xs">실거래 내역을 불러오는 중입니다...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1180,44 +1216,237 @@
             }
         }
 
-        function renderDetailTrendChart(item) {
-            const ctx = document.getElementById('detailTrendChart').getContext('2d');
-            if (chartInstances.detail) chartInstances.detail.destroy();
-            const isUp = item.diff >= 0;
-            const lineColor = isUp ? '#ef4444' : '#3b82f6';
+        async function renderDetailTrendChart(item) {
+            const loadingEl = document.getElementById('detailChartLoading');
+            const errorEl = document.getElementById('detailChartError');
+            const errorMsgEl = document.getElementById('detailChartErrorMessage');
+            const txListEl = document.getElementById('transactionList');
+            const dateRangeEl = document.getElementById('detailDateRange');
 
-            chartInstances.detail = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [formatDate(item.previous_date), formatDate(item.latest_date)],
-                    datasets: [{
-                        label: '실거래가',
-                        data: [item.previous_price, item.latest_price],
-                        borderColor: lineColor,
-                        backgroundColor: isUp ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.08)',
-                        borderWidth: 3,
-                        pointBackgroundColor: lineColor,
-                        pointRadius: 6,
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                        y: {
-                            grid: { color: '#f1f5f9' },
-                            ticks: {
-                                font: { size: 10 },
-                                callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
-                            }
+            if (loadingEl) loadingEl.classList.remove('hidden');
+            if (errorEl) errorEl.classList.add('hidden');
+            if (txListEl) {
+                txListEl.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-slate-400 text-xs">실거래 내역을 불러오는 중...</td></tr>`;
+            }
+
+            try {
+                const targetDong = item.dong || currentDongName || '';
+                const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}`;
+                
+                // 파이썬 서버(/api/complex-history) 비동기 fetch (상대경로 및 로컬 FastAPI 포트 호환)
+                const candidateUrls = [
+                    `/api/complex-history?${queryParam}`,
+                    `http://127.0.0.1:8000/api/complex-history?${queryParam}`
+                ];
+
+                let response = null;
+                let fetchError = null;
+
+                for (const url of candidateUrls) {
+                    try {
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            response = res;
+                            break;
                         }
+                    } catch (err) {
+                        fetchError = err;
                     }
                 }
-            });
+
+                if (!response || !response.ok) {
+                    throw fetchError || new Error(`서버 응답 오류 (HTTP ${response ? response.status : 'ERR'})`);
+                }
+
+                const data = await response.json();
+
+                if (!data.history || data.history.length === 0) {
+                    throw new Error('조회된 36개월 시세 이력이 없습니다.');
+                }
+
+                // 1. 차트 데이터 추출 (labels, priceData, volumeData)
+                const labels = data.history.map(h => h.month);
+                const priceData = data.history.map(h => h.avg_price);
+                const volumeData = data.history.map(h => h.volume);
+
+                if (dateRangeEl && labels.length > 0) {
+                    dateRangeEl.textContent = `${labels[0]} ~ ${labels[labels.length - 1]}`;
+                }
+
+                const maxVal = Math.max(...priceData);
+                const minVal = Math.min(...priceData);
+                const maxIdx = priceData.indexOf(maxVal);
+                const minIdx = priceData.lastIndexOf(minVal);
+
+                // 최고가 / 최저가 플러그인
+                const minMaxPlugin = {
+                    id: 'minMaxPlugin',
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const meta = chart.getDatasetMeta(0);
+                        if (!meta || !meta.data || meta.data.length === 0) return;
+
+                        const drawBadge = (pt, text, bgColor, isAbove) => {
+                            if (!pt) return;
+                            ctx.save();
+                            ctx.font = 'bold 9px Pretendard, sans-serif';
+                            const textWidth = ctx.measureText(text).width;
+                            const w = textWidth + 12;
+                            const h = 18;
+                            const x = Math.max(w / 2 + 4, Math.min(chart.width - w / 2 - 4, pt.x));
+                            const y = isAbove ? (pt.y - 12) : (pt.y + 12);
+
+                            ctx.fillStyle = bgColor;
+                            ctx.beginPath();
+                            if (ctx.roundRect) {
+                                ctx.roundRect(x - w / 2, y - h / 2, w, h, 999);
+                            } else {
+                                ctx.rect(x - w / 2, y - h / 2, w, h);
+                            }
+                            ctx.fill();
+
+                            ctx.fillStyle = '#ffffff';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(text, x, y);
+                            ctx.restore();
+                        };
+
+                        if (meta.data[maxIdx]) {
+                            drawBadge(meta.data[maxIdx], `최고 ${formatPrice(maxVal)}`, '#ef4444', true);
+                        }
+                        if (minIdx !== maxIdx && meta.data[minIdx]) {
+                            drawBadge(meta.data[minIdx], `최저 ${formatPrice(minVal)}`, '#3b82f6', false);
+                        }
+                    }
+                };
+
+                // 2. Chart.js 인스턴스 생성 및 옵션 적용
+                const canvas = document.getElementById('detailTrendChart');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    if (chartInstances.detail) chartInstances.detail.destroy();
+
+                    chartInstances.detail = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    type: 'line',
+                                    label: '평균 실거래가',
+                                    data: priceData,
+                                    borderColor: '#4f46e5',
+                                    backgroundColor: 'rgba(79, 70, 229, 0.07)',
+                                    borderWidth: 2.5,
+                                    pointBackgroundColor: '#4f46e5',
+                                    pointRadius: (ctx) => {
+                                        const idx = ctx.dataIndex;
+                                        return (idx === maxIdx || idx === minIdx) ? 5 : 0;
+                                    },
+                                    pointHoverRadius: 6,
+                                    fill: true,
+                                    tension: 0.35,
+                                    yAxisID: 'y'
+                                },
+                                {
+                                    type: 'bar',
+                                    label: '거래량',
+                                    data: volumeData,
+                                    backgroundColor: 'rgba(203, 213, 225, 0.5)',
+                                    hoverBackgroundColor: 'rgba(148, 163, 184, 0.8)',
+                                    borderRadius: 3,
+                                    barPercentage: 0.45,
+                                    yAxisID: 'yVolume'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    enabled: true,
+                                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                                    titleColor: '#ffffff',
+                                    bodyColor: '#f8fafc',
+                                    padding: 10,
+                                    cornerRadius: 8,
+                                    titleFont: { size: 11, weight: 'bold' },
+                                    bodyFont: { size: 11 },
+                                    callbacks: {
+                                        title: (items) => `${items[0].label} 거래 현황`,
+                                        label: (context) => {
+                                            if (context.dataset.yAxisID === 'yVolume') {
+                                                return ` 📊 거래량: ${context.parsed.y}건`;
+                                            }
+                                            return ` 💰 평균가: ${formatPrice(context.parsed.y)}`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: {
+                                        font: { size: 9 },
+                                        maxTicksLimit: 6,
+                                        maxRotation: 0
+                                    }
+                                },
+                                y: {
+                                    position: 'left',
+                                    grid: { color: '#f1f5f9' },
+                                    ticks: {
+                                        font: { size: 9 },
+                                        callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
+                                    }
+                                },
+                                yVolume: {
+                                    position: 'right',
+                                    grid: { display: false },
+                                    min: 0,
+                                    max: Math.max(...volumeData, 10) * 3.5,
+                                    ticks: { display: false }
+                                }
+                            }
+                        },
+                        plugins: [minMaxPlugin]
+                    });
+                }
+
+                // 3. 하단 최근 실거래 내역 테이블(transactionList) 렌더링
+                if (txListEl) {
+                    if (data.recent_transactions && data.recent_transactions.length > 0) {
+                        txListEl.innerHTML = data.recent_transactions.map(tx => `
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="py-2.5 px-3 font-mono text-slate-500">${tx.date}</td>
+                                <td class="py-2.5 px-3 font-bold text-slate-900">${formatPrice(tx.price)}</td>
+                                <td class="py-2.5 px-3 text-right font-semibold text-slate-600">${tx.floor}</td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        txListEl.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-slate-400">최근 실거래 내역이 없습니다.</td></tr>`;
+                    }
+                }
+
+            } catch (err) {
+                console.error('[renderDetailTrendChart Error]:', err);
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                    if (errorMsgEl) errorMsgEl.textContent = err.message || '네트워크 통신 오류';
+                }
+                if (txListEl) {
+                    txListEl.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-red-500 text-xs">실거래 내역을 불러오지 못했습니다. (${err.message || '오류'})</td></tr>`;
+                }
+            } finally {
+                if (loadingEl) loadingEl.classList.add('hidden');
+            }
         }
 
         function renderChart(type, dataList) {
