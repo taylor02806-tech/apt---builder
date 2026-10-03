@@ -2530,7 +2530,7 @@
             const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
             const cleanName = (item.name || '').trim();
             const propType = item.prop_type || document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
-            const lawdCd = currentLawdCd || '11650';
+            const lawdCd = item.lawd_cd || currentLawdCd || '';
 
             const startEl = document.getElementById('startMonth');
             const endEl = document.getElementById('endMonth');
@@ -3241,8 +3241,8 @@
                     };
                 } else {
                     const targetDong = item.dong || currentDongName || '';
-                    const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
-                    const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}&jibun=${encodeURIComponent(cleanJibun)}&lawd_cd=${currentLawdCd || '11650'}&prop_type=${item.prop_type || 'apt'}&trade_type=${tradeType}`;
+                    const itemLawd = item.lawd_cd || currentLawdCd || '';
+                    const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}&jibun=${encodeURIComponent(cleanJibun)}&lawd_cd=${encodeURIComponent(itemLawd)}&prop_type=${item.prop_type || 'apt'}&trade_type=${tradeType}`;
                     
                     const candidateUrls = [
                         `/api/complex-history?${queryParam}`,
@@ -3441,6 +3441,12 @@
                 const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
                 const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
 
+                let clickLawdCd = '';
+                if (addr && addr.b_code) {
+                    clickLawdCd = addr.b_code.substring(0, 5);
+                    currentLawdCd = clickLawdCd;
+                }
+
                 const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
                 const mainNo = addr ? addr.main_address_no : '';
                 const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
@@ -3522,6 +3528,7 @@
                         name: finalName,
                         dong: targetDong,
                         jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
+                        lawd_cd: clickLawdCd || currentLawdCd || '',
                         prop_type: finalPropType,
                         area: (matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'),
                         latest_price: (matchedRealDeal && matchedRealDeal.latest_price) || 0,
