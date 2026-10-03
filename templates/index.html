@@ -925,7 +925,8 @@
                         content: markerHtml,
                         xAnchor: 0.5,
                         yAnchor: 1.0,
-                        zIndex: item.isDongLeader ? 40 : 35
+                        zIndex: item.isDongLeader ? 40 : 35,
+                        clickable: true
                     });
 
                     const panelOverlay = new kakao.maps.CustomOverlay({
@@ -933,7 +934,8 @@
                         content: panelHtml,
                         xAnchor: 0.5,
                         yAnchor: 1.0,
-                        zIndex: 1050
+                        zIndex: 1050,
+                        clickable: true
                     });
 
                     window.customOverlayStore = window.customOverlayStore || {};
