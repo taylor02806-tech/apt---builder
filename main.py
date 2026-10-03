@@ -5,6 +5,7 @@ from typing import List, Optional, Any
 
 from dateutil.relativedelta import relativedelta
 from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -210,8 +211,15 @@ def read_root():
     return {
         "message": "부동산 실거래가 인사이트 FastAPI 서버가 정상 동작 중입니다.",
         "docs_url": "/docs",
+        "web_app": "/app",
         "example_endpoint": "/api/complex-history?dong=반포동&name=아크로리버파크"
     }
+
+
+@app.get("/app", response_class=HTMLResponse, summary="부동산 실거래 인사이트 웹 애플리케이션")
+def view_app():
+    with open("templates/index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 
 @app.get(
