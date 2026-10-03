@@ -796,6 +796,10 @@
                     <span class="text-[10px] text-pink-600 font-bold bg-pink-50 px-1.5 py-0.5 rounded">재건축·재개발 대상</span>
                 </div>
             </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 text-[10px] text-slate-500 leading-tight">
+                💡 <b>전체 건물 노후도 지원</b><br>
+                점 없는 건물을 클릭해도 즉시 연식을 분석해 점을 띄워드립니다.
+            </div>
         </div>
 
         <!-- 우측 하단 줌(+/-) 및 내 위치 플로팅 컨트롤 -->
@@ -1372,7 +1376,7 @@
             });
         }
 
-        // 노후도 레이어 활성화 시 해당 동의 연립주택 실거래 데이터 비동기 조회
+        // 노후도 레이어 활성화 시 해당 동의 연립·다세대 및 단독·다가구 실거래 데이터 비동기 조회
         async function loadNeighborhoodRowhousesForAge() {
             if (!isBuildingAgeActive) return;
             const targetDong = currentDongName || '';
@@ -1388,18 +1392,35 @@
             try {
                 const startEl = document.getElementById('startMonth');
                 const endEl = document.getElementById('endMonth');
-                const startMonth = startEl ? startEl.value.replace('-', '') : '202301';
+                const startMonth = startEl ? startEl.value.replace('-', '') : '202201';
                 const endMonth = endEl ? endEl.value.replace('-', '') : '202412';
-                const url = `/api/rankings?lawd_cd=${lawdCd}&prop_type=rowhouse&trade_type=sale&scope=dong&dong_name=${encodeURIComponent(targetDong)}&start_month=${startMonth}&end_month=${endMonth}`;
-                const res = await fetch(url);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.items && data.items.length > 0) {
-                        data.items.forEach(it => { it.prop_type = 'rowhouse'; });
-                        window.rowhouseAgeStore[targetDong] = data.items;
-                        if (isBuildingAgeActive) {
-                            renderBuildingAgeDots();
-                        }
+                
+                const urlRowhouse = `/api/rankings?lawd_cd=${lawdCd}&prop_type=rowhouse&trade_type=sale&scope=dong&dong_name=${encodeURIComponent(targetDong)}&start_month=${startMonth}&end_month=${endMonth}`;
+                const urlSinglehouse = `/api/rankings?lawd_cd=${lawdCd}&prop_type=singlehouse&trade_type=sale&scope=dong&dong_name=${encodeURIComponent(targetDong)}&start_month=${startMonth}&end_month=${endMonth}`;
+
+                const [resRh, resSh] = await Promise.allSettled([fetch(urlRowhouse), fetch(urlSinglehouse)]);
+                let combined = [];
+
+                if (resRh.status === 'fulfilled' && resRh.value.ok) {
+                    const dataRh = await resRh.value.json();
+                    if (dataRh && dataRh.items) {
+                        dataRh.items.forEach(it => { it.prop_type = 'rowhouse'; });
+                        combined = combined.concat(dataRh.items);
+                    }
+                }
+
+                if (resSh.status === 'fulfilled' && resSh.value.ok) {
+                    const dataSh = await resSh.value.json();
+                    if (dataSh && dataSh.items) {
+                        dataSh.items.forEach(it => { it.prop_type = 'singlehouse'; });
+                        combined = combined.concat(dataSh.items);
+                    }
+                }
+
+                if (combined.length > 0) {
+                    window.rowhouseAgeStore[targetDong] = combined;
+                    if (isBuildingAgeActive) {
+                        renderBuildingAgeDots();
                     }
                 }
             } catch (e) {
@@ -1407,15 +1428,16 @@
             }
         }
 
-        // 현재 화면 뷰포트 내의 개별 연립주택/빌라 POI 검색 및 점 표시
+        // 현재 화면 뷰포트 내의 개별 연립주택/빌라/주택 다중 페이지 탐색 및 점 표시
         function searchViewportRowhouses() {
             if (!isBuildingAgeActive || !map || map.getLevel() > 6) return;
             const bounds = map.getBounds();
             if (!bounds) return;
 
-            const keywords = ['연립주택', '빌라', '다세대'];
+            const keywords = ['빌라', '연립주택', '맨션', '다세대', '주택', '아파트'];
             keywords.forEach(kw => {
-                places.keywordSearch(kw, function(results, status) {
+                let pageCount = 1;
+                function handlePlaces(results, status, pagination) {
                     if (status === kakao.maps.services.Status.OK && results) {
                         results.forEach(place => {
                             const pos = new kakao.maps.LatLng(place.y, place.x);
@@ -1441,8 +1463,15 @@
                                 createAgeDotOverlay(pos, item, ageInfo);
                             }
                         });
+
+                        // 최대 3페이지(최대 45개 POI)까지 연속 탐색하여 빈틈없이 건물 점 배치
+                        if (pagination && pagination.hasNextPage && pageCount < 3) {
+                            pageCount++;
+                            pagination.nextPage();
+                        }
                     }
-                }, { bounds: bounds, size: 15 });
+                }
+                places.keywordSearch(kw, handlePlaces, { bounds: bounds, size: 15 });
             });
         }
 
@@ -2843,6 +2872,37 @@
             marker.setPosition(latlng);
             marker.setMap(map);
             document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+
+            // 🔥 노후도 레이어 활성화 중 클릭 시: 점이 없는 건물도 정확한 지번 주소를 역지오코딩하여 즉시 노후도 점을 생성하고 패널을 열어줌
+            if (isBuildingAgeActive) {
+                geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
+                    if (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) {
+                        const addr = addrResult[0].address;
+                        const roadAddr = addrResult[0].road_address;
+                        const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
+                        const mainNo = addr ? addr.main_address_no : '';
+                        const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
+                        const jibun = mainNo + subNo;
+                        const bldName = roadAddr && roadAddr.building_name ? roadAddr.building_name : `${targetDong} ${jibun} 건물`;
+
+                        const clickedItem = {
+                            name: bldName,
+                            dong: targetDong,
+                            jibun: jibun,
+                            prop_type: 'rowhouse',
+                            area: '60',
+                            latest_price: 0
+                        };
+
+                        const ageInfo = getBuildingAgeInfo(clickedItem);
+                        if (ageInfo) {
+                            createAgeDotOverlay(latlng, clickedItem, ageInfo);
+                            showApartmentDetail(clickedItem);
+                        }
+                    }
+                });
+            }
+
             fetchRegionInfo(latlng);
         });
 
