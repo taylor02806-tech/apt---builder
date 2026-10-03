@@ -415,6 +415,32 @@
 
             <!-- 탭 1: 정보 -->
             <div id="tabContentInfo" class="p-5 space-y-4">
+                <!-- 클릭한 개별 동 정보 카드 (해당 동이 감지된 경우 표시) -->
+                <div id="detailBuildingDongCard" class="hidden p-3.5 bg-gradient-to-r from-indigo-50/90 via-sky-50/80 to-white border border-indigo-100 rounded-2xl shadow-xs transition-all">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                                🏢
+                            </span>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-black text-sm text-indigo-950 truncate" id="detailDongName">101동</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">선택한 동</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5 truncate" id="detailDongAddress">진관동 25</p>
+                            </div>
+                        </div>
+                        <button onclick="openRoadview()" class="px-2.5 py-1.5 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-all shrink-0">
+                            <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            동 로드뷰
+                        </button>
+                    </div>
+                    <div class="mt-2.5 pt-2 border-t border-indigo-100/70 text-[10px] text-slate-500 flex items-center gap-1.5">
+                        <span class="text-indigo-600 font-bold shrink-0">ℹ️</span>
+                        <span>국토교통부 실거래가는 개인정보보호법에 따라 <strong>단지 전체 실거래(층수 표기)</strong>로 연동됩니다.</span>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-between relative">
                     <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500" id="detailTradeTypeGroup">
                         <button type="button" onclick="switchDetailTradeType('sale')" id="btnDetailTradeSale" class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold transition-all">매매</button>
@@ -1418,6 +1444,14 @@
                 return '일반 건물';
             }
 
+            if (item.building_dong) {
+                const dongStr = item.building_dong.trim();
+                if (!name.includes(dongStr)) {
+                    const cleanBase = name.replace(/\s*\d+동.*$/, '').replace(/[\(\[].*?[\)\]]/g, '').trim();
+                    return `${cleanBase || name} ${dongStr}`;
+                }
+            }
+
             if (item.jibun && !name.includes(item.jibun) && isRowhouse) {
                 return `${name} (${item.jibun})`;
             }
@@ -2356,16 +2390,40 @@
                    </span>`
                 : '';
 
+            const dongBadgeHtml = item.building_dong 
+                ? `<span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                       <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>${item.building_dong}
+                   </span>`
+                : '';
+
             document.getElementById('detailSubtitle').innerHTML = `
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                        ${dongBadgeHtml}
                         ${govBadgeHtml}
                     </div>
                     ${ageBadgeHtml ? `<div>${ageBadgeHtml}</div>` : ''}
                 </div>
             `;
             document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
+
+            // 클릭한 동 전용 카드 업데이트
+            const dongCard = document.getElementById('detailBuildingDongCard');
+            if (dongCard) {
+                if (item.building_dong) {
+                    dongCard.classList.remove('hidden');
+                    const dNameEl = document.getElementById('detailDongName');
+                    if (dNameEl) dNameEl.textContent = item.building_dong;
+                    const dAddrEl = document.getElementById('detailDongAddress');
+                    if (dAddrEl) {
+                        const fullAddr = item.road_address || (addressText + (item.building_dong ? ' ' + item.building_dong : ''));
+                        dAddrEl.textContent = fullAddr;
+                    }
+                } else {
+                    dongCard.classList.add('hidden');
+                }
+            }
 
             // 단지 준공 및 노후도 정보 카드 업데이트
             const ageCard = document.getElementById('detailBuildingAgeCard');
@@ -2537,7 +2595,7 @@
 
             const targetDong = item.dong || currentDongName || currentAddressName || '';
             const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
-            const cleanName = (item.name || '').trim();
+            const cleanName = (item.complex_name || item.name || '').replace(/\s*\d+동.*$/, '').trim();
             const propType = item.prop_type || document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
             const lawdCd = item.lawd_cd || currentLawdCd || '';
 
@@ -3482,16 +3540,36 @@
                     return false;
                 });
 
-                // 3. 카카오 장소 검색으로 반경 55m 내 주거시설 확인
+                // 3. 카카오 장소 검색으로 반경 55m 내 주거시설 확인 및 개별 동 번호(예: 915동, 101동) 추출
                 places.keywordSearch('아파트', function(pResult, pStatus) {
                     let nearbyApt = null;
+                    let detectedDong = '';
+                    const dongRegex = /(\b[A-Z0-9]+(?:-\d+)?동\b|\d+동)/;
+
+                    // 1) 도로명 상세 주소의 건물명에서 동 번호(예: 915동) 우선 확인
+                    if (buildingName) {
+                        const m = buildingName.match(dongRegex);
+                        if (m) detectedDong = m[1];
+                    }
+
+                    // 2) 장소 검색 결과 중 가장 가까운 POI 및 동 번호 탐색
                     if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
-                        for (let i = 0; i < pResult.length; i++) {
-                            const p = pResult[i];
+                        const sortedP = pResult.map(p => {
                             const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
-                            if (dist <= 55) {
+                            return { ...p, dist };
+                        }).sort((a, b) => a.dist - b.dist);
+
+                        for (let i = 0; i < sortedP.length; i++) {
+                            const p = sortedP[i];
+                            if (p.dist <= 55 && !nearbyApt) {
                                 nearbyApt = p;
-                                break;
+                            }
+                            if (p.dist <= 48 && !detectedDong) {
+                                const m = p.place_name.match(dongRegex);
+                                if (m) {
+                                    detectedDong = m[1];
+                                    if (p.dist <= 35) nearbyApt = p;
+                                }
                             }
                         }
                     }
@@ -3508,6 +3586,10 @@
                         finalName = matchedRealDeal.name;
                     } else if (isApartment) {
                         finalName = (nearbyApt ? nearbyApt.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
+                        if (!detectedDong) {
+                            const m = finalName.match(dongRegex);
+                            if (m) detectedDong = m[1];
+                        }
                         finalName = finalName.replace(/\s*\d+동.*$/, '').trim();
                         finalPropType = 'apt';
                     } else if (buildingName && buildingName.includes('오피스텔')) {
@@ -3528,13 +3610,19 @@
                         if (targetRadio) {
                             targetRadio.checked = true;
                             const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
-                            showToast(`🏢 <strong>${finalName}</strong> (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
+                            const dongNotice = detectedDong ? ` <strong>${detectedDong}</strong>` : '';
+                            showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
                         }
+                    } else if (detectedDong) {
+                        showToast(`🏢 <strong>${finalName} ${detectedDong}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedDong} 정보와 단지 실거래가가 연동되었습니다.</span>`);
                     }
 
                     const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
                     const clickedItem = {
                         name: finalName,
+                        complex_name: finalName,
+                        building_dong: detectedDong || '',
+                        road_address: roadAddr ? (roadAddr.address_name + (roadAddr.building_name ? ' ' + roadAddr.building_name : '')) : '',
                         dong: targetDong,
                         jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
                         lawd_cd: clickLawdCd || currentLawdCd || '',
@@ -3816,6 +3904,12 @@
             }
             const modal = document.getElementById('roadviewModal');
             modal.classList.remove('hidden');
+
+            const titleEl = document.getElementById('roadviewTitle');
+            if (titleEl && currentSelectedItem) {
+                const dongStr = currentSelectedItem.building_dong ? ` ${currentSelectedItem.building_dong}` : '';
+                titleEl.textContent = `${currentSelectedItem.name}${dongStr} 현장 로드뷰`;
+            }
 
             const rvContainer = document.getElementById('roadview');
             if (!roadview) {
