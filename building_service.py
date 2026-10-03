@@ -28,7 +28,7 @@ API_ENDPOINTS = {
     }
 }
 
-# 서울/수도권 주요 법정동 -> 시군구코드(LAWD_CD) 매핑 사전
+# 서울 25개 자치구 및 수도권 주요 법정동 -> 시군구코드(LAWD_CD) 매핑 사전
 # 클라이언트에서 lawd_cd가 누락되거나 이전 위치 값으로 전달되더라도 100% 자동 교정
 DONG_TO_LAWD_CD = {
     # 은평구 (11380) - 구파발, 진관동 등
@@ -74,19 +74,50 @@ DONG_TO_LAWD_CD = {
     # 양천구 (11470)
     '신정동': '11470', '목동': '11470', '신월동': '11470',
 
+    # 강서구 (11500)
+    '마곡동': '11500', '가양동': '11500', '염창동': '11500', '등촌동': '11500',
+    '화곡동': '11500', '방화동': '11500', '공항동': '11500', '내발산동': '11500', '외발산동': '11500',
+
+    # 구로구 (11530)
+    '신도림동': '11530', '구로동': '11530', '고척동': '11530', '개봉동': '11530',
+    '오류동': '11530', '천왕동': '11530', '항동': '11530', '온수동': '11530', '궁동': '11530',
+
+    # 금천구 (11545)
+    '가산동': '11545', '독산동': '11545', '시흥동': '11545',
+
     # 영등포구 (11560)
     '영등포동': '11560', '여의도동': '11560', '당산동': '11560', '문래동': '11560',
     '양평동': '11560', '신길동': '11560', '대림동': '11560',
+
+    # 동작구 (11590)
+    '노량진동': '11590', '상도동': '11590', '흑석동': '11590', '사당동': '11590', '대방동': '11590', '신대방동': '11590',
+
+    # 관악구 (11620)
+    '봉천동': '11620', '신림동': '11620', '남현동': '11620', '보라매동': '11620',
 
     # 강동구 (11740)
     '명일동': '11740', '고덕동': '11740', '상일동': '11740', '길동': '11740',
     '둔촌동': '11740', '암사동': '11740', '천호동': '11740', '강일동': '11740',
 
-    # 동작구 (11590)
-    '노량진동': '11590', '상도동': '11590', '흑석동': '11590', '사당동': '11590', '대방동': '11590',
-
     # 광진구 (11215)
     '화양동': '11215', '군자동': '11215', '중곡동': '11215', '구의동': '11215', '광장동': '11215', '자양동': '11215',
+
+    # 동대문구 (11230)
+    '용두동': '11230', '제기동': '11230', '전농동': '11230', '답십리동': '11230',
+    '장안동': '11230', '청량리동': '11230', '회기동': '11230', '휘경동': '11230', '이문동': '11230',
+
+    # 중랑구 (11260)
+    '면목동': '11260', '상봉동': '11260', '중화동': '11260', '묵동': '11260', '망우동': '11260', '신내동': '11260',
+
+    # 성북구 (11290)
+    '길음동': '11290', '돈암동': '11290', '정릉동': '11290', '종암동': '11290',
+    '하월곡동': '11290', '상월곡동': '11290', '석관동': '11290', '삼선동': '11290', '동소문동': '11290',
+
+    # 강북구 (11305)
+    '미아동': '11305', '번동': '11305', '수유동': '11305', '우이동': '11305',
+
+    # 도봉구 (11320)
+    '창동': '11320', '쌍문동': '11320', '방학동': '11320', '도봉동': '11320',
 
     # 서대문구 (11410)
     '북아현동': '11410', '홍제동': '11410', '신촌동': '11410', '연희동': '11410', '홍은동': '11410', '남가좌동': '11410', '북가좌동': '11410',
@@ -102,25 +133,70 @@ DONG_TO_LAWD_CD = {
     '판교동': '41135', '삼평동': '41135', '백현동': '41135', '운중동': '41135', '구미동': '41135',
 
     # 과천시 (41290)
-    '별양동': '41290', '중앙동': '41290', '원문동': '41290', '부림동': '41290'
+    '별양동': '41290', '원문동': '41290', '부림동': '41290',
+
+    # 하남시 (41450)
+    '망월동': '41450', '풍산동': '41450', '덕풍동': '41450', '신장동': '41450', '감일동': '41450', '학암동': '41450',
+
+    # 광명시 (41210)
+    '철산동': '41210', '하안동': '41210', '광명동': '41210', '일직동': '41210', '소하동': '41210',
+
+    # 고양시 (덕양: 41281, 일산동: 41285, 일산서: 41287)
+    '화정동': '41281', '행신동': '41281', '삼송동': '41281', '원흥동': '41281', '향동동': '41281', '지축동': '41281',
+    '백석동': '41285', '마두동': '41285', '장항동': '41285', '식사동': '41285',
+    '주엽동': '41287', '일산동': '41287', '탄현동': '41287', '대화동': '41287',
+
+    # 수원시 영통구 (41117)
+    '이의동': '41117', '하동': '41117', '매탄동': '41117', '원천동': '41117', '영통동': '41117', '망포동': '41117',
+
+    # 용인시 수지구 (41465)
+    '풍덕천동': '41465', '신봉동': '41465', '죽전동': '41465', '동천동': '41465', '상현동': '41465', '성복동': '41465',
+
+    # 화성시 (41590 - 동탄 등)
+    '청계동': '41590', '영천동': '41590', '오산동': '41590', '반송동': '41590', '석우동': '41590', '산척동': '41590', '송동': '41590',
 }
 
 def resolve_lawd_cd(lawd_cd: Optional[str], dong: Optional[str]) -> str:
-    """법정동 명칭을 기반으로 누락되거나 불일치하는 시군구코드(lawd_cd)를 자동 교정"""
-    if dong:
-        d_clean = dong.strip()
-        # 특수 케이스: 진관동/구파발 -> 은평구 (11380)
-        if '진관' in d_clean or '구파발' in d_clean:
+    """
+    법정동 명칭 및 Kakao b_code를 기반으로 국토교통부 시군구코드(lawd_cd)를 지능형 자동 판별 및 교정
+    """
+    clean_lawd = str(lawd_cd).strip() if lawd_cd else ""
+    clean_dong = str(dong).strip() if dong else ""
+
+    # 1. 카카오 역지오코딩 공식 b_code 최우선 신뢰: 5자리 숫자가 전달되었고 기본값(11650)이 아닌 경우
+    if clean_lawd and len(clean_lawd) == 5 and clean_lawd.isdigit() and clean_lawd != '11650':
+        return clean_lawd
+
+    # 2. 법정동 명칭 매핑 확인 (기본값이거나 누락된 경우 자동 교정)
+    if clean_dong:
+        # 은평구 구파발/진관동 특수 처리
+        if '진관' in clean_dong or '구파발' in clean_dong:
             return '11380'
-        if d_clean in DONG_TO_LAWD_CD:
-            return DONG_TO_LAWD_CD[d_clean]
+        if clean_dong in DONG_TO_LAWD_CD:
+            return DONG_TO_LAWD_CD[clean_dong]
         for k, v in DONG_TO_LAWD_CD.items():
-            if k.rstrip('동') == d_clean.rstrip('동'):
+            if k.rstrip('동') == clean_dong.rstrip('동'):
                 return v
 
-    if lawd_cd and len(lawd_cd) == 5:
-        return lawd_cd
+    # 3. 기본값(11650) 또는 전달된 유효 코드 반환
+    if clean_lawd and len(clean_lawd) == 5 and clean_lawd.isdigit():
+        return clean_lawd
+
     return '11650'
+
+def is_dong_match(dong1: str, dong2: str) -> bool:
+    """행정동/법정동 표기 차이(예: '반포동' vs '반포1동')를 포용하는 정밀 동 일치 검사"""
+    if not dong1 or not dong2:
+        return True
+    d1 = dong1.strip()
+    d2 = dong2.strip()
+    if d1 == d2:
+        return True
+    d1_clean = re.sub(r'[\d·\s]+', '', d1).rstrip('동')
+    d2_clean = re.sub(r'[\d·\s]+', '', d2).rstrip('동')
+    if d1_clean and d2_clean and d1_clean == d2_clean:
+        return True
+    return False
 
 # In-memory cache for monthly deals
 # Key: (lawd_cd, prop_type, api_category, ymd) -> List[Dict]
@@ -599,7 +675,7 @@ def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_j
     if clean_target_jibun:
         exact_jibun_deals = [
             d for d in deals
-            if (not target_dong or not d.get("dong") or target_dong == d["dong"])
+            if is_dong_match(target_dong, d.get("dong", ""))
             and (d.get("jibun") or "").replace("*", "").replace("~", "").strip() == clean_target_jibun
         ]
         if exact_jibun_deals:
@@ -613,7 +689,7 @@ def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_j
     if target_clean and not is_generic_name:
         name_deals = [
             d for d in deals
-            if (not target_dong or not d.get("dong") or target_dong == d["dong"])
+            if is_dong_match(target_dong, d.get("dong", ""))
             and is_complex_name_match(d.get("name", ""), target_clean)
         ]
         if name_deals:
@@ -623,7 +699,7 @@ def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_j
     if main_jibun:
         main_jibun_deals = [
             d for d in deals
-            if (not target_dong or not d.get("dong") or target_dong == d["dong"])
+            if is_dong_match(target_dong, d.get("dong", ""))
             and (d.get("jibun") or "").replace("*", "").replace("~", "").strip().split("-")[0] == main_jibun
         ]
         if main_jibun_deals:

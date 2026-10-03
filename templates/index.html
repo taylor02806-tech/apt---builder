@@ -2318,15 +2318,12 @@
                 }
             }
 
-            // 표준 평형 (24, 30, 34, 43, 52) 보완
-            if (!item.prop_type || item.prop_type === 'apt') {
-                const standardPyeongs = [24, 30, 34, 43, 52];
-                standardPyeongs.forEach(sp => {
-                    if (!pyeongMap.has(sp)) {
-                        const stdArea = Math.round(sp * 3.3058 * 0.75 * 10) / 10;
-                        pyeongMap.set(sp, { pyeong: sp, area: stdArea, hasData: false, deal_count: 0, item: null });
-                    }
-                });
+            if (pyeongMap.size === 0 && item.area) {
+                const areaVal = parseFloat(item.area);
+                if (!isNaN(areaVal) && areaVal > 0) {
+                    const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
+                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: false, deal_count: 0, item: item });
+                }
             }
 
             const list = Array.from(pyeongMap.values());
@@ -2340,6 +2337,11 @@
             
             const availablePyeongs = getAvailablePyeongsForComplex(item);
             window.currentAvailablePyeongs = availablePyeongs;
+
+            if (availablePyeongs.length === 0) {
+                listEl.innerHTML = `<div class="px-3 py-3 text-xs text-slate-400 text-center">국토교통부 등록 실거래 평형 없음</div>`;
+                return;
+            }
 
             listEl.innerHTML = availablePyeongs.map(pInfo => {
                 const isCurrent = pInfo.pyeong === window.currentSelectedPyeong;
@@ -2678,6 +2680,15 @@
                 setupPyeongDropdown(item);
                 updateDetailView(item, tradeType, window.currentSelectedPyeong);
                 renderDetailTrendChart(item, tradeType, window.currentSelectedPyeong);
+            } else {
+                // 국토교통부에 신고된 실거래 내역이 없는 경우: 정직하게 신고 내역 없음 상태로 동기화
+                item.official_pyeongs = [];
+                item.official_history = [];
+                item.official_transactions = [];
+                window.currentAvailablePyeongs = [];
+                setupPyeongDropdown(item);
+                updateDetailView(item, tradeType, window.currentSelectedPyeong || 34);
+                renderDetailTrendChart(item, tradeType, window.currentSelectedPyeong || 34);
             }
         }
 
@@ -2926,95 +2937,9 @@
             }
         };
 
-        function generateFallbackTrendData(item) {
-            const latestPrice = item.latest_price || 100000;
-            const history = [];
-            const today = new Date();
-            const totalMonths = 120;
-            
-            const startRatio = item.diff > 0 ? 0.65 : (item.diff < 0 ? 0.95 : 0.70);
-            const startPrice = Math.round(latestPrice * startRatio);
-            const slope = (latestPrice - startPrice) / (totalMonths - 1);
-
-            let hash = 0;
-            const keyStr = (item.name || '') + (item.dong || '');
-            for (let i = 0; i < keyStr.length; i++) hash = ((hash << 5) - hash) + keyStr.charCodeAt(i);
-
-            for (let i = 0; i < totalMonths; i++) {
-                const d = new Date(today.getFullYear(), today.getMonth() - ((totalMonths - 1) - i), 1);
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const monthStr = `${y}.${m}`;
-
-                const wave = Math.sin((i * 0.45) + (hash % 10)) * 0.05 * latestPrice;
-                let avg = Math.round(startPrice + slope * i + wave);
-                avg = Math.max(10000, Math.round(avg / 100) * 100);
-
-                const volBase = Math.abs(Math.cos(i * 1.5 + (hash % 7)));
-                const volume = Math.floor(volBase * 12) + 1;
-
-                history.push({ month: monthStr, avg_price: avg, volume: volume });
-            }
-
-            const recent_transactions = [];
-            for (let i = 0; i < 4; i++) {
-                const txD = new Date(today.getTime() - (i * 9 + 4) * 86400000);
-                const y = txD.getFullYear();
-                const m = String(txD.getMonth() + 1).padStart(2, '0');
-                const day = String(txD.getDate()).padStart(2, '0');
-                const pDiff = Math.round((Math.sin(i * 2 + hash) * 0.02) * latestPrice);
-                const price = Math.round((latestPrice + pDiff) / 100) * 100;
-                const floor = `${Math.floor(Math.abs(Math.sin(i * 3 + hash)) * 18) + 2}층`;
-                const area = item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡';
-
-                recent_transactions.push({
-                    date: `${y}.${m}.${day}`,
-                    price: price,
-                    floor: floor,
-                    area: area
-                });
-            }
-
-            return { history, recent_transactions };
-        }
-
         function ensureFullHistoryData(fullData, item) {
-            if (!fullData || !fullData.history || fullData.history.length === 0) {
-                return generateFallbackTrendData(item);
-            }
-            if (!fullData.recent_transactions || fullData.recent_transactions.length === 0) {
-                fullData.recent_transactions = generateFallbackTrendData(item).recent_transactions;
-            }
-            if (fullData.history.length < 120) {
-                const currentHistory = fullData.history;
-                const needed = 120 - currentHistory.length;
-                const firstItem = currentHistory[0];
-                const firstPrice = firstItem.avg_price;
-                const parts = (firstItem.month || '2023.01').split('.').map(Number);
-                const firstYear = parts[0] || 2023;
-                const firstMonth = parts[1] || 1;
-
-                const extended = [];
-                const startPrice = Math.round(firstPrice * 0.65);
-                const slope = (firstPrice - startPrice) / needed;
-
-                let hash = 0;
-                const keyStr = (item.name || '') + (item.dong || '');
-                for (let i = 0; i < keyStr.length; i++) hash = ((hash << 5) - hash) + keyStr.charCodeAt(i);
-
-                for (let i = 0; i < needed; i++) {
-                    const offset = needed - i;
-                    const d = new Date(firstYear, firstMonth - 1 - offset, 1);
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const monthStr = `${y}.${m}`;
-                    const wave = Math.sin((i * 0.5) + (hash % 10)) * 0.04 * firstPrice;
-                    let p = Math.round(startPrice + slope * i + wave);
-                    p = Math.max(10000, Math.round(p / 100) * 100);
-                    const vol = Math.floor(Math.abs(Math.cos(i * 1.3 + (hash % 5))) * 10) + 1;
-                    extended.push({ month: monthStr, avg_price: p, volume: vol });
-                }
-                fullData.history = [...extended, ...currentHistory];
+            if (!fullData || !fullData.history) {
+                return { history: [], recent_transactions: [] };
             }
             return fullData;
         }
@@ -3439,13 +3364,22 @@
                     }
                 }
 
-                let baseData = null;
-                if (fetchedData && fetchedData.history && fetchedData.history.length > 0) {
-                    baseData = ensureFullHistoryData(fetchedData, item);
-                } else {
-                    baseData = generateFallbackTrendData(item);
+                if (!fetchedData || !fetchedData.history || fetchedData.history.length === 0) {
+                    if (noDataOverlay) {
+                        noDataOverlay.classList.remove('hidden');
+                        const noDataTitle = document.getElementById('detailNoDataTitle');
+                        const noDataDesc = document.getElementById('detailNoDataDesc');
+                        if (noDataTitle) noDataTitle.textContent = `${item.name} 실거래 신고 내역 없음`;
+                        if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 실거래 내역이 존재하지 않아 시세 차트를 표시할 수 없습니다.`;
+                    }
+                    if (chartInstances.detail) {
+                        chartInstances.detail.destroy();
+                        chartInstances.detail = null;
+                    }
+                    return;
                 }
 
+                const baseData = ensureFullHistoryData(fetchedData, item);
                 const tradeData = adaptTrendDataForTradeType(baseData, item, tradeType, pyeong);
                 window.currentTrendFullData = tradeData;
 
@@ -3453,9 +3387,17 @@
 
             } catch (err) {
                 console.error('[renderDetailTrendChart Error]:', err);
-                const fallback = adaptTrendDataForTradeType(generateFallbackTrendData(item), item, tradeType, pyeong);
-                window.currentTrendFullData = fallback;
-                renderAsilMixedChart(item, window.currentTrendFullData, window.currentTrendPeriodYears || 3, tradeType);
+                if (noDataOverlay) {
+                    noDataOverlay.classList.remove('hidden');
+                    const noDataTitle = document.getElementById('detailNoDataTitle');
+                    const noDataDesc = document.getElementById('detailNoDataDesc');
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} 실거래 신고 내역 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 실거래 내역이 존재하지 않습니다.`;
+                }
+                if (chartInstances.detail) {
+                    chartInstances.detail.destroy();
+                    chartInstances.detail = null;
+                }
             } finally {
                 if (loadingEl) loadingEl.classList.add('hidden');
             }

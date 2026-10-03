@@ -50,160 +50,18 @@ class ComplexHistoryResponse(BaseModel):
     is_real_data: Optional[bool] = False
 
 
-# --- Mock Data Generator ---
-def generate_mock_complex_data(dong: str, name: str, total_months: int = 120):
-    """
-    공공데이터 실거래가 API 연동 전 프론트엔드 차트 및 대시보드 테스트용 Mock 데이터 생성기.
-    3년(36개월), 5년(60개월), 전체(최대 120개월/10년) 기간별 조회를 위해 기본 120개월 치를 생성합니다.
-    """
-    seed_str = f"{dong.strip()}_{name.strip()}"
-    seed_val = int(hashlib.md5(seed_str.encode("utf-8")).hexdigest()[:8], 16)
-    rng = random.Random(seed_val)
-
-    today = date.today()
-
-    # 10년 전부터 현재 시점까지 자연스러운 장기 상승 흐름 (초기 약 58,000~72,000만원 -> 현재 132,000~148,000만원)
-    base_price = rng.randint(58000, 72000)       # 약 10년 전 초기 가격
-    target_price = rng.randint(132000, 148000)   # 현재 시점 목표 가격
-    price_slope = (target_price - base_price) / float(max(1, total_months - 1))
-
-    # 1. 과거 total_months (기본 120개월/10년) 치 월별 시세 및 거래량 데이터
-    history: List[MonthlyHistoryItem] = []
-    for i in range(total_months):
-        month_offset = (total_months - 1) - i
-        dt = today - relativedelta(months=month_offset)
-        month_str = dt.strftime("%Y.%m")
-
-        # 완만한 장기 우상향에 자연스러운 월별 등락(±2500만원) 추가
-        fluctuation = rng.randint(-2500, 2500)
-        simulated_price = int(base_price + (price_slope * i) + fluctuation)
-        avg_price = max(40000, min(160000, (simulated_price // 100) * 100))
-
-        # 1 ~ 15건 사이 월별 거래량
-        volume = rng.randint(1, 15)
-
-        history.append(
-            MonthlyHistoryItem(
-                month=month_str,
-                avg_price=avg_price,
-                volume=volume
-            )
-        )
-
-    # 2. 최근 실거래 내역 3건 (최신순)
-    latest_avg = history[-1].avg_price
-    recent_transactions: List[RecentTransactionItem] = []
-    
-    # 최근 며칠 전 거래인지 오름차순으로 생성 후 날짜 계산
-    day_offsets = [rng.randint(2, 8), rng.randint(9, 20), rng.randint(21, 45)]
-    for day_ago in day_offsets:
-        tx_date = (today - relativedelta(days=day_ago)).strftime("%Y.%m.%d")
-        tx_price = max(40000, min(250000, latest_avg + rng.randint(-3500, 4000)))
-        tx_price = (tx_price // 100) * 100
-        tx_floor = f"{rng.randint(2, 28)}층"
-        recent_transactions.append(
-            RecentTransactionItem(
-                date=tx_date,
-                price=tx_price,
-                floor=tx_floor,
-                area="84.9㎡"
-            )
-        )
-
-    # 3. 단지별 준공년도 매핑
-    known_years = {
-        # 서초구
-        '아크로리버파크': 2016, '래미안원베일리': 2023, '반포자이': 2009, '반포래미안퍼스티지': 2009,
-        '반포센트럴자이': 2020, '반포써밋': 2018, '래미안신반포원펜타스': 2024, '디에이치반포라클라스': 2021,
-        '디에이치라클라스': 2021, '반포미도1차': 1987, '반포미도2차': 1989, '반포미도': 1987,
-        '신반포1차': 1977, '신반포2차': 1978, '신반포3차': 1978, '신반포4차': 1979, '신반포7차': 1980,
-        '신반포10차': 1981, '신반포12차': 1982, '신반포14차': 1983, '신반포15차': 1982, '신반포16차': 1983,
-        '신반포18차': 1983, '신반포19차': 1983, '신반포20차': 1983, '신반포21차': 1984, '신반포22차': 1983,
-        '신반포자이': 2018, '아크로리버뷰신반포': 2018, '아크로리버뷰': 2018, '래미안신반포리오센트': 2019,
-        '잠원동아': 2002, '잠원한신': 1992, '잠원신동아': 1980, '메이플자이': 2025, '반포주공1단지': 1973,
-        '방배삼호1차': 1976, '방배삼호2차': 1976, '방배삼호3차': 1976, '방배삼호': 1976,
-        '방배신삼호': 1983, '방배래미안아트힐': 2004, '방배그랑자이': 2021, '방배롯데캐슬아르떼': 2013,
-        '방배서리풀e편한세상': 2010, '방배아트자이': 2018, '방배우성': 1991, '방배임광': 1985,
-        '방배대우효령': 1992, '서초그랑자이': 2021, '래미안리더스원': 2020, '래미안서초에스티지S': 2018,
-        '래미안서초에스티지': 2016, '서초삼풍': 1988, '서초무지개': 1978, '서초우성1차': 1979,
-        '서초우성2차': 1978, '서초우성3차': 1978, '서초신동아': 1978, '아크로비스타': 2004,
-        '롯데캐슬클래식': 2006, '서초포레스타2단지': 2014, '서초포레스타3단지': 2014, '서초포레스타5단지': 2014,
-        '서초포레스타': 2014, '삼호가든3차': 1982, '삼호가든4차': 1983, '삼호가든': 1982,
-        '반포리체': 2010, '반포힐스테이트': 2011,
-
-        # 강남구
-        '압구정현대': 1976, '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983,
-        '현대1,2차': 1976, '현대3차': 1977, '현대4차': 1977, '현대5차': 1977, '현대6,7차': 1978,
-        '현대8차': 1980, '현대10차': 1982, '현대13차': 1982, '현대14차': 1987,
-        '은마': 1979, '은마아파트': 1979, '한보미도맨션': 1983, '대치미도': 1983,
-        '개포선경': 1983, '대치선경': 1983, '개포우성1차': 1983, '개포우성2차': 1984,
-        '개포주공1단지': 1982, '개포주공5단지': 1983, '개포주공6단지': 1983, '개포주공7단지': 1983,
-        '개포래미안블레스티지': 2019, '디에이치아너힐즈': 2019, '개포래미안포레스트': 2020,
-        '디에이치퍼스티어아이파크': 2024, '래미안블레스티지': 2019, '래미안대치팰리스': 2015,
-        '대치아이파크': 2007, '도곡렉슬': 2006, '타워팰리스1차': 2002, '타워팰리스2차': 2003,
-        '타워팰리스3차': 2004, '대치동부센트레빌': 2005, '대치삼성': 2000, '역삼래미안': 2005,
-        '역삼푸르지오': 2006, '개나리래미안': 2006, '삼성동아이파크': 2004, '래미안라클래시': 2021,
-        '청담자이': 2011, '청담삼익': 1980, '한양1차': 1977, '한양2차': 1978,
-        '한양3차': 1978, '한양4차': 1978, '한양5차': 1979, '한양6차': 1980,
-
-        # 송파구
-        '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007,
-        '레이크팰리스': 2006, '파크리오': 2008, '헬리오시티': 2018, '올림픽선수기자촌': 1988,
-        '올림픽훼밀리타운': 1988, '아시아선수촌': 1986, '잠실진주': 1980, '잠실미성': 1980,
-        '잠실크로바': 1980, '장미1차': 1979, '장미2차': 1979, '송파시그니처롯데캐슬': 2022,
-        '파크하비오': 2016,
-
-        # 용산구/성동구/마포구
-        '한남더힐': 2011, '나인원한남': 2019, '한강맨션': 1971, '용산센트럴파크': 2020,
-        '래미안첼리투스': 2015, '이촌한강자이': 2003, '이촌현대': 1974, '이촌신동아': 1983,
-        '트리마제': 2017, '아크로서울포레스트': 2020, '갤러리아포레': 2011, '옥수리버젠': 2012,
-        '옥수파크힐스': 2016, '센트라스': 2016, '텐즈힐1단지': 2015, '텐즈힐2단지': 2014,
-        '행당대림': 2000, '마포래미안푸르지오': 2014, '마포프레스티지자이': 2021, '마포더클래시': 2022,
-        '신촌그랑자이': 2020, '래미안마포리버웰': 2014, '마포자이': 2004, '공덕자이': 2015,
-        '공덕래미안': 2004, '경희궁자이': 2017, 'DMC래미안e편한세상': 2012,
-
-        # 양천/강동/노원/기타
-        '목동신시가지1단지': 1985, '목동신시가지2단지': 1986, '목동신시가지3단지': 1986,
-        '목동신시가지4단지': 1986, '목동신시가지5단지': 1986, '목동신시가지6단지': 1986,
-        '목동신시가지7단지': 1986, '목동신시가지8단지': 1987, '목동신시가지9단지': 1987,
-        '목동신시가지10단지': 1987, '목동신시가지11단지': 1988, '목동신시가지12단지': 1988,
-        '목동신시가지13단지': 1987, '목동신시가지14단지': 1987, '목동센트럴푸르지오': 2015,
-        '목동힐스테이트': 2016, '고덕그라시움': 2019, '고덕아르테온': 2020,
-        '올림픽파크포레온': 2024, '둔촌주공': 1980, '래미안명일역솔베뉴': 2019,
-        '상계주공1단지': 1988, '상계주공2단지': 1987, '상계주공3단지': 1987,
-        '상계주공5단지': 1987, '상계주공6단지': 1988, '상계주공7단지': 1988,
-        '포레나노원': 2020, '중계무지개': 1991, '중계그린': 1990,
-        '여의도시범': 1971, '여의도삼익': 1974, '여의도한양': 1975,
-        '판교푸르지오그랑블': 2011, '과천위버필드': 2021
-    }
-    build_year = None
-    # 긴 이름(구체적인 단지명)부터 우선 매칭하여 '현대', '목동' 등 단축명으로 인한 오매칭 방지
-    dong_clean = dong.rstrip("동") if dong else ""
-    combined_name = f"{dong_clean}{name}"
-    for k in sorted(known_years.keys(), key=len, reverse=True):
-        if k in name or (dong_clean and k in combined_name):
-            build_year = known_years[k]
-            break
-
-    if not build_year:
-        import re
-        year_match = re.search(r'\b(19\d\d|20\d\d)\b', name)
-        if year_match:
-            cand = int(year_match.group(1))
-            if 1970 <= cand <= today.year:
-                build_year = cand
-
-    if not build_year:
-        if any(w in name for w in ['주공', '시영', '삼호', '한양', '맨션', '시민', '공영']):
-            build_year = 1975 + (seed_val % 13) # 1975 ~ 1987 (재건축)
-        elif any(w in name for w in ['자이', '푸르지오', '래미안', '힐스테이트', '아이파크', '더샵', '롯데캐슬', 'e편한세상', '디에이치', '아크로', '르엘', '포레나', '센트럴', '파크', '클래시', '베일리', '써밋']):
-            build_year = 2009 + (seed_val % 15) # 2009 ~ 2023 (신축/준신축)
-        elif any(w in name for w in ['현대', '우성', '동아', '대우', '대림', '극동', '삼풍', '미도', '선경', '벽산', '건영', '청구', '신동아', '한신']):
-            build_year = 1988 + (seed_val % 13) # 1988 ~ 2000 (기축)
-        else:
-            build_year = 1996 + (seed_val % 24)
-
-    return history, recent_transactions, build_year
+# 전국 주요 시/도 선택 시 종합 분석을 위한 주요 자치구 매핑
+SIDO_MAJOR_DISTRICTS = {
+    "11": ["11680", "11650", "11710", "11440", "11170", "11350", "11380", "11500"], # 서울: 강남, 서초, 송파, 마포, 용산, 노원, 은평, 강서
+    "41": ["41135", "41117", "41465", "41450", "41590", "41281", "41210"], # 경기: 성남분당, 수원영통, 용인수지, 하남, 화성, 고양덕양, 광명
+    "28": ["28185", "28200", "28260", "28237"], # 인천: 연수, 남동, 서구, 부평
+    "26": ["26350", "26500", "26260", "26290", "26230"], # 부산: 해운대, 수영, 동래, 남구, 부산진
+    "27": ["27260", "27290", "27110", "27230"], # 대구: 수성, 달서, 중구, 북구
+    "29": ["29155", "29200", "29140", "29170"], # 광주: 남구, 광산, 서구, 북구
+    "30": ["30200", "30170", "30140"], # 대전: 유성, 서구, 중구
+    "31": ["31140", "31110", "31200"], # 울산: 남구, 중구, 북구
+    "36": ["36110"], # 세종
+}
 
 
 # --- Endpoints ---
@@ -309,12 +167,170 @@ def get_complex_history(
             is_real_data=True
         )
 
-    history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
+    # 실거래 내역이 없는 경우: 절대로 가짜 랜덤/목업 데이터를 생성하지 않고, 투명하게 빈 내역을 반환
     return ComplexHistoryResponse(
         dong=dong,
         name=name,
-        build_year=build_year,
-        history=history,
-        recent_transactions=recent_transactions,
+        build_year=None,
+        history=[],
+        recent_transactions=[],
+        pyeongs=[],
+        matched_dong_pyeong=None,
         is_real_data=False
     )
+
+
+@app.get(
+    "/api/rankings",
+    summary="부동산 실거래가 랭킹 및 단지 목록 조회",
+    description="국토교통부 실거래가 공공데이터를 기반으로 최고가, 급상승, 급하락 및 단지 목록을 제공합니다."
+)
+def get_rankings(
+    lawd_cd: str = Query(..., description="시군구코드 5자리 또는 시/도 2자리"),
+    prop_type: str = Query(default="apt", description="부동산 종류 (apt, officetel, rowhouse, singlehouse, land)"),
+    trade_type: str = Query(default="sale", description="거래 유형 (sale, jeonse, rent)"),
+    scope: str = Query(default="all", description="조회 범위 (all, dong)"),
+    dong_name: Optional[str] = Query(default="", description="읍면동 이름 (scope='dong'일 때)"),
+    start_month: Optional[str] = Query(default=None),
+    end_month: Optional[str] = Query(default=None)
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from building_service import fetch_single_month, generate_month_list, is_dong_match
+
+    if not lawd_cd:
+        return {"error": "필수 파라미터(lawd_cd)가 누락되었습니다."}
+
+    api_category = 'rent' if trade_type in ['jeonse', 'rent'] else 'sale'
+    months_to_fetch = generate_month_list(start_month, end_month, default_count=6)
+
+    # 과도한 트래픽 방지 (최대 36개월)
+    if len(months_to_fetch) > 36:
+        months_to_fetch = months_to_fetch[:36]
+
+    districts = [lawd_cd]
+    if len(lawd_cd) == 2:
+        districts = SIDO_MAJOR_DISTRICTS.get(lawd_cd, [])
+        if not districts:
+            return {"soaring": [], "plunging": [], "items": []}
+
+    fetch_tasks = []
+    for d_cd in districts:
+        for deal_ymd in months_to_fetch:
+            fetch_tasks.append((d_cd, deal_ymd))
+
+    all_deals = []
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = [
+            executor.submit(fetch_single_month, d_cd, prop_type, api_category, deal_ymd)
+            for d_cd, deal_ymd in fetch_tasks
+        ]
+        for f in futures:
+            try:
+                deals = f.result()
+                all_deals.extend(deals)
+            except Exception:
+                pass
+
+    # 거래 유형 및 지역 세부 필터링
+    filtered_deals = []
+    for d in all_deals:
+        if api_category == 'rent':
+            if trade_type == 'jeonse' and d.get('monthly_rent', 0) > 0:
+                continue
+            if trade_type == 'rent' and d.get('monthly_rent', 0) == 0:
+                continue
+        if scope == 'dong' and dong_name:
+            if not is_dong_match(dong_name, d.get('dong', '')):
+                continue
+        filtered_deals.append(d)
+
+    transactions = {}
+    for deal in filtered_deals:
+        key = f"{deal['name']}_{deal['area']}"
+        if key not in transactions:
+            transactions[key] = {
+                'name': deal['name'],
+                'area': str(deal['area']),
+                'dong': deal['dong'],
+                'jibun': deal.get('jibun', ''),
+                'build_year': deal.get('build_year'),
+                'lawd_cd': lawd_cd,
+                'prop_type': prop_type,
+                'deals': []
+            }
+        elif not transactions[key].get('build_year') and deal.get('build_year'):
+            transactions[key]['build_year'] = deal.get('build_year')
+        transactions[key]['deals'].append(deal)
+
+    results = []
+    for key, data in transactions.items():
+        deals = data['deals']
+        # 중복 계약 필터링 (동일 일자 동일 금액 제외)
+        unique_deals = {}
+        for d in deals:
+            d_key = f"{d['date']}_{d['price']}"
+            unique_deals[d_key] = d
+        deals = list(unique_deals.values())
+
+        date_groups = {}
+        for d in deals:
+            dt = d['raw_date'] if 'raw_date' in d else d['date'].replace('.', '')
+            if dt not in date_groups:
+                date_groups[dt] = []
+            date_groups[dt].append(d['price'])
+
+        if len(date_groups) >= 2:
+            sorted_dates = sorted(date_groups.keys(), reverse=True)
+            latest_date = sorted_dates[0]
+            latest_prices = date_groups[latest_date]
+            latest_price = int(round(sum(latest_prices) / len(latest_prices)))
+
+            prev_date = sorted_dates[1]
+            prev_prices = date_groups[prev_date]
+            prev_price = int(round(sum(prev_prices) / len(prev_prices)))
+
+            diff = latest_price - prev_price
+            results.append({
+                'name': data['name'],
+                'area': data['area'],
+                'dong': data['dong'],
+                'jibun': data['jibun'],
+                'build_year': data.get('build_year'),
+                'lawd_cd': data['lawd_cd'],
+                'prop_type': data['prop_type'],
+                'latest_date': latest_date,
+                'latest_price': latest_price,
+                'previous_date': prev_date,
+                'previous_price': prev_price,
+                'diff': diff
+            })
+        elif len(date_groups) == 1:
+            sorted_dates = list(date_groups.keys())
+            latest_date = sorted_dates[0]
+            latest_prices = date_groups[latest_date]
+            latest_price = int(round(sum(latest_prices) / len(latest_prices)))
+
+            results.append({
+                'name': data['name'],
+                'area': data['area'],
+                'dong': data['dong'],
+                'jibun': data['jibun'],
+                'build_year': data.get('build_year'),
+                'lawd_cd': data['lawd_cd'],
+                'prop_type': data['prop_type'],
+                'latest_date': latest_date,
+                'latest_price': latest_price,
+                'previous_date': latest_date,
+                'previous_price': latest_price,
+                'diff': 0
+            })
+
+    soaring = sorted([r for r in results if r['diff'] > 0], key=lambda x: x['diff'], reverse=True)[:50]
+    plunging = sorted([r for r in results if r['diff'] < 0], key=lambda x: x['diff'])[:50]
+    items = sorted(results, key=lambda x: x['latest_price'], reverse=True)[:1000]
+
+    return {
+        'soaring': soaring,
+        'plunging': plunging,
+        'items': items
+    }

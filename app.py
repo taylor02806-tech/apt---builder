@@ -363,15 +363,16 @@ def get_complex_history():
             'is_real_data': True
         })
 
-    from main import generate_mock_complex_data
-    history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
     return jsonify({
         'dong': dong,
         'name': name,
-        'build_year': build_year,
-        'history': [h.model_dump() for h in history],
-        'recent_transactions': [t.model_dump() for t in recent_transactions],
-        'is_real_data': False
+        'build_year': None,
+        'history': [],
+        'recent_transactions': [],
+        'pyeongs': [],
+        'matched_dong_pyeong': None,
+        'is_real_data': False,
+        'has_real_deals': False
     })
 
 if __name__ == '__main__':
