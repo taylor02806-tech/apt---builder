@@ -523,7 +523,19 @@
                                         <th class="py-2 px-3 font-semibold">날짜</th>
                                         <th class="py-2 px-3 font-semibold" id="thDetailTxPrice">실거래가</th>
                                         <th class="py-2 px-3 font-semibold">전용면적</th>
-                                        <th class="py-2 px-3 font-semibold text-right">층수</th>
+                                        <th class="py-2 px-3 font-semibold text-right">
+                                            <span class="inline-flex items-center gap-1 group relative cursor-help">
+                                                <span>층수</span>
+                                                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                <!-- 호버 툴팁 -->
+                                                <span class="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto absolute right-0 bottom-full mb-1.5 w-52 p-2.5 bg-slate-900 text-white text-[10px] font-normal leading-relaxed rounded-xl shadow-xl transition-opacity z-50 text-left">
+                                                    🔒 <b>동·호수 비공개 사유</b><br>
+                                                    「개인정보 보호법」 및 부동산 거래신고법에 따라 국토교통부 실거래가는 사생활 보호를 위해 동·호수를 제외한 <b>층수</b>만 제공됩니다.
+                                                </span>
+                                            </span>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody id="transactionList" class="divide-y divide-slate-100 text-[11px] font-medium text-slate-700 bg-white">
@@ -532,6 +544,15 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- 국토교통부 동·호수 공공데이터 법적 안내 (옵션 B) -->
+                        <div class="mt-2.5 p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-start gap-2">
+                            <span class="text-xs text-blue-500 mt-0.5 flex-shrink-0">ℹ️</span>
+                            <div class="text-[10px] text-slate-500 leading-relaxed">
+                                <span class="font-bold text-slate-700">동·호수 정보 안내:</span>
+                                <span>「개인정보 보호법」에 따라 국토교통부 실거래 공공데이터는 입주민 사생활 보호를 위해 동·호수를 제외한 <b class="text-slate-700">층수</b> 정보만 공식 제공됩니다.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1999,7 +2020,9 @@
                                 <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${tx.date}</td>
                                 <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
                                 <td class="py-2.5 px-3 font-medium text-slate-600">${areaText}</td>
-                                <td class="py-2.5 px-3 text-right font-semibold text-slate-600">${tx.floor}</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <span class="inline-block bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-700 transition-colors cursor-help" title="개인정보 보호법에 따라 동·호수를 제외한 층수만 공식 제공됩니다.">${tx.floor}</span>
+                                </td>
                             </tr>
                         `;
                     }).join('');
