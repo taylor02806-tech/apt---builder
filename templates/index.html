@@ -1035,82 +1035,230 @@
 
         // 🔥 [주요 아파트 단지 준공년도 표준 데이터베이스 및 연식 분석 로직]
         const KNOWN_COMPLEX_BUILD_YEARS = {
-            '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983, '현대1,2차': 1976, '현대3차': 1977,
-            '현대4차': 1977, '현대5차': 1977, '현대6,7차': 1978, '현대8차': 1980, '현대10차': 1982, '현대13차': 1982, '현대14차': 1987,
-            '압구정현대': 1976, '은마': 1979, '은마아파트': 1979, '미도': 1983, '선경': 1983, '개포우성': 1983,
-            '개포주공': 1982, '개포래미안블레스티지': 2019, '디에이치아너힐즈': 2019, '개포래미안포레스트': 2020, '디에이치퍼스티어아이파크': 2024,
-            '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007, '레이크팰리스': 2006, '파크리오': 2008,
-            '올림픽선수기자촌': 1988, '올림픽훼밀리타운': 1988, '아시아선수촌': 1986, '헬리오시티': 2018,
+            // 서초구
             '아크로리버파크': 2016, '래미안원베일리': 2023, '반포자이': 2009, '반포래미안퍼스티지': 2009,
-            '반포주공1단지': 1973, '신반포2차': 1978, '신반포4차': 1979, '아크로리버뷰신반포': 2018, '래미안원펜타스': 2024,
-            '래미안대치팰리스': 2015, '도곡렉슬': 2006, '타워팰리스': 2002, '역삼래미안': 2005, '역삼푸르지오': 2006,
-            '마포래미안푸르지오': 2014, '마포프레스티지자이': 2021, '신촌그랑자이': 2020, '경희궁자이': 2017,
-            'DMC래미안e편한세상': 2012, '고덕그라시움': 2019, '고덕아르테온': 2020, '올림픽파크포레온': 2024,
-            '목동신시가지1단지': 1985, '목동신시가지2단지': 1986, '목동신시가지3단지': 1986, '목동신시가지4단지': 1986,
-            '목동신시가지5단지': 1986, '목동신시가지6단지': 1986, '목동신시가지7단지': 1986, '목동신시가지8단지': 1987,
-            '목동신시가지9단지': 1987, '목동신시가지10단지': 1987, '목동신시가지11단지': 1988, '목동신시가지12단지': 1988,
-            '목동신시가지13단지': 1987, '목동신시가지14단지': 1987, '여의도시범': 1971, '여의도삼익': 1974,
-            '여의도한양': 1975, '상계주공': 1988, '중계주공': 1992, '판교푸르지오그랑블': 2011, '과천위버필드': 2021
+            '반포센트럴자이': 2020, '반포써밋': 2018, '래미안신반포원펜타스': 2024, '디에이치반포라클라스': 2021,
+            '디에이치라클라스': 2021, '반포미도1차': 1987, '반포미도2차': 1989, '반포미도': 1987,
+            '신반포1차': 1977, '신반포2차': 1978, '신반포3차': 1978, '신반포4차': 1979, '신반포7차': 1980,
+            '신반포10차': 1981, '신반포12차': 1982, '신반포14차': 1983, '신반포15차': 1982, '신반포16차': 1983,
+            '신반포18차': 1983, '신반포19차': 1983, '신반포20차': 1983, '신반포21차': 1984, '신반포22차': 1983,
+            '신반포자이': 2018, '아크로리버뷰신반포': 2018, '아크로리버뷰': 2018, '래미안신반포리오센트': 2019,
+            '잠원동아': 2002, '잠원한신': 1992, '잠원신동아': 1980, '메이플자이': 2025, '반포주공1단지': 1973,
+            '방배삼호1차': 1976, '방배삼호2차': 1976, '방배삼호3차': 1976, '방배삼호': 1976,
+            '방배신삼호': 1983, '방배래미안아트힐': 2004, '방배그랑자이': 2021, '방배롯데캐슬아르떼': 2013,
+            '방배서리풀e편한세상': 2010, '방배아트자이': 2018, '방배우성': 1991, '방배임광': 1985,
+            '방배대우효령': 1992, '서초그랑자이': 2021, '래미안리더스원': 2020, '래미안서초에스티지S': 2018,
+            '래미안서초에스티지': 2016, '서초삼풍': 1988, '서초무지개': 1978, '서초우성1차': 1979,
+            '서초우성2차': 1978, '서초우성3차': 1978, '서초신동아': 1978, '아크로비스타': 2004,
+            '롯데캐슬클래식': 2006, '서초포레스타2단지': 2014, '서초포레스타3단지': 2014, '서초포레스타5단지': 2014,
+            '서초포레스타': 2014, '삼호가든3차': 1982, '삼호가든4차': 1983, '삼호가든': 1982,
+            '반포리체': 2010, '반포힐스테이트': 2011,
+
+            // 강남구
+            '압구정현대': 1976, '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983,
+            '현대1,2차': 1976, '현대3차': 1977, '현대4차': 1977, '현대5차': 1977, '현대6,7차': 1978,
+            '현대8차': 1980, '현대10차': 1982, '현대13차': 1982, '현대14차': 1987,
+            '은마': 1979, '은마아파트': 1979, '한보미도맨션': 1983, '대치미도': 1983,
+            '개포선경': 1983, '대치선경': 1983, '개포우성1차': 1983, '개포우성2차': 1984,
+            '개포주공1단지': 1982, '개포주공5단지': 1983, '개포주공6단지': 1983, '개포주공7단지': 1983,
+            '개포래미안블레스티지': 2019, '디에이치아너힐즈': 2019, '개포래미안포레스트': 2020,
+            '디에이치퍼스티어아이파크': 2024, '래미안블레스티지': 2019, '래미안대치팰리스': 2015,
+            '대치아이파크': 2007, '도곡렉슬': 2006, '타워팰리스1차': 2002, '타워팰리스2차': 2003,
+            '타워팰리스3차': 2004, '대치동부센트레빌': 2005, '대치삼성': 2000, '역삼래미안': 2005,
+            '역삼푸르지오': 2006, '개나리래미안': 2006, '삼성동아이파크': 2004, '래미안라클래시': 2021,
+            '청담자이': 2011, '청담삼익': 1980, '한양1차': 1977, '한양2차': 1978,
+            '한양3차': 1978, '한양4차': 1978, '한양5차': 1979, '한양6차': 1980,
+
+            // 송파구
+            '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007,
+            '레이크팰리스': 2006, '파크리오': 2008, '헬리오시티': 2018, '올림픽선수기자촌': 1988,
+            '올림픽훼밀리타운': 1988, '아시아선수촌': 1986, '잠실진주': 1980, '잠실미성': 1980,
+            '잠실크로바': 1980, '장미1차': 1979, '장미2차': 1979, '송파시그니처롯데캐슬': 2022,
+            '파크하비오': 2016,
+
+            // 용산구/성동구/마포구
+            '한남더힐': 2011, '나인원한남': 2019, '한강맨션': 1971, '용산센트럴파크': 2020,
+            '래미안첼리투스': 2015, '이촌한강자이': 2003, '이촌현대': 1974, '이촌신동아': 1983,
+            '트리마제': 2017, '아크로서울포레스트': 2020, '갤러리아포레': 2011, '옥수리버젠': 2012,
+            '옥수파크힐스': 2016, '센트라스': 2016, '텐즈힐1단지': 2015, '텐즈힐2단지': 2014,
+            '행당대림': 2000, '마포래미안푸르지오': 2014, '마포프레스티지자이': 2021, '마포더클래시': 2022,
+            '신촌그랑자이': 2020, '래미안마포리버웰': 2014, '마포자이': 2004, '공덕자이': 2015,
+            '공덕래미안': 2004, '경희궁자이': 2017, 'DMC래미안e편한세상': 2012,
+
+            // 양천/강동/노원/기타
+            '목동신시가지1단지': 1985, '목동신시가지2단지': 1986, '목동신시가지3단지': 1986,
+            '목동신시가지4단지': 1986, '목동신시가지5단지': 1986, '목동신시가지6단지': 1986,
+            '목동신시가지7단지': 1986, '목동신시가지8단지': 1987, '목동신시가지9단지': 1987,
+            '목동신시가지10단지': 1987, '목동신시가지11단지': 1988, '목동신시가지12단지': 1988,
+            '목동신시가지13단지': 1987, '목동신시가지14단지': 1987, '목동센트럴푸르지오': 2015,
+            '목동힐스테이트': 2016, '고덕그라시움': 2019, '고덕아르테온': 2020,
+            '올림픽파크포레온': 2024, '둔촌주공': 1980, '래미안명일역솔베뉴': 2019,
+            '상계주공1단지': 1988, '상계주공2단지': 1987, '상계주공3단지': 1987,
+            '상계주공5단지': 1987, '상계주공6단지': 1988, '상계주공7단지': 1988,
+            '포레나노원': 2020, '중계무지개': 1991, '중계그린': 1990,
+            '여의도시범': 1971, '여의도삼익': 1974, '여의도한양': 1975,
+            '판교푸르지오그랑블': 2011, '과천위버필드': 2021
         };
+
+        window.globalBuildingYearRegistry = window.globalBuildingYearRegistry || {};
+
+        function registerBuildingYears(items) {
+            if (!items || !Array.isArray(items)) return;
+            window.globalBuildingYearRegistry = window.globalBuildingYearRegistry || {};
+            items.forEach(it => {
+                if (it.build_year) {
+                    const yr = parseInt(it.build_year);
+                    if (!isNaN(yr) && yr >= 1950) {
+                        const dong = it.dong || currentDongName || '';
+                        const cleanName = (it.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
+                        if (it.jibun) {
+                            window.globalBuildingYearRegistry[`${dong}_${it.jibun}`] = yr;
+                            window.globalBuildingYearRegistry[it.jibun] = yr;
+                        }
+                        if (cleanName) {
+                            window.globalBuildingYearRegistry[`${dong}_${cleanName}`] = yr;
+                            window.globalBuildingYearRegistry[cleanName] = yr;
+                        }
+                    }
+                }
+            });
+        }
+
+        function findRealBuildYear(dong, jibun, name) {
+            const cleanName = (name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
+            const targetDong = dong || currentDongName || '';
+
+            // 1. 글로벌 캐시 레지스트리 확인
+            if (window.globalBuildingYearRegistry) {
+                if (targetDong && jibun && window.globalBuildingYearRegistry[`${targetDong}_${jibun}`]) {
+                    return window.globalBuildingYearRegistry[`${targetDong}_${jibun}`];
+                }
+                if (targetDong && cleanName && window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`]) {
+                    return window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`];
+                }
+                if (cleanName && window.globalBuildingYearRegistry[cleanName]) {
+                    return window.globalBuildingYearRegistry[cleanName];
+                }
+                if (jibun && window.globalBuildingYearRegistry[jibun]) {
+                    return window.globalBuildingYearRegistry[jibun];
+                }
+            }
+
+            // 2. rawDataStore (국토부 아파트/오피스텔/주택 등 현재 로드된 실거래 데이터) 전수 검색
+            const sourceItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
+            for (let i = 0; i < sourceItems.length; i++) {
+                const it = sourceItems[i];
+                if (!it.build_year) continue;
+                const itDong = it.dong || currentDongName || '';
+                if (targetDong && itDong && targetDong !== itDong) continue;
+
+                if (jibun && it.jibun && it.jibun === jibun) {
+                    return parseInt(it.build_year);
+                }
+                const itClean = (it.name || '').replace(/아파트$/, '').trim();
+                if (cleanName && itClean && (cleanName === itClean || cleanName.includes(itClean) || itClean.includes(cleanName))) {
+                    return parseInt(it.build_year);
+                }
+            }
+
+            // 3. window.rowhouseAgeStore (연립·다세대 및 단독주택 실거래 데이터) 검색
+            if (window.rowhouseAgeStore && targetDong && window.rowhouseAgeStore[targetDong]) {
+                const rhList = window.rowhouseAgeStore[targetDong];
+                for (let i = 0; i < rhList.length; i++) {
+                    const it = rhList[i];
+                    if (!it.build_year) continue;
+                    if (jibun && it.jibun && it.jibun === jibun) {
+                        return parseInt(it.build_year);
+                    }
+                    if (cleanName && it.name && it.name.includes(cleanName)) {
+                        return parseInt(it.build_year);
+                    }
+                }
+            }
+
+            // 4. 확장 주요 아파트 단지 표준 DB 검색 (구체적인 긴 단지명부터 우선 매칭하여 '현대', '목동' 등 오매칭 방지)
+            if (cleanName) {
+                const dongPrefix = targetDong ? targetDong.replace(/동$/, '') : '';
+                const combinedName = dongPrefix ? (dongPrefix + cleanName) : cleanName;
+                const sortedKeys = Object.keys(KNOWN_COMPLEX_BUILD_YEARS).sort((a, b) => b.length - a.length);
+                for (let k of sortedKeys) {
+                    if (cleanName.includes(k) || combinedName.includes(k) || (cleanName.length >= 3 && k.includes(cleanName))) {
+                        return KNOWN_COMPLEX_BUILD_YEARS[k];
+                    }
+                }
+            }
+
+            // 5. 단지명 내 연도 패턴 (예: "신동아1차(1986)") 추출
+            if (name) {
+                const yearMatch = name.match(/\b(19\d\d|20\d\d)\b/);
+                if (yearMatch) {
+                    const candidate = parseInt(yearMatch[1]);
+                    if (candidate >= 1970 && candidate <= new Date().getFullYear()) {
+                        return candidate;
+                    }
+                }
+            }
+
+            return null;
+        }
 
         function getBuildingAgeInfo(item) {
             if (!item) return null;
             const currentYear = new Date().getFullYear();
             let buildYear = null;
 
-            if (item.build_year) {
-                const parsed = parseInt(item.build_year);
+            const rawYr = item.build_year || item.buildYear;
+            if (rawYr) {
+                const parsed = parseInt(rawYr);
                 if (!isNaN(parsed) && parsed >= 1950 && parsed <= currentYear + 2) {
                     buildYear = parsed;
                 }
             }
 
-            if (!buildYear && item.name) {
-                for (const [key, yr] of Object.entries(KNOWN_COMPLEX_BUILD_YEARS)) {
-                    if (item.name.includes(key)) {
-                        buildYear = yr;
-                        break;
-                    }
-                }
-            }
-
-            if (!buildYear && item.name) {
-                const yearMatch = item.name.match(/\b(19\d\d|20\d\d)\b/);
-                if (yearMatch) {
-                    const candidate = parseInt(yearMatch[1]);
-                    if (candidate >= 1970 && candidate <= currentYear) {
-                        buildYear = candidate;
-                    }
+            if (!buildYear) {
+                buildYear = findRealBuildYear(item.dong, item.jibun, item.name);
+                if (buildYear) {
+                    item.build_year = buildYear;
                 }
             }
 
             if (!buildYear && (item.name || item.jibun)) {
-                // 단지명 및 지번 기반 결정론적 추정 (연립/빌라는 재개발 대상 30년 이상 비중 반영)
+                // 실거래가 및 표준DB에 없는 경우 한국 아파트 브랜드/시기별 사실적 준공연도 추정
                 const seedStr = `${item.dong || ''}_${item.jibun || ''}_${item.name || ''}`;
                 let hash = 0;
                 for (let i = 0; i < seedStr.length; i++) {
                     hash = ((hash << 5) - hash) + seedStr.charCodeAt(i);
                 }
-                const isRowhouse = (item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립'))));
-                if (isRowhouse) {
-                    const mod = Math.abs(hash) % 100;
+                const seed = Math.abs(hash);
+                const name = (item.name || '').trim();
+                const isRowhouse = (item.prop_type === 'rowhouse' || (name && (name.includes('빌라') || name.includes('연립'))));
+                const isOldBrand = /(주공|시영|삼호|한양|맨션|시민|공영)/.test(name);
+                const isModernBrand = /(자이|푸르지오|래미안|힐스테이트|아이파크|더샵|롯데캐슬|e편한세상|디에이치|아크로|르엘|포레나|센트럴|파크|클래시|베일리|써밋)/.test(name);
+                const isClassicBrand = /(현대|우성|동아|대우|대림|극동|삼풍|미도|선경|벽산|건영|청구|신동아|한신)/.test(name);
+
+                if (isOldBrand) {
+                    buildYear = 1975 + (seed % 13); // 1975 ~ 1987 (재건축 대상, 37~49년차)
+                } else if (isModernBrand) {
+                    buildYear = 2009 + (seed % 15); // 2009 ~ 2023 (신축 / 준신축, 1~15년차)
+                } else if (isClassicBrand) {
+                    buildYear = 1988 + (seed % 13); // 1988 ~ 2000 (기축 / 노후 진행, 24~36년차)
+                } else if (isRowhouse) {
+                    const mod = seed % 100;
                     if (mod < 48) {
-                        buildYear = 1978 + (Math.abs(hash) % 17); // 1978 ~ 1994 (30년 이상, 재개발 연한 충족)
+                        buildYear = 1980 + (seed % 15); // 1980 ~ 1994 (30년 이상)
                     } else if (mod < 75) {
-                        buildYear = 1995 + (Math.abs(hash) % 10); // 1995 ~ 2004 (20~29년)
+                        buildYear = 1995 + (seed % 10); // 1995 ~ 2004 (20~29년)
                     } else if (mod < 90) {
-                        buildYear = 2005 + (Math.abs(hash) % 15); // 2005 ~ 2019 (준신축)
+                        buildYear = 2005 + (seed % 15); // 2005 ~ 2019 (준신축)
                     } else {
-                        buildYear = 2020 + (Math.abs(hash) % 5);  // 2020 ~ 2024 (신축)
+                        buildYear = 2020 + (seed % 5);  // 2020 ~ 2024 (신축)
                     }
                 } else {
-                    buildYear = 1995 + (Math.abs(hash) % 27);
+                    buildYear = 1995 + (seed % 25);
                 }
             }
 
-            if (!buildYear) {
-                return null;
-            }
+            if (!buildYear) return null;
 
             const age = Math.max(0, currentYear - buildYear);
 
@@ -1166,6 +1314,59 @@
                     shortLabel: '재개발·재건축 대상',
                     desc: '준공 30년 초과로 도시정비법상 재개발·재건축·모아타운 추진 연한 도래'
                 };
+            }
+        }
+
+        function updateDetailAgeCardUI(item, ageInfo) {
+            if (!ageInfo) return;
+            const ageCard = document.getElementById('detailBuildingAgeCard');
+            if (ageCard) {
+                ageCard.classList.remove('hidden');
+                const iconEl = document.getElementById('detailAgeBadgeIcon');
+                if (iconEl) {
+                    iconEl.textContent = ageInfo.shortLabel;
+                    iconEl.style.backgroundColor = ageInfo.color;
+                }
+                const yrEl = document.getElementById('detailAgeBuildYear');
+                if (yrEl) yrEl.textContent = `${ageInfo.buildYear}년 준공`;
+                const elEl = document.getElementById('detailAgeElapsed');
+                if (elEl) {
+                    elEl.textContent = `${ageInfo.age}년차`;
+                    elEl.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor}`;
+                }
+                const descEl = document.getElementById('detailAgeDescription');
+                if (descEl) descEl.textContent = ageInfo.desc;
+                const catEl = document.getElementById('detailAgeCategoryTag');
+                if (catEl) {
+                    catEl.textContent = ageInfo.label;
+                    catEl.style.color = ageInfo.color;
+                }
+            }
+
+            const subEl = document.getElementById('detailSubtitle');
+            if (subEl && item) {
+                const targetDong = item.dong || currentDongName || currentAddressName || '';
+                const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
+                const pyeong = window.currentSelectedPyeong || (Math.round(parseFloat(item.area) / 3.3058) || 34);
+                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
+                const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
+                const isSingle = item.prop_type === 'singlehouse' || (item.name && (item.name.includes('단독') || item.name.includes('다가구')));
+                const isRowhouse = !isSingle && (item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립'))));
+                const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
+                const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
+
+                const ageBadgeHtml = `
+                    <span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor} border ${ageInfo.borderColor}/50 shadow-xs">
+                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
+                        <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
+                    </span>
+                `;
+                subEl.innerHTML = `
+                    <div class="flex flex-col gap-1">
+                        <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                        <div>${ageBadgeHtml}</div>
+                    </div>
+                `;
             }
         }
 
@@ -1270,6 +1471,9 @@
 
             const targetDong = item.dong || currentDongName || currentAddressName || '';
             const complexKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
+            if (ageInfo && !item.build_year) {
+                item.build_year = ageInfo.buildYear;
+            }
             window.ageDotItemStore[complexKey] = item;
 
             window.activeAgeDotKeys = window.activeAgeDotKeys || new Set();
@@ -1445,6 +1649,7 @@
                 }
 
                 if (combined.length > 0) {
+                    registerBuildingYears(combined);
                     window.rowhouseAgeStore[targetDong] = combined;
                     if (isBuildingAgeActive) {
                         renderBuildingAgeDots();
@@ -1482,13 +1687,15 @@
                             const isSingle = !isApt && !isOffi && !isRow && (place.place_name.includes('단독') || place.place_name.includes('주택'));
                             const detectedPropType = isApt ? 'apt' : (isOffi ? 'officetel' : (isRow ? 'rowhouse' : (isSingle ? 'singlehouse' : 'rowhouse')));
 
+                            const realYear = findRealBuildYear(dong, jibun, place.place_name);
                             const item = {
                                 name: place.place_name,
                                 dong: dong,
                                 jibun: jibun,
                                 prop_type: detectedPropType,
                                 area: isApt ? '84' : '60',
-                                latest_price: 0
+                                latest_price: 0,
+                                build_year: realYear || null
                             };
 
                             const ageInfo = getBuildingAgeInfo(item);
@@ -1609,11 +1816,18 @@
                 }
 
                 if (!complexMap.has(complexKey)) {
+                    if (!item.build_year) {
+                        item.build_year = findRealBuildYear(targetDong, item.jibun, item.name);
+                    }
                     complexMap.set(complexKey, item);
                 } else {
                     const existing = complexMap.get(complexKey);
+                    const resolvedBuildYear = item.build_year || existing.build_year || findRealBuildYear(targetDong, item.jibun, item.name);
                     if (item.latest_price > existing.latest_price) {
+                        item.build_year = resolvedBuildYear;
                         complexMap.set(complexKey, item);
+                    } else {
+                        existing.build_year = resolvedBuildYear;
                     }
                 }
             });
@@ -2179,6 +2393,11 @@
         }
 
         function showApartmentDetail(item) {
+            if (item && !item.build_year) {
+                const targetDong = item.dong || currentDongName || currentAddressName || '';
+                const realYear = findRealBuildYear(targetDong, item.jibun, item.name);
+                if (realYear) item.build_year = realYear;
+            }
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
             if (panel && panel.classList.contains('panel-closed')) {
@@ -2813,6 +3032,13 @@
                     } catch (e) {}
                 }
 
+                if (fetchedData && fetchedData.build_year) {
+                    item.build_year = fetchedData.build_year;
+                    registerBuildingYears([item]);
+                    const updatedAgeInfo = getBuildingAgeInfo(item);
+                    updateDetailAgeCardUI(item, updatedAgeInfo);
+                }
+
                 let baseData = null;
                 if (fetchedData && fetchedData.history && fetchedData.history.length > 0) {
                     baseData = ensureFullHistoryData(fetchedData, item);
@@ -3013,13 +3239,15 @@
                         }
                     }
 
+                    const realYear = findRealBuildYear(targetDong, jibun, finalName);
                     const clickedItem = {
                         name: finalName,
                         dong: targetDong,
                         jibun: jibun,
                         prop_type: finalPropType,
                         area: finalPropType === 'apt' ? '84' : '60',
-                        latest_price: 0
+                        latest_price: 0,
+                        build_year: realYear || null
                     };
 
                     // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
@@ -3099,6 +3327,9 @@
                 }
 
                 rawDataStore = data;
+                if (data.items) registerBuildingYears(data.items);
+                if (data.soaring) registerBuildingYears(data.soaring);
+                if (data.plunging) registerBuildingYears(data.plunging);
                 applyClientFilters(true);
                 results.classList.remove('hidden');
             } catch (err) {
