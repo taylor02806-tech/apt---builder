@@ -242,11 +242,11 @@ def get_rankings():
             
             latest_date = sorted_dates[0]
             latest_prices = date_groups[latest_date]
-            latest_price = sum(latest_prices) / len(latest_prices)
+            latest_price = int(round(sum(latest_prices) / len(latest_prices)))
             
             prev_date = sorted_dates[1]
             prev_prices = date_groups[prev_date]
-            prev_price = sum(prev_prices) / len(prev_prices)
+            prev_price = int(round(sum(prev_prices) / len(prev_prices)))
             
             diff = latest_price - prev_price
             
@@ -261,13 +261,32 @@ def get_rankings():
                 'previous_price': prev_price,
                 'diff': diff
             })
+        elif len(date_groups) == 1:
+            sorted_dates = list(date_groups.keys())
+            latest_date = sorted_dates[0]
+            latest_prices = date_groups[latest_date]
+            latest_price = int(round(sum(latest_prices) / len(latest_prices)))
+            
+            results.append({
+                'name': data['name'],
+                'area': data['area'],
+                'dong': data['dong'],
+                'jibun': data['jibun'],
+                'latest_date': latest_date,
+                'latest_price': latest_price,
+                'previous_date': latest_date,
+                'previous_price': latest_price,
+                'diff': 0
+            })
 
-    soaring = sorted([r for r in results if r['diff'] > 0], key=lambda x: x['diff'], reverse=True)[:5]
-    plunging = sorted([r for r in results if r['diff'] < 0], key=lambda x: x['diff'])[:5]
+    soaring = sorted([r for r in results if r['diff'] > 0], key=lambda x: x['diff'], reverse=True)[:50]
+    plunging = sorted([r for r in results if r['diff'] < 0], key=lambda x: x['diff'])[:50]
+    items = sorted(results, key=lambda x: x['latest_price'], reverse=True)[:1000]
 
     return jsonify({
         'soaring': soaring,
-        'plunging': plunging
+        'plunging': plunging,
+        'items': items
     })
 
 if __name__ == '__main__':

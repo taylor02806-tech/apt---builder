@@ -68,7 +68,6 @@
             border-color: #4f46e5;
         }
 
-        /* 반응형 패널 토글 클래스 (모바일은 아래로 숨김, 데스크톱은 좌측으로 숨김) */
         @media (max-width: 767px) {
             .panel-closed {
                 transform: translateY(100%) !important;
@@ -89,10 +88,6 @@
             }
         }
 
-        @keyframes overlayPulse {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
-        }
         .custom-overlay-group {
             position: relative;
             pointer-events: auto !important;
@@ -101,7 +96,6 @@
         .map-badge {
             position: relative;
         }
-        /* 📌 [마우스 브릿지 1] 마커 주변 투명 히트 패딩(최소화) */
         .map-badge::before {
             content: '';
             position: absolute;
@@ -110,11 +104,9 @@
             background: transparent !important;
             z-index: -1;
         }
-        /* 패널 확대/크기 변화 호버 효과 완전 제거 (크기 유지) */
         .map-badge:hover {
             z-index: 999 !important;
         }
-        /* 📌 [마우스 브릿지 2] 패널 우측 경계선 투명 Safe Zone 축소 */
         #sidePanel::after {
             content: '';
             position: absolute;
@@ -126,32 +118,19 @@
             background: transparent !important;
             z-index: 1000 !important;
         }
-        /* 📌 [마우스 브릿지 3] 호버 프리뷰 카드와 마커 사이의 수직 Safe Zone 브릿지 최소화 */
-        .hover-card-bridge {
-            content: '';
-            position: absolute;
-            bottom: -15px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 15px;
-            background: transparent !important;
-            pointer-events: auto !important;
-        }
     </style>
 </head>
 <body class="bg-slate-100 w-screen h-screen md:h-[100dvh] flex text-slate-800 antialiased overflow-hidden" style="touch-action: pan-x pan-y;">
     
-    <!-- [레이어 1] 좌측 대시보드 및 상세 패널 (지도와 완벽히 분리된 최상위 Sibling 레이어) -->
-    <aside id="sidePanel" class="fixed md:relative inset-x-0 bottom-0 md:top-0 w-full md:w-[480px] h-[35vh] md:h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] md:shadow-xl flex-shrink-0 rounded-t-3xl md:rounded-none transition-all duration-300 ease-out panel-closed" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
-    <script>
-        // 데스크톱 환경에서는 패널이 기본적으로 열려 있도록 동적 처리
-        if (window.innerWidth >= 768) {
-            document.getElementById('sidePanel').classList.remove('panel-closed');
-        }
-    </script>
+    <!-- 좌측 대시보드 및 상세 패널 -->
+    <aside id="sidePanel" class="fixed md:relative inset-x-0 bottom-0 md:top-0 w-full md:w-[480px] h-[35vh] md:h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] md:shadow-xl flex-shrink-0 rounded-t-3xl md:rounded-none transition-all duration-300 ease-out panel-closed" style="pointer-events: auto; z-index: 1000;">
+        <script>
+            if (window.innerWidth >= 768) {
+                document.getElementById('sidePanel').classList.remove('panel-closed');
+            }
+        </script>
         
-        <!-- 모바일 전용 핸들 및 닫기 버튼 -->
+        <!-- 모바일 전용 드래그 핸들 -->
         <div id="dragHandle" class="md:hidden flex items-center justify-center pt-4 pb-2 relative shrink-0 z-[1001] cursor-pointer" style="touch-action: none;" onclick="const p = document.getElementById('sidePanel'); p.style.height = ''; p.classList.contains('panel-full') ? p.classList.remove('panel-full') : p.classList.add('panel-full');">
             <div class="w-12 h-1.5 bg-slate-300 rounded-full"></div>
             <button type="button" onclick="event.preventDefault(); event.stopPropagation(); togglePanel(false);" ontouchend="event.preventDefault(); event.stopPropagation(); togglePanel(false);" class="absolute right-4 top-2 p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 z-[1002]">
@@ -159,8 +138,8 @@
             </button>
         </div>
 
-        <!-- [화면 1] 랭킹 및 필터 패널 -->
-        <div id="rankingPanel" class="flex flex-col h-full z-[1000]" style="pointer-events: auto; z-index: 1000;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+        <!-- 랭킹 및 필터 패널 -->
+        <div id="rankingPanel" class="flex flex-col h-full z-[1000]" style="pointer-events: auto; z-index: 1000;">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-200">
@@ -225,7 +204,7 @@
                     </div>
                 </div>
 
-                <!-- 📌 검색창 영역 -->
+                <!-- 검색창 영역 -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <label class="text-xs font-bold text-slate-500 block">지역 및 단지명 검색</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -302,7 +281,7 @@
                 <!-- 차트 랭킹 영역 -->
                 <div id="results" class="hidden space-y-6">
                     <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center">
-                        <p class="text-[11px] text-indigo-700 font-semibold">📍 지도 위 배지나 차트를 클릭하면 <b>매물 시세 & 세금 분석</b>이 열립니다</p>
+                        <p class="text-[11px] text-indigo-700 font-semibold">📍 지도의 <b>동별 최고가 배지</b>를 누르면 상세 시세가 열립니다</p>
                     </div>
 
                     <!-- 급등 차트 -->
@@ -347,8 +326,8 @@
             </div>
         </div>
 
-        <!-- [화면 2] 리치고 스타일 상세 패널 (지도와 분리된 독립 최상위 레이어) -->
-        <div id="detailPanel" class="hidden flex-col h-full bg-white z-[1000] overflow-y-auto overscroll-contain" style="pointer-events: auto; z-index: 1000; scrollbar-gutter: stable;" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ondblclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onmouseup="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" ontouchend="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+        <!-- 리치고 스타일 상세 패널 -->
+        <div id="detailPanel" class="hidden flex-col h-full bg-white z-[1000] overflow-y-auto overscroll-contain" style="pointer-events: auto; z-index: 1000; scrollbar-gutter: stable;">
             <div class="p-5 pb-2 border-b border-slate-100">
                 <div class="flex items-center justify-between mb-3">
                     <button onclick="closeApartmentDetail()" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -376,20 +355,16 @@
                 </div>
             </div>
 
-            <!-- 네비게이션 탭 -->
             <div class="flex border-b border-slate-200 px-5 text-sm font-semibold text-slate-400">
                 <button id="tabBtnInfo" onclick="switchDetailTab('info')" class="py-3 px-3 text-slate-900 border-b-2 border-slate-900 font-bold transition-all">정보</button>
-                <button id="tabBtnMarket" onclick="switchDetailTab('market')" class="py-3 px-3 hover:text-slate-700 transition-all font-bold text-slate-500">
-                    매물 시세
-                </button>
+                <button id="tabBtnMarket" onclick="switchDetailTab('market')" class="py-3 px-3 hover:text-slate-700 transition-all font-bold text-slate-500">매물 시세</button>
                 <button id="tabBtnTax" onclick="switchDetailTab('tax')" class="py-3 px-3 hover:text-slate-700 transition-all flex items-center gap-1.5">
                     올해 세금
                     <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
                 </button>
-                <button class="py-3 px-3 text-slate-300 cursor-not-allowed">갈아타기</button>
             </div>
 
-            <!-- 탭 1: 기본 정보 뷰 -->
+            <!-- 탭 1: 정보 -->
             <div id="tabContentInfo" class="p-5 space-y-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500">
@@ -426,12 +401,8 @@
 
                 <div onclick="switchDetailTab('tax')" class="bg-gradient-to-br from-indigo-50/80 to-slate-50 border border-indigo-100 rounded-2xl p-4 cursor-pointer hover:shadow-md transition-shadow">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-extrabold text-indigo-900 flex items-center gap-1">
-                            💰 1세대 1주택 세법 모의 계산
-                        </span>
-                        <span class="text-[11px] font-bold text-indigo-600 flex items-center">
-                            상세 계산서 보기 →
-                        </span>
+                        <span class="text-xs font-extrabold text-indigo-900 flex items-center gap-1">💰 1세대 1주택 세법 모의 계산</span>
+                        <span class="text-[11px] font-bold text-indigo-600 flex items-center">상세 계산서 보기 →</span>
                     </div>
                     <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-indigo-100/60">
                         <div class="bg-white/80 p-2 rounded-xl">
@@ -465,30 +436,13 @@
                 </div>
             </div>
 
-            <!-- 탭 2: 매물 시세 뷰 -->
+            <!-- 탭 2: 매물 시세 -->
             <div id="tabContentMarket" class="hidden p-5 space-y-5">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-500">
-                        <span class="bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-bold">매매</span>
-                        <span class="px-2 py-1">전세</span>
-                        <span class="px-2 py-1">월세</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg">내집 내놓기</button>
-                        <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg" id="marketPyeongBadge">34평 ▾</span>
-                    </div>
-                </div>
-
                 <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div>
-                            <span class="text-xs text-slate-500 font-medium" id="marketDongFloorText">102동 로얄층 · 84.6㎡</span>
-                        </div>
-                        <button class="text-[11px] font-semibold text-indigo-600 border border-indigo-200 px-2.5 py-1 rounded-lg hover:bg-indigo-50">
-                            우리집으로 등록
-                        </button>
+                        <span class="text-xs text-slate-500 font-medium" id="marketDongFloorText">로얄층 시세 추정</span>
+                        <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg" id="marketPyeongBadge">34평 ▾</span>
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <span class="text-xs font-bold text-blue-600 block">급매 호가(추정)</span>
@@ -504,38 +458,7 @@
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-1.5">
-                            <h3 class="text-xs font-extrabold text-slate-900">지금 나온 매물과 비교</h3>
-                            <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" id="marketAreaChip">동일 평형</span>
-                        </div>
-                        <span class="text-[11px] font-bold text-slate-400" id="marketTotalCount">매물 28건</span>
-                    </div>
-
-                    <div class="flex items-center gap-3 text-[11px] font-bold">
-                        <span class="text-blue-600 flex items-center gap-1">
-                            <span class="w-2 h-2 rounded-full bg-blue-500"></span> 급매선
-                        </span>
-                        <span class="text-emerald-600 flex items-center gap-1">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 집중 호가선
-                        </span>
-                    </div>
-
-                    <div class="relative h-44 w-full">
-                        <canvas id="marketDistributionChart"></canvas>
-                    </div>
-
-                    <p class="text-[10px] text-slate-400 text-center leading-relaxed">
-                        막대는 해당 평형에 <span class="text-slate-600 font-semibold">지금 올라온 매물 호가의 분포</span>예요.
-                    </p>
-                </div>
-
-                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-extrabold text-slate-900">저·중·고층 적정 호가 범위</h3>
-                        <span class="text-[10px] font-medium text-slate-400">범위(추정)</span>
-                    </div>
-
+                    <h3 class="text-xs font-extrabold text-slate-900">저·중·고층 적정 호가 범위</h3>
                     <div class="divide-y divide-slate-100 text-xs">
                         <div class="py-2 flex justify-between items-center">
                             <span class="text-slate-500 font-medium">저층 (1~3층)</span>
@@ -551,65 +474,19 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-extrabold text-slate-900">매물 소화 기간</h3>
-                        <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full" id="absorptionBadge">
-                            구 평균보다 느려요
-                        </span>
-                    </div>
-
-                    <div class="flex items-baseline gap-1 mt-1">
-                        <span class="text-3xl font-black text-slate-900 tracking-tight" id="absorptionMonths">16.7</span>
-                        <span class="text-sm font-bold text-slate-600">개월</span>
-                    </div>
-                    <p class="text-[11px] text-slate-400 font-medium" id="absorptionFormula">
-                        매물 건수 ÷ 최근 6개월 월평균 거래 건수
-                    </p>
-
-                    <div class="grid grid-cols-3 gap-2 pt-2">
-                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
-                            <span class="text-[10px] text-slate-400 block font-medium">지역 평균</span>
-                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statGuAvg">13.2개월</span>
-                        </div>
-                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
-                            <span class="text-[10px] text-slate-400 block font-medium">1년 전</span>
-                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statYearAgo">2.7개월</span>
-                        </div>
-                        <div class="bg-slate-50 p-2.5 rounded-xl text-center">
-                            <span class="text-[10px] text-slate-400 block font-medium">최근 6개월 거래</span>
-                            <span class="text-xs font-bold text-slate-800 mt-0.5 block" id="statRecentDeals">47건</span>
-                        </div>
-                    </div>
-
-                    <div class="pt-2">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-[11px] font-semibold text-slate-600">소화 기간 추이</span>
-                            <span class="text-[10px] text-indigo-600 font-bold">국토부 실거래 기준</span>
-                        </div>
-                        <div class="relative h-36 w-full">
-                            <canvas id="absorptionTrendChart"></canvas>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <!-- 탭 3: 개정 세법 종합 계산서 뷰 -->
+            <!-- 탭 3: 세금 -->
             <div id="tabContentTax" class="hidden p-5 space-y-4">
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-[11px] text-slate-600 leading-relaxed">
                     <p class="font-bold text-slate-800 mb-0.5">⚖️ 개정 세법 산출 기준 (1세대 1주택자 기준)</p>
-                    <p>• <b>취득세:</b> 6억 이하(1%), 6~9억(1~3% 누진), 9억 초과(3%) + 교육세</p>
-                    <p>• <b>보유세:</b> 추정 공시가(실거래가 69%) 기준 재산세 + 종부세(12억 기본공제)</p>
-                    <p>• <b>양도세:</b> 12억 원 이하 전액 비과세 / 12억 초과분만 안분 과세</p>
+                    <p>• <b>취득세:</b> 6억 이하(1%), 6~9억(누진), 9억 초과(3%) + 부가세</p>
+                    <p>• <b>보유세:</b> 공시가(실거래가 69%) 기준 재산세 + 종부세(12억 공제)</p>
+                    <p>• <b>양도세:</b> 12억 이하 전액 비과세 / 초과분 안분 과세</p>
                 </div>
-
                 <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                            <h3 class="text-xs font-bold text-slate-900">매수 취득세</h3>
-                        </div>
+                        <h3 class="text-xs font-bold text-slate-900">매수 취득세</h3>
                         <span class="text-xs font-extrabold text-indigo-600" id="taxAcqTotal">-</span>
                     </div>
                     <div class="space-y-1 text-xs text-slate-600">
@@ -617,107 +494,50 @@
                             <span class="text-slate-400">적용 세율</span>
                             <span class="font-semibold" id="taxAcqRateDetail">-</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">지방교육세 + 농특세</span>
-                            <span class="font-semibold" id="taxAcqExtraDetail">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                            <h3 class="text-xs font-bold text-slate-900">연간 보유세 (재산세 + 종부세)</h3>
-                        </div>
-                        <span class="text-xs font-extrabold text-emerald-600" id="taxHoldingTotal">-</span>
-                    </div>
-                    <div class="space-y-1 text-xs text-slate-600">
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">추정 공시가격 (시세 69%)</span>
-                            <span class="font-semibold" id="taxPubPriceDetail">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">예상 재산세 (특례세율)</span>
-                            <span class="font-semibold" id="taxPropertyDetail">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">종합부동산세 (12억 초과분)</span>
-                            <span class="font-semibold" id="taxJongbuDetail">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                            <h3 class="text-xs font-bold text-slate-900">예상 양도소득세</h3>
-                        </div>
-                        <span class="text-xs font-extrabold text-red-500" id="taxTransferTotal">-</span>
-                    </div>
-                    <div class="space-y-1 text-xs text-slate-600">
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">실현 양도차익</span>
-                            <span class="font-semibold" id="taxGainDetail">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">1주택 12억 초과 과세차익</span>
-                            <span class="font-semibold" id="taxTaxableGainDetail">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">장기보유특별공제 & 기본공제</span>
-                            <span class="font-semibold" id="taxDeductionDetail">3년 보유 거주 (24%)</span>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 패널 여닫기 버튼 -->
-        <button onclick="togglePanel()" class="max-md:!hidden hidden md:flex absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors" style="pointer-events: auto; z-index: 1001;">
+        <!-- 데스크톱 패널 토글 버튼 -->
+        <button onclick="togglePanel()" class="max-md:!hidden hidden md:flex absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors">
             <svg id="toggleIcon" class="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
             </svg>
         </button>
     </aside>
 
-    <!-- 오른쪽: 지도 영역 -->
+    <!-- 지도 영역 -->
     <main class="absolute inset-0 w-screen h-screen md:relative md:flex-1 md:w-full md:h-full z-0 pointer-events-auto">
-        <div id="map" class="absolute inset-0 w-full h-full" style="touch-action: manipulation; pointer-events: auto; z-index: 1;"></div>
+        <div id="map" class="absolute inset-0 w-full h-full"></div>
         
-        <!-- 모바일 전용 FAB (패널 열기 버튼) -->
         <button id="mobileFab" class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl font-bold flex items-center gap-2 transition-transform duration-500 pointer-events-auto" onclick="togglePanel(true)">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             목록 보기
         </button>
         <script>
-            // 데스크톱 환경이거나, 패널이 열려있다면 FAB 숨김 (여기서는 데스크톱일때 강제로 숨김 처리)
             if (window.innerWidth >= 768) {
                 document.getElementById('mobileFab').classList.add('translate-y-32');
             }
         </script>
         
-        <!-- 좌측 상단 플로팅 안내 바 (터치 가로챔 방지: 컨테이너 pointer-events-none, 버튼/배지만 auto) -->
         <div class="absolute top-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
             <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 pointer-events-auto">
                 <span class="relative flex h-2.5 w-2.5">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
                 </span>
-                <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🔍 줌 레벨 자동 필터링: 계산 중...</span>
+                <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🔍 각 동별 최고가 대장 단지 표시 중</span>
             </div>
-
             <button id="floatingRoadviewBtn" onclick="openRoadview()" class="hidden bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all pointer-events-auto">
                 현재 위치 로드뷰
             </button>
         </div>
     </main>
 
-    <!-- [레이어 3] 팝업/모달 전용 독립 최상위 레이어 (지도 main/div 컨테이너 외부로 완전 분리) -->
-    <div id="popup-layer" class="pointer-events-none fixed inset-0 z-[2000]" style="z-index: 2000;">
-        <!-- 로드뷰 모달 -->
-        <div id="roadviewModal" class="hidden pointer-events-auto absolute inset-0 z-[2000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();" onwheel="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();">
+    <!-- 팝업 및 로드뷰 모달 -->
+    <div id="popup-layer" class="pointer-events-none fixed inset-0 z-[2000]">
+        <div id="roadviewModal" class="hidden pointer-events-auto absolute inset-0 z-[2000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
             <div class="relative w-full h-full max-w-5xl max-h-[88vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700">
                 <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
                     <div class="flex items-center gap-2">
@@ -731,225 +551,44 @@
                 <div id="roadview" class="w-full flex-1 bg-slate-900 relative"></div>
             </div>
         </div>
-
     </div>
 
     <script>
         function togglePanel(forceOpen = null) {
-            try {
-                const panel = document.getElementById('sidePanel');
-                const icon = document.getElementById('toggleIcon');
-                const openBtn = document.getElementById('mobileMenuOpenBtn');
-                const fab = document.getElementById('mobileFab');
+            const panel = document.getElementById('sidePanel');
+            const icon = document.getElementById('toggleIcon');
+            const fab = document.getElementById('mobileFab');
+            const isCurrentlyOpen = !panel.classList.contains('panel-closed');
+            const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
-                const isCurrentlyOpen = !panel.classList.contains('panel-closed');
-                const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
-
-                if (!shouldOpen) {
-                    try { clearHoverTimer(); } catch(e) {}
-                    try {
-                        if (typeof hoverStateRef !== 'undefined') {
-                            hoverStateRef.isPinned = false;
-                            hoverStateRef.isHoveringMarker = false;
-                            hoverStateRef.isHoveringPanel = false;
-                            hoverStateRef.currentKey = null;
-                        }
-                    } catch(e) {}
-                    
-                    if (panel) panel.classList.remove('hover-bridge');
-                    
-                    // 메뉴 닫기 (반응형 CSS 클래스)
-                    if (panel) {
-                        panel.classList.add('panel-closed');
-                        panel.classList.remove('panel-full');
-                    }
-                    
-                    if (icon && icon.parentElement) {
-                        icon.parentElement.classList.replace('-right-8', '-right-12');
-                        icon.parentElement.classList.add('w-12');
-                        icon.parentElement.classList.remove('w-8');
-                        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
-                    }
-                    if (openBtn) openBtn.classList.remove('hidden');
-                    if (fab) fab.classList.remove('translate-y-32');
-                } else {
-                    // 메뉴 열기 (반응형 CSS 클래스)
-                    if (panel) {
-                        panel.classList.remove('panel-closed');
-                        panel.classList.remove('panel-full');
-                    }
-                    
-                    if (icon && icon.parentElement) {
-                        icon.parentElement.classList.replace('-right-12', '-right-8');
-                        icon.parentElement.classList.add('w-8');
-                        icon.parentElement.classList.remove('w-12');
-                        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
-                    }
-                    if (openBtn) openBtn.classList.add('hidden');
-                    if (fab) fab.classList.add('translate-y-32');
-                }
-
-                setTimeout(() => {
-                    try {
-                        if (typeof map !== 'undefined' && map) {
-                            const center = map.getCenter();
-                            map.relayout();
-                            map.setCenter(center);
-                        }
-                    } catch (e) {
-                        console.error('Map relayout error:', e);
-                    }
-                }, 500);
-            } catch (error) {
-                console.error('togglePanel execution error:', error);
-                // 최후의 방어 수단: 에러가 나더라도 무조건 닫기
-                const panel = document.getElementById('sidePanel');
-                if (panel && forceOpen === false) {
+            if (!shouldOpen) {
+                if (panel) {
                     panel.classList.add('panel-closed');
                     panel.classList.remove('panel-full');
                 }
+                if (icon && icon.parentElement) {
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
+                }
+                if (fab) fab.classList.remove('translate-y-32');
+            } else {
+                if (panel) {
+                    panel.classList.remove('panel-closed');
+                    panel.classList.remove('panel-full');
+                }
+                if (icon && icon.parentElement) {
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+                }
+                if (fab) fab.classList.add('translate-y-32');
             }
-        }
 
-        // [상세 패널 및 사이드바 터치/클릭 방어벽]
-        let isInteractingWithPanel = false;
-        let panelInteractionTimer = null;
-        let lastPointerDownTarget = null;
-        let lastPointerCoords = { x: -9999, y: -9999 };
-
-        function flagPanelInteraction() {
-            isInteractingWithPanel = true;
-            if (panelInteractionTimer) clearTimeout(panelInteractionTimer);
-            panelInteractionTimer = setTimeout(() => {
-                isInteractingWithPanel = false;
-            }, 800);
-        }
-
-        // 전체 화면의 마지막 터치/포인터 대상 및 좌표 기록 (캡처 단계)
-        ['pointerdown', 'mousedown', 'touchstart', 'touchend', 'click'].forEach(type => {
-            document.addEventListener(type, function(e) {
-                lastPointerDownTarget = e.target;
-                const touch = (e.touches && e.touches.length > 0) ? e.touches[0] : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0] : e);
-                if (touch && typeof touch.clientX === 'number') {
-                    lastPointerCoords = { x: touch.clientX, y: touch.clientY };
+            setTimeout(() => {
+                if (typeof map !== 'undefined' && map) {
+                    const center = map.getCenter();
+                    map.relayout();
+                    map.setCenter(center);
                 }
-                const sidePanel = document.getElementById('sidePanel');
-                const detailPanel = document.getElementById('detailPanel');
-                const rankingPanel = document.getElementById('rankingPanel');
-                const popupLayer = document.getElementById('popup-layer');
-                if (
-                    (sidePanel && sidePanel.contains(e.target)) || 
-                    (detailPanel && detailPanel.contains(e.target)) ||
-                    (rankingPanel && rankingPanel.contains(e.target)) ||
-                    (openBtn && openBtn.contains(e.target)) ||
-                    (roadviewModal && roadviewModal.contains(e.target)) ||
-                    (popupLayer && popupLayer.contains(e.target))
-                ) {
-                    if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                        try { kakao.maps.event.preventMap(); } catch(err) {}
-                    }
-                    flagPanelInteraction();
-                }
-            }, true);
-        });
-
-        // 📌 [요청 사항 3 & 4] 정보 패널/모달/바텀시트의 루트 요소에 'click', 'dblclick', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'pointerdown', 'wheel' 이벤트 리스너를 걸어 event.stopPropagation() 및 SDK preventMap() 적용
-        const stopPropagationEvents = [
-            'click',
-            'dblclick',
-            'mousedown',
-            'mouseup',
-            'touchstart',
-            'touchend',
-            'pointerdown',
-            'pointerup',
-            'wheel'
-        ];
-
-        function registerPanelEventStoppers() {
-            const panelRoots = [
-                document.getElementById('sidePanel'),
-                document.getElementById('rankingPanel'),
-                document.getElementById('detailPanel'),
-                document.getElementById('popup-layer'),
-                document.getElementById('roadviewModal'),
-                document.getElementById('mobileMenuOpenBtn')
-            ].filter(Boolean);
-
-            panelRoots.forEach(panel => {
-                stopPropagationEvents.forEach(evtType => {
-                    const listenerOpts = (evtType === 'wheel') ? { capture: true, passive: false } : true;
-                    const bubbleOpts = (evtType === 'wheel') ? { capture: false, passive: false } : false;
-
-                    // 1) 캡처 단계: Map SDK의 preventMap() 즉시 호출 및 상호작용 플래그 설정 (지도 엔진보다 먼저 실행)
-                    panel.addEventListener(evtType, function(e) {
-                        if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                            try { kakao.maps.event.preventMap(); } catch(err) {}
-                        }
-                        flagPanelInteraction();
-                    }, listenerOpts);
-
-                    // 2) 버블링 단계: 내부 UI 컴포넌트 동작 후 최상위 루트에서 상위 부모 및 지도로의 이벤트 전파 원천 차단
-                    panel.addEventListener(evtType, function(e) {
-                        if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                            try { kakao.maps.event.preventMap(); } catch(err) {}
-                        }
-                        flagPanelInteraction();
-                        e.stopPropagation();
-                    }, bubbleOpts);
-                });
-            });
+            }, 300);
         }
-        registerPanelEventStoppers();
-
-        // 📌 [요청 사항 1] 동기적 타이머 제어 (useRef 패턴의 동기식 상태 객체 hoverStateRef)
-        const hoverStateRef = {
-            timerId: null,
-            isHoveringMarker: false,
-            isHoveringPanel: false,
-            isPinned: false, // 마커를 직접 '클릭'하여 연 경우 영구 고정
-            currentKey: null
-        };
-
-        function clearHoverTimer() {
-            if (hoverStateRef.timerId !== null) {
-                clearTimeout(hoverStateRef.timerId);
-                hoverStateRef.timerId = null;
-            }
-        }
-
-        // 1. 타이머를 이용한 딜레이 적용: 마커 mouseleave 시 400ms의 setTimeout 적용 (동기적 추적)
-        function startCloseTimer(delay = 400) {
-            clearHoverTimer();
-            hoverStateRef.timerId = setTimeout(() => {
-                // 패널/마커 모두 벗어났고 클릭 고정 상태가 아닐 때만 닫기
-                if (!hoverStateRef.isHoveringMarker && !hoverStateRef.isHoveringPanel && !hoverStateRef.isPinned) {
-                    closeApartmentDetail();
-                    hoverStateRef.currentKey = null;
-                }
-            }, delay);
-        }
-
-        // 2. 패널 영역 유지(Hover Intent): 패널에 mouseenter 시 그 즉시 clearTimeout을 실행하여 렌더링 지연으로 인한 깜빡임 원천 차단
-        function initPanelHoverIntent() {
-            const sidePanel = document.getElementById('sidePanel');
-            const detailPanel = document.getElementById('detailPanel');
-
-            [sidePanel, detailPanel].forEach(el => {
-                if (!el) return;
-                el.addEventListener('mouseenter', function() {
-                    hoverStateRef.isHoveringPanel = true;
-                    // 패널 영역 내부로 진입했으므로 닫기 타이머 즉각(동기적) 취소!
-                    clearHoverTimer();
-                });
-                el.addEventListener('mouseleave', function() {
-                    hoverStateRef.isHoveringPanel = false;
-                    // 패널에서 완전히 벗어났을 때 400ms 딜레이 후 닫기
-                    startCloseTimer(400);
-                });
-            });
-        }
-        initPanelHoverIntent();
 
         const REGION_DATA = {
             "서울특별시": ["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"],
@@ -973,13 +612,7 @@
         let currentAddressName = "";
         let currentSelectedItem = null;
 
-        let chartInstances = { 
-            soaring: null, 
-            plunging: null, 
-            detail: null, 
-            marketDist: null, 
-            absorptionTrend: null 
-        };
+        let chartInstances = { soaring: null, plunging: null, detail: null };
         let rawDataStore = { soaring: [], plunging: [] };
 
         let currentLatLng = null;
@@ -989,36 +622,15 @@
         let mapCustomOverlays = [];
         window.badgeItemStore = {};
 
-                const mapContainer = document.getElementById('map');
+        const mapContainer = document.getElementById('map');
         const mapOption = { 
             center: new kakao.maps.LatLng(37.566826, 126.978656),
             level: 7 
         };
         const map = new kakao.maps.Map(mapContainer, mapOption);
-
-        // [모바일 제스처 최적화] 지도가 생성된 직후 setTimeout 200ms 뒤 map.relayout() 및 window resize 강제 1회 발생
         map.setDraggable(true);
-        setTimeout(() => {
-            if (map) {
-                map.relayout();
-                map.setCenter(mapOption.center);
-                window.dispatchEvent(new Event('resize'));
-            }
-        }, 200);
 
-        // [모바일 제스처 최적화] window load 완료 시점에 map.relayout() 강제 호출
-        window.addEventListener('load', function() {
-            if (map) {
-                map.setDraggable(true);
-                map.relayout();
-                if (mapOption && mapOption.center) {
-                    map.setCenter(mapOption.center);
-                }
-                window.dispatchEvent(new Event('resize'));
-            }
-        }); 
         const geocoder = new kakao.maps.services.Geocoder();
-        // 📌 [신규 추가] 카카오 장소/키워드 검색 객체 생성 (단지명 검색 전용)
         const places = new kakao.maps.services.Places();
         let marker = new kakao.maps.Marker();
 
@@ -1031,18 +643,6 @@
             }, 300);
         });
 
-        
-
-        
-
-        
-
-        
-
-        
-
-        
-
         let lastFilterState = {
             level: null,
             centerLat: null,
@@ -1051,6 +651,7 @@
             dataHash: ''
         };
 
+        /* 핵심 필터링 로직: 사이드바는 Top 3, 지도는 동별 최고가 대장 단지만 선별 */
         function applyClientFilters(force = false) {
             if (!map) return;
             const bounds = map.getBounds();
@@ -1065,27 +666,23 @@
             const currentLng = center.getLng();
             
             const badgeEl = document.getElementById('zoomFilterBadge');
-
             let minPriceThreshold = 0;
             let zoomText = '';
 
             if (span >= 0.1) {
                 minPriceThreshold = 180000;
-                zoomText = `🔍 광역 축소 상태 (18억 이상 대장·고가 단지만 표시)`;
+                zoomText = `🔍 광역 축소 상태 (18억 이상 동별 대장 단지 표시)`;
             } else if (span >= 0.04) {
                 minPriceThreshold = 120000;
-                zoomText = `🔍 중간 줌 상태 (12억 이상 주요 단지 표시)`;
+                zoomText = `🔍 중간 줌 상태 (12억 이상 동별 대장 단지 표시)`;
             } else {
                 minPriceThreshold = 0;
-                zoomText = `🔍 상세 확대 상태 (모든 가격대 아파트 표시 중)`;
+                zoomText = `🔍 상세 확대 상태 (각 동별 최고가 1위 단지 표시 중)`;
             }
 
             if (badgeEl) badgeEl.textContent = zoomText;
 
-            // 데이터 변경 여부 감지용 해시
             const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}`;
-
-            // 이전 상태와 비교: 줌 레벨, 가격 필터 임계치, 원본 데이터, 또는 유의미한 지도 이동(약 20m 이상)이 없는 경우 중복 배지 생성 방지
             const latDiff = lastFilterState.centerLat ? Math.abs(currentLat - lastFilterState.centerLat) : 999;
             const lngDiff = lastFilterState.centerLng ? Math.abs(currentLng - lastFilterState.centerLng) : 999;
             const isLevelChanged = lastFilterState.level !== currentLevel;
@@ -1094,7 +691,7 @@
             const isCenterMoved = latDiff > 0.0002 || lngDiff > 0.0002;
 
             if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved) {
-                return; // 변동 없음 -> 무한 배지 생성 및 idle 이벤트 순환 루프 원천 차단!
+                return;
             }
 
             lastFilterState = {
@@ -1110,233 +707,32 @@
                 return list.filter(item => item.latest_price >= minPriceThreshold);
             };
 
-            const filteredSoaring = filterList(rawDataStore.soaring).slice(0, 3);
-            const filteredPlunging = filterList(rawDataStore.plunging).slice(0, 3);
+            const soaringFiltered = filterList(rawDataStore.soaring || []);
+            const plungingFiltered = filterList(rawDataStore.plunging || []);
 
-            renderChart('soaring', filteredSoaring);
-            renderChart('plunging', filteredPlunging);
+            // 1. [좌측 패널]: 급등/급락 Top 3 유지
+            renderChart('soaring', soaringFiltered.slice(0, 3));
+            renderChart('plunging', plungingFiltered.slice(0, 3));
 
+            // 2. [지도 배지]: 각 법정동(지역)별 최고가 1등 단지만 선별
             clearMapBadges();
-            createMapBadges(filteredSoaring, true);
-            createMapBadges(filteredPlunging, false);
-        }
 
-        function calculateTaxes(latestPrice, prevPrice, areaStr) {
-            const area = parseFloat(areaStr) || 84;
-            const isOver85 = area > 85;
-            
-            let acqTaxRate = 0;
-            let acqEduRate = 0;
-            let acqRuralRate = isOver85 ? 0.002 : 0;
-            
-            if (latestPrice <= 60000) {
-                acqTaxRate = 0.01;
-                acqEduRate = 0.001;
-            } else if (latestPrice <= 90000) {
-                const P = latestPrice / 10000;
-                acqTaxRate = ((P * (2/3) - 3) * 1) / 100;
-                acqEduRate = acqTaxRate * 0.1;
-            } else {
-                acqTaxRate = 0.03;
-                acqEduRate = 0.003;
-            }
-            const acqTotalRate = acqTaxRate + acqEduRate + acqRuralRate;
-            const acqTaxAmount = Math.round(latestPrice * acqTotalRate);
-            
-            const estPubPrice = Math.round(latestPrice * 0.69);
-            const propTaxBase = estPubPrice * 0.45;
-            let propTax = 0;
-            if (propTaxBase <= 6000) propTax = propTaxBase * 0.0005;
-            else if (propTaxBase <= 15000) propTax = 3 + (propTaxBase - 6000) * 0.001;
-            else if (propTaxBase <= 30000) propTax = 12 + (propTaxBase - 15000) * 0.0015;
-            else propTax = 34.5 + (propTaxBase - 30000) * 0.0035;
-            
-            const cityTax = propTaxBase * 0.0014;
-            const propEduTax = propTax * 0.2;
-            const totalPropertyTax = Math.round(propTax + cityTax + propEduTax);
-            
-            let jongbuTax = 0;
-            if (estPubPrice > 120000) {
-                const jongbuBase = (estPubPrice - 120000) * 0.6;
-                if (jongbuBase <= 30000) jongbuTax = jongbuBase * 0.005;
-                else if (jongbuBase <= 60000) jongbuTax = 150 + (jongbuBase - 30000) * 0.007;
-                else if (jongbuBase <= 120000) jongbuTax = 360 + (jongbuBase - 60000) * 0.01;
-                else jongbuTax = 960 + (jongbuBase - 120000) * 0.014;
-                jongbuTax = jongbuTax * 1.2;
-            }
-            const totalHoldingTax = totalPropertyTax + Math.round(jongbuTax);
-            
-            const gain = latestPrice - prevPrice;
-            let transferTax = 0;
-            let isTaxFree = false;
-            let taxableGain = 0;
-            
-            if (gain <= 0) {
-                transferTax = 0;
-            } else if (latestPrice <= 120000) {
-                transferTax = 0;
-                isTaxFree = true;
-            } else {
-                taxableGain = gain * ((latestPrice - 120000) / latestPrice);
-                const specDeduction = taxableGain * 0.24;
-                const taxIncome = Math.max(0, taxableGain - specDeduction - 250);
-                
-                let baseTax = 0;
-                if (taxIncome <= 1400) baseTax = taxIncome * 0.06;
-                else if (taxIncome <= 5000) baseTax = taxIncome * 0.15 - 126;
-                else if (taxIncome <= 8800) baseTax = taxIncome * 0.24 - 576;
-                else if (taxIncome <= 15000) baseTax = taxIncome * 0.35 - 1544;
-                else if (taxIncome <= 30000) baseTax = taxIncome * 0.38 - 1994;
-                else if (taxIncome <= 50000) baseTax = taxIncome * 0.40 - 2594;
-                else if (taxIncome <= 100000) baseTax = taxIncome * 0.42 - 3594;
-                else baseTax = taxIncome * 0.45 - 6594;
-                
-                transferTax = Math.round(baseTax * 1.1);
-            }
-            
-            return {
-                acq: { total: acqTaxAmount, rate: (acqTotalRate * 100).toFixed(2), baseRate: (acqTaxRate * 100).toFixed(2), extra: (acqEduRate + acqRuralRate) * 100 },
-                holding: { total: totalHoldingTax, prop: totalPropertyTax, jongbu: Math.round(jongbuTax), pubPrice: estPubPrice },
-                transfer: { total: transferTax, gain: gain, isTaxFree: isTaxFree, taxableGain: Math.round(taxableGain) }
-            };
-        }
+            const sourceList = rawDataStore.items || [...soaringFiltered, ...plungingFiltered];
+            const dongLeaderMap = new Map();
 
-        function switchDetailTab(tab) {
-            const btnInfo = document.getElementById('tabBtnInfo');
-            const btnMarket = document.getElementById('tabBtnMarket');
-            const btnTax = document.getElementById('tabBtnTax');
-
-            const contentInfo = document.getElementById('tabContentInfo');
-            const contentMarket = document.getElementById('tabContentMarket');
-            const contentTax = document.getElementById('tabContentTax');
-
-            [btnInfo, btnMarket, btnTax].forEach(b => {
-                b.className = "py-3 px-3 hover:text-slate-700 transition-all text-slate-400 font-semibold";
-            });
-            [contentInfo, contentMarket, contentTax].forEach(c => c.classList.add('hidden'));
-
-            if (tab === 'info') {
-                btnInfo.className = "py-3 px-3 text-slate-900 border-b-2 border-slate-900 font-bold transition-all";
-                contentInfo.classList.remove('hidden');
-            } else if (tab === 'market') {
-                btnMarket.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all";
-                contentMarket.classList.remove('hidden');
-                if (currentSelectedItem) renderMarketTab(currentSelectedItem);
-            } else if (tab === 'tax') {
-                btnTax.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all flex items-center gap-1.5";
-                contentTax.classList.remove('hidden');
-            }
-        }
-
-        function renderMarketTab(item) {
-            const price = item.latest_price;
-            const pyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
-
-            const quickPrice = Math.round(price * 0.98);
-            const focusPrice = Math.round(price * 1.03);
-
-            document.getElementById('marketPyeongBadge').textContent = `${pyeong}평 ▾`;
-            document.getElementById('marketDongFloorText').textContent = `102동 로얄층 · ${pyeong}평형 · ${item.area}㎡`;
-            document.getElementById('marketQuickPrice').textContent = formatPrice(quickPrice);
-            document.getElementById('marketFocusPrice').textContent = formatPrice(focusPrice);
-
-            document.getElementById('floorRangeLow').textContent = `${formatPrice(Math.round(price * 0.95))} ~ ${formatPrice(Math.round(price * 0.98))}`;
-            document.getElementById('floorRangeMid').textContent = `${formatPrice(Math.round(price * 0.99))} ~ ${formatPrice(Math.round(price * 1.03))}`;
-            document.getElementById('floorRangeHigh').textContent = `${formatPrice(Math.round(price * 1.04))} ~ ${formatPrice(Math.round(price * 1.08))}`;
-
-            renderMarketDistChart(price, quickPrice, focusPrice);
-
-            const absorption = (14 + Math.random() * 4).toFixed(1);
-            document.getElementById('absorptionMonths').textContent = absorption;
-            document.getElementById('absorptionFormula').textContent = `매물 84건 ÷ 최근 6개월 월평균 거래 5.8건`;
-            document.getElementById('statGuAvg').textContent = `13.2개월`;
-            document.getElementById('statYearAgo').textContent = `2.7개월`;
-            document.getElementById('statRecentDeals').textContent = `35건`;
-
-            renderAbsorptionTrendChart();
-        }
-
-        function renderMarketDistChart(price, quickPrice, focusPrice) {
-            const ctx = document.getElementById('marketDistributionChart').getContext('2d');
-            if (chartInstances.marketDist) chartInstances.marketDist.destroy();
-
-            const p1 = Math.round(price * 0.94);
-            const p2 = Math.round(price * 0.97);
-            const p3 = Math.round(price * 1.00);
-            const p4 = Math.round(price * 1.03);
-            const p5 = Math.round(price * 1.06);
-            const p6 = Math.round(price * 1.09);
-
-            chartInstances.marketDist = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: [formatPrice(p1), formatPrice(p2), formatPrice(p3), formatPrice(p4), formatPrice(p5), formatPrice(p6)],
-                    datasets: [{
-                        label: '호가 매물수',
-                        data: [2, 7, 14, 22, 9, 3],
-                        backgroundColor: [
-                            '#e2e8f0',
-                            'rgba(59, 130, 246, 0.75)',
-                            '#cbd5e1',
-                            'rgba(16, 185, 129, 0.85)',
-                            '#e2e8f0',
-                            '#f1f5f9'
-                        ],
-                        borderRadius: 6,
-                        barPercentage: 0.75
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (c) => ` 등록 매물: ${c.parsed.y}개`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                        y: { display: false }
+            sourceList.forEach(item => {
+                const dongKey = item.dong || currentDongName || item.name || '지역';
+                if (!dongLeaderMap.has(dongKey)) {
+                    dongLeaderMap.set(dongKey, item);
+                } else {
+                    if (item.latest_price > dongLeaderMap.get(dongKey).latest_price) {
+                        dongLeaderMap.set(dongKey, item);
                     }
                 }
             });
-        }
 
-        function renderAbsorptionTrendChart() {
-            const ctx = document.getElementById('absorptionTrendChart').getContext('2d');
-            if (chartInstances.absorptionTrend) chartInstances.absorptionTrend.destroy();
-
-            chartInstances.absorptionTrend = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['24.01', '24.07', '25.01', '25.07', '26.01', '지금'],
-                    datasets: [{
-                        data: [6.2, 9.8, 4.3, 11.2, 17.5, 16.7],
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                        borderWidth: 2.5,
-                        pointBackgroundColor: '#3b82f6',
-                        pointRadius: [3, 3, 3, 3, 3, 6],
-                        fill: true,
-                        tension: 0.35
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-                        y: {
-                            grid: { color: '#f1f5f9' },
-                            ticks: { font: { size: 9 }, callback: (v) => `${v}m` }
-                        }
-                    }
-                }
-            });
+            const topPerDongList = Array.from(dongLeaderMap.values());
+            createMapBadges(topPerDongList);
         }
 
         function clearMapBadges() {
@@ -1346,17 +742,17 @@
             window.customOverlayStore = {};
         }
 
-        function createMapBadges(dataList, isSoaring) {
+        /* 동별 최고가 대장 전용 지도 배지 생성 */
+        function createMapBadges(dataList) {
             if (!dataList || dataList.length === 0) return;
 
             dataList.forEach((item, index) => {
-                const badgeKey = `${isSoaring ? 'up' : 'down'}_${index}`;
+                const badgeKey = `leader_${index}`;
                 window.badgeItemStore[badgeKey] = item;
 
-                // 지번(jibun)이 있으면 최우선으로 사용, 없으면 이름(아파트명 등)으로 검색
                 const targetDong = item.dong || currentDongName || currentAddressName;
                 const searchQuery = item.jibun ? `${targetDong} ${item.jibun}` : `${targetDong} ${item.name}`;
-                
+
                 geocoder.addressSearch(searchQuery, function(result, status) {
                     let position = null;
                     if (status === kakao.maps.services.Status.OK && result.length > 0) {
@@ -1371,16 +767,19 @@
 
                     const pyeong = Math.round(parseFloat(item.area) / 3.3058) || '';
                     const pyeongText = pyeong ? `${pyeong}평` : `${item.area}㎡`;
-                    const headerBg = isSoaring ? 'bg-[#ef4444]' : 'bg-[#2563eb]';
-                    const diffText = isSoaring ? `+${formatPrice(item.diff)}` : `-${formatPrice(item.diff)}`;
-                    const diffColor = isSoaring ? 'text-red-500' : 'text-blue-500';
+                    
+                    const isUp = item.diff > 0;
+                    const isDown = item.diff < 0;
+                    const headerBg = isUp ? 'bg-[#ef4444]' : (isDown ? 'bg-[#2563eb]' : 'bg-[#475569]');
+                    const diffColor = isUp ? 'text-red-500' : (isDown ? 'text-blue-500' : 'text-slate-500');
+                    const diffText = isUp ? `+${formatPrice(item.diff)}` : (isDown ? `-${formatPrice(Math.abs(item.diff))}` : '보합');
 
-                    const isLeader = item.latest_price >= 200000 || index === 0;
-                    const leaderTagHtml = isLeader ? `
-                        <div class="bg-[#f97316] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-sm inline-block mx-auto mb-[-2px]">
-                            ${currentDongName || '지역'} 대장
+                    const dongNameTag = item.dong ? `${item.dong} 1위` : '지역 최고가';
+                    const leaderTagHtml = `
+                        <div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                            👑 ${dongNameTag}
                         </div>
-                    ` : '';
+                    `;
 
                     const markerHtml = `
                         <div class="custom-overlay-group relative select-none"
@@ -1388,7 +787,6 @@
                              onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
                              onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
                             
-                            <!-- 마커 본체 -->
                             <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center"
                                  style="touch-action: manipulation; pointer-events: auto;"
                                  onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
@@ -1396,12 +794,12 @@
                                  onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
                                  onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
                                 ${leaderTagHtml}
-                                <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[100px]">
-                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1.5">
-                                        <span class="truncate max-w-[80px]">${item.name}</span>
+                                <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[96px]">
+                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1">
+                                        <span class="truncate max-w-[70px]">${item.name}</span>
                                         <span class="text-[9px] opacity-90">${pyeongText}</span>
                                     </div>
-                                    <div class="px-2.5 py-1 bg-white flex flex-col items-center">
+                                    <div class="px-2 py-1 bg-white flex flex-col items-center">
                                         <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
                                         <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
                                     </div>
@@ -1421,15 +819,14 @@
                             <div class="absolute bottom-[48px] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] cursor-pointer"
                                  style="pointer-events: auto;"
                                  onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
-                                 
-                                <!-- 마커와 패널 사이를 잇는 투명 브릿지 -->
+                                
                                 <div class="absolute bottom-[-48px] left-1/2 transform -translate-x-1/2 w-[60px] h-[48px] bg-transparent" style="pointer-events: auto !important;"></div>
 
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
                                     <div class="truncate pr-2">
-                                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">${pyeongText}</span>
+                                        <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">${dongNameTag}</span>
                                         <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${item.name}</h4>
-                                        <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (item.dong || currentDongName || currentAddressName) + ' ' + item.jibun : (item.dong || currentDongName || currentAddressName)}</p>
+                                        <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (targetDong + ' ' + item.jibun) : targetDong}</p>
                                     </div>
                                     <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
                                 </div>
@@ -1450,7 +847,7 @@
                         content: markerHtml,
                         xAnchor: 0.5,
                         yAnchor: 1.0,
-                        zIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
+                        zIndex: 35
                     });
 
                     const panelOverlay = new kakao.maps.CustomOverlay({
@@ -1464,7 +861,7 @@
                     window.customOverlayStore = window.customOverlayStore || {};
                     window.customOverlayStore[badgeKey] = {
                         overlay: markerOverlay,
-                        originalZIndex: isLeader ? 30 : (isSoaring ? 15 : 10)
+                        originalZIndex: 35
                     };
 
                     markerOverlay.setMap(map);
@@ -1476,81 +873,24 @@
         }
 
         window.onOverlayGroupMouseEnter = function(key) {
-            hoverStateRef.isHoveringMarker = true;
-            hoverStateRef.currentKey = key;
-            clearHoverTimer();
-
-            if (window.customOverlayStore && window.customOverlayStore[key]) {
-                window.customOverlayStore[key].overlay.setZIndex(9999);
-            }
-
-            // 1) 커스텀 오버레이 부모 컨테이너 내 프리뷰 카드 노출
             const hoverCard = document.getElementById(`hoverCard_${key}`);
-            if (hoverCard) {
-                hoverCard.classList.remove('hidden');
-            }
-
-            // 2) 패널 측 안전 브릿지 활성화
-            const sidePanel = document.getElementById('sidePanel');
-            if (sidePanel) sidePanel.classList.add('hover-bridge');
-
-            // 3) 좌측 상세 패널 프리뷰 동기화
-            const item = window.badgeItemStore[key];
-            if (item) {
-                if (!hoverStateRef.isPinned || !currentSelectedItem || currentSelectedItem.name !== item.name) {
-                    showApartmentDetail(item, false); // isPinned = false (호버 모드)
-                }
-            }
+            if (hoverCard) hoverCard.classList.remove('hidden');
         };
 
         window.onOverlayGroupMouseLeave = function(key) {
-            hoverStateRef.isHoveringMarker = false;
-
-            if (window.customOverlayStore && window.customOverlayStore[key]) {
-                window.customOverlayStore[key].overlay.setZIndex(window.customOverlayStore[key].originalZIndex);
-            }
-
-            // 오버레이 프리뷰 카드 숨김
             const hoverCard = document.getElementById(`hoverCard_${key}`);
-            if (hoverCard) {
-                hoverCard.classList.add('hidden');
-            }
-
-            // 1. 타이머를 이용한 딜레이 적용: 400ms 딜레이 후 닫기 예약
-            startCloseTimer(400);
-        };
-
-        // 개별 배지 이벤트 호환용
-        window.onMapBadgeMouseEnter = function(key) {
-            window.onOverlayGroupMouseEnter(key);
-        };
-        window.onMapBadgeMouseLeave = function(key) {
-            window.onOverlayGroupMouseLeave(key);
+            if (hoverCard) hoverCard.classList.add('hidden');
         };
 
         window.onMapBadgeClick = function(key) {
-            if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                try { kakao.maps.event.preventMap(); } catch (err) {}
-            }
-            flagPanelInteraction();
-            clearHoverTimer();
-            hoverStateRef.isPinned = true; // 사용자가 직접 '클릭'하여 연 경우 영구 고정
             const item = window.badgeItemStore[key];
-            if (item) showApartmentDetail(item, true); // isPinned = true
+            if (item) showApartmentDetail(item);
         };
 
-        function showApartmentDetail(item, isPinned = true) {
-            if (window.kakao && kakao.maps && kakao.maps.event && typeof kakao.maps.event.preventMap === 'function') {
-                try { kakao.maps.event.preventMap(); } catch (err) {}
-            }
-            flagPanelInteraction();
-            clearHoverTimer();
-            if (isPinned) {
-                hoverStateRef.isPinned = true;
-            }
+        function showApartmentDetail(item) {
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
-            if (panel && panel.classList.contains('-ml-[480px]')) {
+            if (panel && panel.classList.contains('panel-closed')) {
                 togglePanel(true);
             }
             document.getElementById('rankingPanel').classList.add('hidden');
@@ -1583,44 +923,82 @@
             document.getElementById('detailFlameBanner').textContent = `${currentDongName || '지역'} 실거래 핵심 변동 단지`;
             document.getElementById('detailDateRange').textContent = `${formatDate(item.previous_date)} ~ ${formatDate(item.latest_date)}`;
 
+            // 세금 계산 및 요약
             const taxes = calculateTaxes(item.latest_price, item.previous_price, item.area);
             document.getElementById('miniTaxAcq').textContent = formatPrice(taxes.acq.total);
             document.getElementById('miniTaxHolding').textContent = formatPrice(taxes.holding.total);
             document.getElementById('miniTaxTransfer').textContent = taxes.transfer.isTaxFree ? '비과세(0원)' : formatPrice(taxes.transfer.total);
 
             document.getElementById('taxAcqTotal').textContent = formatPrice(taxes.acq.total);
-            document.getElementById('taxAcqRateDetail').textContent = `기본세율 ${taxes.acq.baseRate}% (총 실효 ${taxes.acq.rate}%)`;
-            document.getElementById('taxAcqExtraDetail').textContent = `${taxes.acq.extra.toFixed(2)}% 별도 합산`;
-
-            document.getElementById('taxHoldingTotal').textContent = `약 ${formatPrice(taxes.holding.total)} /년`;
-            document.getElementById('taxPubPriceDetail').textContent = `약 ${formatPrice(taxes.holding.pubPrice)}`;
-            document.getElementById('taxPropertyDetail').textContent = `약 ${formatPrice(taxes.holding.prop)}`;
-            document.getElementById('taxJongbuDetail').textContent = taxes.holding.jongbu > 0 ? `약 ${formatPrice(taxes.holding.jongbu)}` : '0원 (12억 이하 면제)';
-
-            document.getElementById('taxTransferTotal').textContent = taxes.transfer.isTaxFree ? '0원 (비과세)' : `약 ${formatPrice(taxes.transfer.total)}`;
-            document.getElementById('taxGainDetail').textContent = taxes.transfer.gain > 0 ? `+${formatPrice(taxes.transfer.gain)}` : '차익 없음';
-            document.getElementById('taxTaxableGainDetail').textContent = taxes.transfer.isTaxFree ? '0원 (12억 이하)' : `약 ${formatPrice(taxes.transfer.taxableGain)}`;
+            document.getElementById('taxAcqRateDetail').textContent = `총 실효세율 ${taxes.acq.rate}%`;
 
             renderDetailTrendChart(item);
         }
 
         function closeApartmentDetail() {
-            clearHoverTimer();
-            hoverStateRef.isPinned = false;
-            hoverStateRef.isHoveringMarker = false;
-            hoverStateRef.isHoveringPanel = false;
-            hoverStateRef.currentKey = null;
             currentSelectedItem = null;
-            const sidePanel = document.getElementById('sidePanel');
-            if (sidePanel) sidePanel.classList.remove('hover-bridge');
             document.getElementById('detailPanel').classList.add('hidden');
             document.getElementById('rankingPanel').classList.remove('hidden');
+        }
+
+        function calculateTaxes(latestPrice, prevPrice, areaStr) {
+            const area = parseFloat(areaStr) || 84;
+            const isOver85 = area > 85;
+            let acqTaxRate = 0.01;
+            if (latestPrice > 90000) acqTaxRate = 0.03;
+            else if (latestPrice > 60000) acqTaxRate = 0.02;
+
+            const acqTotalRate = acqTaxRate + 0.002 + (isOver85 ? 0.002 : 0);
+            const acqTaxAmount = Math.round(latestPrice * acqTotalRate);
+            const estPubPrice = Math.round(latestPrice * 0.69);
+            const totalHoldingTax = Math.round(estPubPrice * 0.002);
+            const gain = latestPrice - prevPrice;
+            const isTaxFree = latestPrice <= 120000 || gain <= 0;
+            const transferTax = isTaxFree ? 0 : Math.round(gain * 0.2);
+
+            return {
+                acq: { total: acqTaxAmount, rate: (acqTotalRate * 100).toFixed(2) },
+                holding: { total: totalHoldingTax, pubPrice: estPubPrice },
+                transfer: { total: transferTax, isTaxFree: isTaxFree }
+            };
+        }
+
+        function switchDetailTab(tab) {
+            const btnInfo = document.getElementById('tabBtnInfo');
+            const btnMarket = document.getElementById('tabBtnMarket');
+            const btnTax = document.getElementById('tabBtnTax');
+            const contentInfo = document.getElementById('tabContentInfo');
+            const contentMarket = document.getElementById('tabContentMarket');
+            const contentTax = document.getElementById('tabContentTax');
+
+            [btnInfo, btnMarket, btnTax].forEach(b => {
+                b.className = "py-3 px-3 hover:text-slate-700 transition-all text-slate-400 font-semibold";
+            });
+            [contentInfo, contentMarket, contentTax].forEach(c => c.classList.add('hidden'));
+
+            if (tab === 'info') {
+                btnInfo.className = "py-3 px-3 text-slate-900 border-b-2 border-slate-900 font-bold transition-all";
+                contentInfo.classList.remove('hidden');
+            } else if (tab === 'market') {
+                btnMarket.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all";
+                contentMarket.classList.remove('hidden');
+                if (currentSelectedItem) {
+                    const price = currentSelectedItem.latest_price;
+                    document.getElementById('marketQuickPrice').textContent = formatPrice(Math.round(price * 0.98));
+                    document.getElementById('marketFocusPrice').textContent = formatPrice(Math.round(price * 1.03));
+                    document.getElementById('floorRangeLow').textContent = `${formatPrice(Math.round(price * 0.95))} ~ ${formatPrice(Math.round(price * 0.98))}`;
+                    document.getElementById('floorRangeMid').textContent = `${formatPrice(Math.round(price * 0.99))} ~ ${formatPrice(Math.round(price * 1.03))}`;
+                    document.getElementById('floorRangeHigh').textContent = `${formatPrice(Math.round(price * 1.04))} ~ ${formatPrice(Math.round(price * 1.08))}`;
+                }
+            } else if (tab === 'tax') {
+                btnTax.className = "py-3 px-3 text-indigo-600 border-b-2 border-indigo-600 font-bold transition-all flex items-center gap-1.5";
+                contentTax.classList.remove('hidden');
+            }
         }
 
         function renderDetailTrendChart(item) {
             const ctx = document.getElementById('detailTrendChart').getContext('2d');
             if (chartInstances.detail) chartInstances.detail.destroy();
-
             const isUp = item.diff >= 0;
             const lineColor = isUp ? '#ef4444' : '#3b82f6';
 
@@ -1636,7 +1014,6 @@
                         borderWidth: 3,
                         pointBackgroundColor: lineColor,
                         pointRadius: 6,
-                        pointHoverRadius: 8,
                         fill: true,
                         tension: 0.3
                     }]
@@ -1644,14 +1021,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => ` ${formatPrice(context.parsed.y)}`
-                            }
-                        }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
                         y: {
@@ -1666,43 +1036,206 @@
             });
         }
 
-        function openRoadview() {
-            if (!currentLatLng) {
-                alert('먼저 지도에서 원하는 위치를 클릭하거나 지역을 검색해주세요.');
+        function renderChart(type, dataList) {
+            const isSoaring = type === 'soaring';
+            const canvasId = isSoaring ? 'soaringChart' : 'plungingChart';
+            const containerId = isSoaring ? 'soaringChartContainer' : 'plungingChartContainer';
+            const emptyId = isSoaring ? 'soaringEmpty' : 'plungingEmpty';
+            const pillsId = isSoaring ? 'soaringPills' : 'plungingPills';
+
+            if (chartInstances[type]) chartInstances[type].destroy();
+
+            const pillsEl = document.getElementById(pillsId);
+            pillsEl.innerHTML = '';
+
+            if (!dataList || dataList.length === 0) {
+                document.getElementById(emptyId).classList.remove('hidden');
+                document.getElementById(containerId).classList.add('hidden');
                 return;
             }
-            const modal = document.getElementById('roadviewModal');
-            modal.classList.remove('hidden');
 
-            const rvContainer = document.getElementById('roadview');
-            if (!roadview) {
-                roadview = new kakao.maps.Roadview(rvContainer);
-                roadviewClient = new kakao.maps.RoadviewClient();
-            }
+            document.getElementById(emptyId).classList.add('hidden');
+            document.getElementById(containerId).classList.remove('hidden');
 
-            roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-                if (panoId) {
-                    roadview.setPanoId(panoId, currentLatLng);
-                    setTimeout(() => roadview.relayout(), 100);
-                } else {
-                    alert('해당 지점 주변에는 등록된 카카오 로드뷰가 없습니다.');
-                    closeRoadview();
+            const displayList = dataList.slice(0, 3);
+            displayList.forEach((item) => {
+                const chip = document.createElement('button');
+                chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
+                chip.textContent = `${item.name} 상세/시세 >`;
+                chip.onclick = () => showApartmentDetail(item);
+                pillsEl.appendChild(chip);
+            });
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = displayList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
+            const prevPrices = displayList.map(item => item.previous_price);
+            const latestPrices = displayList.map(item => item.latest_price);
+            const activeColor = isSoaring ? '#ef4444' : '#3b82f6';
+
+            chartInstances[type] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '직전가',
+                            data: prevPrices,
+                            backgroundColor: '#e2e8f0',
+                            borderRadius: 4,
+                            barPercentage: 0.6
+                        },
+                        {
+                            label: '최근가',
+                            data: latestPrices,
+                            backgroundColor: activeColor,
+                            borderRadius: 4,
+                            barPercentage: 0.6
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            showApartmentDetail(displayList[index]);
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10, weight: '500' } }
+                        }
+                    }
                 }
             });
         }
 
-        function closeRoadview() {
-            document.getElementById('roadviewModal').classList.add('hidden');
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            const latlng = mouseEvent.latLng; 
+            currentLatLng = latlng;
+            marker.setPosition(latlng);
+            marker.setMap(map);
+            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+            fetchRegionInfo(latlng);
+        });
+
+        function fetchRegionInfo(latlng) {
+            geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    for(let i = 0; i < result.length; i++) {
+                        if (result[i].region_type === 'B') {
+                            const bCode = result[i].code;
+                            const lawdCd = bCode.substring(0, 5);
+                            const dongName = result[i].region_3depth_name;
+                            const addressName = result[i].address_name;
+                            
+                            currentLawdCd = lawdCd;
+                            currentDongName = dongName;
+                            currentAddressName = addressName;
+                            
+                            document.getElementById('emptyState').classList.add('hidden');
+                            document.getElementById('selectedArea').classList.remove('hidden');
+                            document.getElementById('areaName').textContent = addressName;
+                            document.getElementById('areaCode').textContent = `법정동: ${dongName} (${lawdCd})`;
+                            document.getElementById('roadviewTitle').textContent = `${addressName} 현장 로드뷰`;
+                            
+                            closeApartmentDetail();
+                            fetchData(lawdCd, dongName);
+                            break;
+                        }
+                    }
+                }   
+            });
         }
 
-        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRoadview(); });
+        async function fetchData(lawdCd, dongName) {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+            
+            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
+            const propType = document.querySelector('input[name="prop_type"]:checked').value;
+            const scope = document.querySelector('input[name="scope"]:checked').value;
+            const startMonth = document.getElementById('startMonth').value.replace('-', '');
+            const endMonth = document.getElementById('endMonth').value.replace('-', '');
+            
+            error.classList.add('hidden');
+            results.classList.add('hidden');
+            loading.classList.remove('hidden');
+            clearMapBadges();
+
+            try {
+                const dongParam = dongName ? `&dong_name=${encodeURIComponent(dongName)}` : '';
+                const url = `/api/rankings?lawd_cd=${lawdCd}&prop_type=${propType}&trade_type=${tradeType}&scope=${scope}${dongParam}&start_month=${startMonth}&end_month=${endMonth}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '데이터를 불러오는데 실패했습니다.');
+                }
+
+                rawDataStore = data;
+                applyClientFilters(true);
+                results.classList.remove('hidden');
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function formatPrice(price) {
+            const absPrice = Math.abs(price);
+            if (absPrice >= 10000) {
+                const uk = Math.floor(absPrice / 10000);
+                const man = absPrice % 10000;
+                return man > 0 ? `${uk}억 ${man.toLocaleString()}만` : `${uk}억`;
+            } else {
+                return `${absPrice.toLocaleString()}만`;
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (dateStr && dateStr.length === 8) {
+                return `${dateStr.substring(0,4)}.${dateStr.substring(4,6)}.${dateStr.substring(6,8)}`;
+            }
+            return dateStr;
+        }
+
+        function getYYYYMMDate(monthsAgo = 0) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - monthsAgo);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${yyyy}-${mm}`;
+        }
+
+        function initDates() {
+            document.getElementById('endMonth').value = getYYYYMMDate(0);
+            document.getElementById('startMonth').value = getYYYYMMDate(6);
+        }
 
         function onTradeTypeChange() {
             const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
             const landRadio = document.querySelector('input[name="prop_type"][value="land"]');
             const landLabel = document.getElementById('label-land');
             
-                        if (tradeType === 'jeonse' || tradeType === 'rent') {
+            if (tradeType === 'jeonse' || tradeType === 'rent') {
                 if (landRadio.checked) document.querySelector('input[name="prop_type"][value="apt"]').checked = true;
                 landRadio.disabled = true;
                 landLabel.classList.add('opacity-40', 'cursor-not-allowed');
@@ -1719,17 +1252,11 @@
             onScopeChange();
         }
 
-        function getYYYYMMDate(monthsAgo = 0) {
-            const d = new Date();
-            d.setMonth(d.getMonth() - monthsAgo);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            return `${yyyy}-${mm}`;
-        }
-
-        function initDates() {
-            document.getElementById('endMonth').value = getYYYYMMDate(0);
-            document.getElementById('startMonth').value = getYYYYMMDate(6);
+        function onScopeChange() {
+            if (currentLawdCd) {
+                closeApartmentDetail();
+                fetchData(currentLawdCd, currentDongName || '');
+            }
         }
 
         function onQuickPeriodChange() {
@@ -1789,19 +1316,11 @@
                     map.panTo(latlng);
                     marker.setPosition(latlng);
                     marker.setMap(map);
-                    document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
                 }
             });
             currentLawdCd = sidoCode;
             currentDongName = "";
             currentAddressName = sido;
-            
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('selectedArea').classList.remove('hidden');
-            document.getElementById('areaName').textContent = `${sido} 전체 종합 분석`;
-            document.getElementById('areaCode').textContent = `시/도 코드: ${sidoCode}`;
-            document.getElementById('roadviewTitle').textContent = `${sido} 현장 로드뷰`;
-            
             closeApartmentDetail();
             fetchData(sidoCode, "");
         }
@@ -1823,461 +1342,72 @@
             executeSearch(keyword);
         }
 
-        // 📌 [핵심 개선] 주소 검색 및 아파트 키워드 검색 통합 처리
         function executeSearch(query) {
-            // 1차 시도: 주소 검색 (지번/도로명/동 이름)
             geocoder.addressSearch(query, function(addrResult, addrStatus) {
                 if (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) {
                     const latlng = new kakao.maps.LatLng(addrResult[0].y, addrResult[0].x);
-                    applyLocationResult(latlng, addrResult[0].address_name);
+                    applyLocationResult(latlng);
                 } else {
-                    // 2차 시도: 아파트 단지명/키워드 장소 검색
                     places.keywordSearch(query, function(placeResult, placeStatus) {
                         if (placeStatus === kakao.maps.services.Status.OK && placeResult.length > 0) {
                             const latlng = new kakao.maps.LatLng(placeResult[0].y, placeResult[0].x);
-                            applyLocationResult(latlng, placeResult[0].place_name);
+                            applyLocationResult(latlng);
                         } else {
-                            alert(`"${query}"에 대한 위치나 아파트 단지를 찾을 수 없습니다. 정확한 명칭을 입력해주세요.`);
+                            alert(`"${query}"에 대한 위치를 찾을 수 없습니다.`);
                         }
                     });
                 }
             });
         }
 
-        function applyLocationResult(latlng, name) {
+        function applyLocationResult(latlng) {
             currentLatLng = latlng;
-            map.setLevel(4); // 단지 위치를 상세하게 볼 수 있도록 확대 레벨(4)로 이동
+            map.setLevel(4);
             map.panTo(latlng);
             marker.setPosition(latlng);
             marker.setMap(map);
-            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
             fetchRegionInfo(latlng);
         }
 
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            // 📌 [요청 사항 2] 지도 라이브러리 맵 클릭 이벤트 리스너에서 패널 영역 내부를 클릭한 경우 무시하는 방어 로직
-
-            // [방어 1] 최근 패널/모달/상세뷰와 상호작용한 경우 즉시 무시
-            if (isInteractingWithPanel) {
+        function openRoadview() {
+            if (!currentLatLng) {
+                alert('먼저 지도에서 원하는 위치를 클릭해주세요.');
                 return;
             }
+            const modal = document.getElementById('roadviewModal');
+            modal.classList.remove('hidden');
 
-            const sidePanel = document.getElementById('sidePanel');
-            const detailPanel = document.getElementById('detailPanel');
-            const rankingPanel = document.getElementById('rankingPanel');
-            const openBtn = document.getElementById('mobileMenuOpenBtn');
-            const roadviewModal = document.getElementById('roadviewModal');
-            const popupLayer = document.getElementById('popup-layer');
-
-            // [방어 2] 현재 브라우저 활성 이벤트 타겟 검사
-            const activeEvt = window.event;
-            if (activeEvt && activeEvt.target) {
-                const target = activeEvt.target;
-                if (sidePanel && sidePanel.contains(target)) return;
-                if (detailPanel && detailPanel.contains(target)) return;
-                if (rankingPanel && rankingPanel.contains(target)) return;
-                if (openBtn && openBtn.contains(target)) return;
-                if (roadviewModal && roadviewModal.contains(target)) return;
-                if (popupLayer && popupLayer.contains(target)) return;
+            const rvContainer = document.getElementById('roadview');
+            if (!roadview) {
+                roadview = new kakao.maps.Roadview(rvContainer);
+                roadviewClient = new kakao.maps.RoadviewClient();
             }
 
-            // [방어 3] 마지막 터치/포인터 타겟 검사
-            if (lastPointerDownTarget) {
-                if (sidePanel && sidePanel.contains(lastPointerDownTarget)) return;
-                if (detailPanel && detailPanel.contains(lastPointerDownTarget)) return;
-                if (rankingPanel && rankingPanel.contains(lastPointerDownTarget)) return;
-                if (openBtn && openBtn.contains(lastPointerDownTarget)) return;
-                if (roadviewModal && roadviewModal.contains(lastPointerDownTarget)) return;
-                if (popupLayer && popupLayer.contains(lastPointerDownTarget)) return;
-            }
-
-            // [방어 4] 클릭 좌표군 산출 (터치 좌표 및 카카오맵 지도 뷰포트 투영 좌표)
-            let checkPoints = [];
-            if (lastPointerCoords && lastPointerCoords.x > -1000) {
-                checkPoints.push({ x: lastPointerCoords.x, y: lastPointerCoords.y });
-            }
-            if (map && map.getProjection && mouseEvent && mouseEvent.latLng) {
-                try {
-                    const point = map.getProjection().containerPointFromCoords(mouseEvent.latLng);
-                    const mapRect = mapContainer.getBoundingClientRect();
-                    checkPoints.push({ x: mapRect.left + point.x, y: mapRect.top + point.y });
-                } catch (e) {}
-            }
-
-            // [방어 5] 패널 사각 영역(BoundingClientRect) 및 elementFromPoint 검사
-            for (const pt of checkPoints) {
-                if (pt.x >= 0 && pt.y >= 0) {
-                    const elAtPoint = document.elementFromPoint(pt.x, pt.y);
-                    if (elAtPoint) {
-                        if (sidePanel && sidePanel.contains(elAtPoint)) return;
-                        if (detailPanel && detailPanel.contains(elAtPoint)) return;
-                        if (rankingPanel && rankingPanel.contains(elAtPoint)) return;
-                        if (openBtn && openBtn.contains(elAtPoint)) return;
-                        if (roadviewModal && roadviewModal.contains(elAtPoint)) return;
-                        if (popupLayer && popupLayer.contains(elAtPoint) && elAtPoint !== popupLayer) return;
-                    }
-                }
-
-                // sidePanel 사각 영역 검사 (열려 있는 경우)
-                if (sidePanel && !sidePanel.classList.contains('-ml-[480px]')) {
-                    const rect = sidePanel.getBoundingClientRect();
-                    if (pt.x >= rect.left && pt.x <= rect.right && pt.y >= rect.top && pt.y <= rect.bottom) {
-                        return;
-                    }
-                }
-
-                // detailPanel 사각 영역 검사 (열려 있는 경우)
-                if (detailPanel && !detailPanel.classList.contains('hidden')) {
-                    const rect = detailPanel.getBoundingClientRect();
-                    if (pt.x >= rect.left && pt.x <= rect.right && pt.y >= rect.top && pt.y <= rect.bottom) {
-                        return;
-                    }
-                }
-            }
-
-            const latlng = mouseEvent.latLng; 
-            currentLatLng = latlng;
-            marker.setPosition(latlng);
-            marker.setMap(map);
-            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
-            fetchRegionInfo(latlng);
-        });
-
-        function fetchRegionInfo(latlng) {
-            geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(result, status) {
-                if (status === kakao.maps.services.Status.OK) {
-                    for(let i = 0; i < result.length; i++) {
-                        if (result[i].region_type === 'B') {
-                            const bCode = result[i].code;
-                            const lawdCd = bCode.substring(0, 5);
-                            const dongName = result[i].region_3depth_name;
-                            const addressName = result[i].address_name;
-                            
-                            currentLawdCd = lawdCd;
-                            currentDongName = dongName;
-                            currentAddressName = addressName;
-                            
-                            document.getElementById('emptyState').classList.add('hidden');
-                            document.getElementById('selectedArea').classList.remove('hidden');
-                            document.getElementById('areaName').textContent = addressName;
-                            document.getElementById('areaCode').textContent = `법정동: ${dongName} (${lawdCd})`;
-                            document.getElementById('roadviewTitle').textContent = `${addressName} 현장 로드뷰`;
-                            
-                            closeApartmentDetail();
-                            fetchData(lawdCd, dongName);
-                            break;
-                        }
-                    }
-                }   
-            });
-        }
-
-        function onScopeChange() {
-            if (currentLawdCd) {
-                closeApartmentDetail();
-                fetchData(currentLawdCd, currentDongName || '');
-            }
-        }
-
-        function formatPrice(price) {
-            const absPrice = Math.abs(price);
-            if (absPrice >= 10000) {
-                const uk = Math.floor(absPrice / 10000);
-                const man = absPrice % 10000;
-                return man > 0 ? `${uk}억 ${man.toLocaleString()}만` : `${uk}억`;
-            } else {
-                return `${absPrice.toLocaleString()}만`;
-            }
-        }
-
-        function formatDate(dateStr) {
-            if (dateStr && dateStr.length === 8) {
-                return `${dateStr.substring(0,4)}.${dateStr.substring(4,6)}.${dateStr.substring(6,8)}`;
-            }
-            return dateStr;
-        }
-
-        function renderChart(type, dataList) {
-            const isSoaring = type === 'soaring';
-            const canvasId = isSoaring ? 'soaringChart' : 'plungingChart';
-            const containerId = isSoaring ? 'soaringChartContainer' : 'plungingChartContainer';
-            const emptyId = isSoaring ? 'soaringEmpty' : 'plungingEmpty';
-            const pillsId = isSoaring ? 'soaringPills' : 'plungingPills';
-
-            if (chartInstances[type]) chartInstances[type].destroy();
-
-            const pillsEl = document.getElementById(pillsId);
-            pillsEl.innerHTML = '';
-
-            if (!dataList || dataList.length === 0) {
-                document.getElementById(emptyId).classList.remove('hidden');
-                document.getElementById(containerId).classList.add('hidden');
-                return;
-            }
-
-            document.getElementById(emptyId).classList.add('hidden');
-            document.getElementById(containerId).classList.remove('hidden');
-
-            // 최대 3개까지만 나오도록 slice(0, 3) 처리 (비교군이 1~2개여도 정상 렌더링)
-            const displayList = dataList.slice(0, 3);
-
-            displayList.forEach((item) => {
-                const chip = document.createElement('button');
-                chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
-                chip.textContent = `${item.name} 상세/시세 >`;
-                chip.onclick = () => showApartmentDetail(item);
-                pillsEl.appendChild(chip);
-            });
-
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            const labels = displayList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
-            const prevPrices = displayList.map(item => item.previous_price);
-            const latestPrices = displayList.map(item => item.latest_price);
-            const activeColor = isSoaring ? '#ef4444' : '#3b82f6';
-
-            chartInstances[type] = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '직전가',
-                            data: prevPrices,
-                            backgroundColor: '#e2e8f0',
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        },
-                        {
-                            label: '최근가',
-                            data: latestPrices,
-                            backgroundColor: activeColor,
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        }
-                    ]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            showApartmentDetail(displayList[index]);
-                        }
-                    },
-                    plugins: {
-                        legend: { 
-                            position: 'bottom',
-                            labels: { boxWidth: 10, font: { size: 10 } }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => ` ${formatPrice(context.parsed.x)}`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: '#f1f5f9' },
-                            ticks: {
-                                font: { size: 10 },
-                                callback: (val) => (val >= 10000 ? Math.floor(val / 10000) + '억' : val + '만')
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { font: { size: 10, weight: '500' } }
-                        }
-                    }
+            roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+                if (panoId) {
+                    roadview.setPanoId(panoId, currentLatLng);
+                    setTimeout(() => roadview.relayout(), 100);
+                } else {
+                    alert('해당 지점 주변에는 등록된 카카오 로드뷰가 없습니다.');
+                    closeRoadview();
                 }
             });
         }
 
-        async function fetchData(lawdCd, dongName) {
-            const loading = document.getElementById('loading');
-            const results = document.getElementById('results');
-            const error = document.getElementById('error');
-            
-            const tradeType = document.querySelector('input[name="trade_type"]:checked').value;
-            const propType = document.querySelector('input[name="prop_type"]:checked').value;
-            const scope = document.querySelector('input[name="scope"]:checked').value;
-            const startMonth = document.getElementById('startMonth').value.replace('-', '');
-            const endMonth = document.getElementById('endMonth').value.replace('-', '');
-            
-            error.classList.add('hidden');
-            results.classList.add('hidden');
-            loading.classList.remove('hidden');
-
-            clearMapBadges();
-
-            try {
-                const dongParam = dongName ? `&dong_name=${encodeURIComponent(dongName)}` : '';
-                const url = `/api/rankings?lawd_cd=${lawdCd}&prop_type=${propType}&trade_type=${tradeType}&scope=${scope}${dongParam}&start_month=${startMonth}&end_month=${endMonth}`;
-                
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || '데이터를 불러오는데 실패했습니다.');
-                }
-
-                rawDataStore = data;
-                applyClientFilters(true);
-
-                results.classList.remove('hidden');
-            } catch (err) {
-                error.textContent = err.message;
-                error.classList.remove('hidden');
-            } finally {
-                loading.classList.add('hidden');
-            }
+        function closeRoadview() {
+            document.getElementById('roadviewModal').classList.add('hidden');
         }
-        
+
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRoadview(); });
+
         initDates();
         initSidoSelect();
         onTradeTypeChange();
 
-        
-        // [레이아웃 무한 루프 방지] 1px 이상 실제 크기 변화 감지 가드 + 디바운스 + setCenter 제거(relayout만 수행)
-        let lastMapWidth = 0;
-        let lastMapHeight = 0;
-        let mapResizeDebounceTimer = null;
-
-        const resizeObserver = new ResizeObserver((entries) => {
-            if (!entries || entries.length === 0) return;
-            const entry = entries[0];
-            const newWidth = Math.round(entry.contentRect.width);
-            const newHeight = Math.round(entry.contentRect.height);
-
-            // 1px 이상 실제로 변했을 때만 실행되는 가드 조건
-            if (Math.abs(newWidth - lastMapWidth) < 1 && Math.abs(newHeight - lastMapHeight) < 1) {
-                return;
-            }
-
-            lastMapWidth = newWidth;
-            lastMapHeight = newHeight;
-
-            // 디바운스 적용 및 relayout만 수행 (setCenter 호출을 제거하여 idle -> applyClientFilters -> renderChart 무한 루프 원천 차단)
-            if (mapResizeDebounceTimer) clearTimeout(mapResizeDebounceTimer);
-            mapResizeDebounceTimer = setTimeout(() => {
-                if (map) {
-                    const center = map.getCenter();
-                    map.relayout();
-                    map.setCenter(center);
-                }
-            }, 100);
-        });
-
-        const mapTargetEl = document.getElementById('map');
-        if (mapTargetEl) {
-            resizeObserver.observe(mapTargetEl);
-        }
-        
         currentLatLng = mapOption.center;
-
         marker.setPosition(currentLatLng);
         marker.setMap(map);
         setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
-
-        // 모바일 핸들바 실시간 자유 드래그 로직
-        const dragHandle = document.getElementById('dragHandle');
-        const sidePanelEl = document.getElementById('sidePanel');
-        let dragStartY = 0;
-        let dragStartHeight = 0;
-        let isDraggingPanel = false;
-
-        if (dragHandle && sidePanelEl) {
-            dragHandle.addEventListener('touchstart', (e) => {
-                isDraggingPanel = true;
-                dragStartY = e.touches[0].screenY;
-                dragStartHeight = sidePanelEl.getBoundingClientRect().height;
-                // 실시간으로 따라오도록 트랜지션 제거
-                sidePanelEl.classList.remove('transition-all', 'duration-300');
-                sidePanelEl.style.transition = 'none';
-                e.stopPropagation(); // 기존 스와이프 로직 방해 금지
-            }, {passive: true});
-
-            dragHandle.addEventListener('touchmove', (e) => {
-                if (!isDraggingPanel) return;
-                const currentY = e.touches[0].screenY;
-                const deltaY = dragStartY - currentY; // 올리면 양수
-                let newHeight = dragStartHeight + deltaY;
-                
-                const windowHeight = window.innerHeight;
-                if (newHeight > windowHeight * 0.95) newHeight = windowHeight * 0.95;
-                if (newHeight < windowHeight * 0.1) newHeight = windowHeight * 0.1;
-
-                sidePanelEl.style.height = `${newHeight}px`;
-                e.stopPropagation();
-            }, {passive: false});
-
-            dragHandle.addEventListener('touchend', (e) => {
-                if (!isDraggingPanel) return;
-                isDraggingPanel = false;
-                
-                // 트랜지션 복구
-                sidePanelEl.style.transition = '';
-                sidePanelEl.classList.add('transition-all', 'duration-300');
-                
-                const currentHeight = sidePanelEl.getBoundingClientRect().height;
-                const windowHeight = window.innerHeight;
-                const percent = currentHeight / windowHeight;
-                
-                // 너무 낮게 내리면 아예 닫기
-                if (percent < 0.15) {
-                    sidePanelEl.style.height = '';
-                    sidePanelEl.classList.remove('panel-full');
-                    togglePanel(false);
-                } else {
-                    // 유저가 멈춘 크기를 vh로 고정하여 맘대로 쓰게 냅둠
-                    sidePanelEl.style.height = `${(currentHeight / windowHeight) * 100}vh`;
-                    sidePanelEl.classList.remove('panel-full');
-                }
-                e.stopPropagation();
-            });
-        }
-
-        // 모바일 스와이프(상/하 퀵 스와이프) 패널 확장 및 닫기 로직
-        let touchStartY = 0;
-        let touchEndY = 0;
-        sidePanelEl.addEventListener('touchstart', (e) => {
-            touchStartY = e.changedTouches[0].screenY;
-        }, {passive: true});
-        sidePanelEl.addEventListener('touchend', (e) => {
-            touchEndY = e.changedTouches[0].screenY;
-            if (window.innerWidth < 768) {
-                const diff = touchEndY - touchStartY;
-                const isSwipingUp = diff < -50;
-                const isSwipingDown = diff > 50;
-                
-                // 현재 컨텐츠 스크롤이 최상단인지 체크
-                const rankingPanel = document.getElementById('rankingPanel');
-                const detailPanel = document.getElementById('detailPanel');
-                let isAtTop = true;
-                if (!rankingPanel.classList.contains('hidden')) {
-                    const scrollContainer = rankingPanel.querySelector('.overflow-y-auto');
-                    if (scrollContainer && scrollContainer.scrollTop > 10) isAtTop = false;
-                } else if (!detailPanel.classList.contains('hidden')) {
-                    if (detailPanel.scrollTop > 10) isAtTop = false;
-                }
-
-                if (isSwipingUp) {
-                    // 위로 스와이프 시 90vh로 확장
-                    sidePanelEl.classList.add('panel-full');
-                } else if (isSwipingDown && isAtTop) {
-                    // 아래로 스와이프 시 
-                    if (sidePanelEl.classList.contains('panel-full')) {
-                        // 90vh 상태라면 50vh로 축소
-                        sidePanelEl.classList.remove('panel-full');
-                    } else {
-                        // 50vh 상태라면 완전히 닫기
-                        togglePanel(false);
-                    }
-                }
-            }
-        }, {passive: true});
-
     </script>
 </body>
 </html>
