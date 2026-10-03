@@ -281,7 +281,23 @@
                 <!-- 차트 랭킹 영역 -->
                 <div id="results" class="hidden space-y-6">
                     <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center">
-                        <p class="text-[11px] text-indigo-700 font-semibold">📍 지도의 <b>동별 최고가 배지</b>를 누르면 상세 시세가 열립니다</p>
+                        <p class="text-[11px] text-indigo-700 font-semibold">📍 지도의 <b>아파트 단지별 최고가 배지</b>를 누르면 상세 시세가 열립니다</p>
+                    </div>
+
+                    <!-- 단지별 최고가 차트 -->
+                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                <h3 class="text-xs font-bold text-slate-900" id="highestTitle">단지별 최고 매매가 Top 3</h3>
+                            </div>
+                            <span class="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">최고가</span>
+                        </div>
+                        <div id="highestEmpty" class="hidden py-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">데이터가 부족합니다.</div>
+                        <div id="highestChartContainer" class="relative h-60 w-full cursor-pointer">
+                            <canvas id="highestChart"></canvas>
+                        </div>
+                        <div id="highestPills" class="mt-3 flex flex-wrap gap-1.5 pt-3 border-t border-slate-50"></div>
                     </div>
 
                     <!-- 급등 차트 -->
@@ -527,7 +543,7 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
                 </span>
-                <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🔍 각 동별 최고가 대장 단지 표시 중</span>
+                <span id="zoomFilterBadge" class="text-xs font-semibold text-slate-700">🏢 아파트 단지별 최고가 표시 중</span>
             </div>
             <button id="floatingRoadviewBtn" onclick="openRoadview()" class="hidden bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all pointer-events-auto">
                 현재 위치 로드뷰
@@ -612,7 +628,7 @@
         let currentAddressName = "";
         let currentSelectedItem = null;
 
-        let chartInstances = { soaring: null, plunging: null, detail: null };
+        let chartInstances = { soaring: null, plunging: null, detail: null, highest: null };
         let rawDataStore = { soaring: [], plunging: [] };
 
         let currentLatLng = null;
@@ -651,7 +667,7 @@
             dataHash: ''
         };
 
-        /* 핵심 필터링 로직: 사이드바는 Top 3, 지도는 동별 최고가 대장 단지만 선별 */
+        /* 핵심 필터링 로직: 사이드바는 Top 3, 지도는 아파트 단지별 최고가 선별 */
         function applyClientFilters(force = false) {
             if (!map) return;
             const bounds = map.getBounds();
@@ -671,18 +687,18 @@
 
             if (span >= 0.1) {
                 minPriceThreshold = 180000;
-                zoomText = `🔍 광역 축소 상태 (18억 이상 동별 대장 단지 표시)`;
+                zoomText = `🔍 광역 축소 상태 (18억 이상 단지별 최고가 표시)`;
             } else if (span >= 0.04) {
                 minPriceThreshold = 120000;
-                zoomText = `🔍 중간 줌 상태 (12억 이상 동별 대장 단지 표시)`;
+                zoomText = `🔍 중간 줌 상태 (12억 이상 단지별 최고가 표시)`;
             } else {
                 minPriceThreshold = 0;
-                zoomText = `🔍 상세 확대 상태 (각 동별 최고가 1위 단지 표시 중)`;
+                zoomText = `🏢 아파트 단지별 최고가 표시 중`;
             }
 
             if (badgeEl) badgeEl.textContent = zoomText;
 
-            const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}`;
+            const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}|${(rawDataStore.items || []).length}`;
             const latDiff = lastFilterState.centerLat ? Math.abs(currentLat - lastFilterState.centerLat) : 999;
             const lngDiff = lastFilterState.centerLng ? Math.abs(currentLng - lastFilterState.centerLng) : 999;
             const isLevelChanged = lastFilterState.level !== currentLevel;
@@ -710,29 +726,58 @@
             const soaringFiltered = filterList(rawDataStore.soaring || []);
             const plungingFiltered = filterList(rawDataStore.plunging || []);
 
-            // 1. [좌측 패널]: 급등/급락 Top 3 유지
+            // 1. [좌측 패널]: 급등/급락 Top 3 차트
             renderChart('soaring', soaringFiltered.slice(0, 3));
             renderChart('plunging', plungingFiltered.slice(0, 3));
 
-            // 2. [지도 배지]: 각 법정동(지역)별 최고가 1등 단지만 선별
+            // 2. [아파트 단지별 최고가 선별]
             clearMapBadges();
 
             const sourceList = rawDataStore.items || [...soaringFiltered, ...plungingFiltered];
-            const dongLeaderMap = new Map();
+            const complexMap = new Map();
+            const dongMaxPriceMap = new Map();
 
             sourceList.forEach(item => {
-                const dongKey = item.dong || currentDongName || item.name || '지역';
-                if (!dongLeaderMap.has(dongKey)) {
-                    dongLeaderMap.set(dongKey, item);
+                const targetDong = item.dong || currentDongName || '';
+                const complexKey = `${targetDong}_${item.name}`;
+
+                // 동별 최고가 추적 (동 1위 배지 판단용)
+                const currentDongMax = dongMaxPriceMap.get(targetDong) || 0;
+                if (item.latest_price > currentDongMax) {
+                    dongMaxPriceMap.set(targetDong, item.latest_price);
+                }
+
+                // 단지별 최고가 추적 (해당 단지의 여러 거래/평형 중 가장 높은 거래가 선택)
+                if (!complexMap.has(complexKey)) {
+                    complexMap.set(complexKey, item);
                 } else {
-                    if (item.latest_price > dongLeaderMap.get(dongKey).latest_price) {
-                        dongLeaderMap.set(dongKey, item);
+                    const existing = complexMap.get(complexKey);
+                    if (item.latest_price > existing.latest_price) {
+                        complexMap.set(complexKey, item);
                     }
                 }
             });
 
-            const topPerDongList = Array.from(dongLeaderMap.values());
-            createMapBadges(topPerDongList);
+            let complexList = Array.from(complexMap.values());
+            complexList.sort((a, b) => b.latest_price - a.latest_price);
+
+            // 동 1위 대장 여부 플래그 부여
+            complexList.forEach(item => {
+                const targetDong = item.dong || currentDongName || '';
+                item.isDongLeader = (item.latest_price >= (dongMaxPriceMap.get(targetDong) || 0));
+            });
+
+            // 3. [좌측 패널]: 단지별 최고가 Top 3 차트
+            const highestFiltered = filterList(complexList);
+            renderChart('highest', highestFiltered.length > 0 ? highestFiltered.slice(0, 3) : complexList.slice(0, 3));
+
+            // 4. [지도 배지]: 아파트 단지별 최고가 배지 표출
+            let mapDisplayList = filterList(complexList);
+            if (mapDisplayList.length === 0) {
+                mapDisplayList = complexList;
+            }
+            const maxBadges = (span >= 0.04) ? 40 : 80;
+            createMapBadges(mapDisplayList.slice(0, maxBadges));
         }
 
         function clearMapBadges() {
@@ -742,27 +787,18 @@
             window.customOverlayStore = {};
         }
 
-        /* 동별 최고가 대장 전용 지도 배지 생성 */
+        /* 아파트 단지별 최고가 지도 배지 생성 */
         function createMapBadges(dataList) {
             if (!dataList || dataList.length === 0) return;
 
             dataList.forEach((item, index) => {
-                const badgeKey = `leader_${index}`;
+                const badgeKey = `complex_${index}`;
                 window.badgeItemStore[badgeKey] = item;
 
                 const targetDong = item.dong || currentDongName || currentAddressName;
                 const searchQuery = item.jibun ? `${targetDong} ${item.jibun}` : `${targetDong} ${item.name}`;
 
-                geocoder.addressSearch(searchQuery, function(result, status) {
-                    let position = null;
-                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                        position = new kakao.maps.LatLng(result[0].y, result[0].x);
-                    } else if (currentLatLng) {
-                        const offsetLat = (Math.random() - 0.5) * 0.005;
-                        const offsetLng = (Math.random() - 0.5) * 0.005;
-                        position = new kakao.maps.LatLng(currentLatLng.getLat() + offsetLat, currentLatLng.getLng() + offsetLng);
-                    }
-
+                const tryRenderBadge = (position) => {
                     if (!position) return;
 
                     const pyeong = Math.round(parseFloat(item.area) / 3.3058) || '';
@@ -774,12 +810,17 @@
                     const diffColor = isUp ? 'text-red-500' : (isDown ? 'text-blue-500' : 'text-slate-500');
                     const diffText = isUp ? `+${formatPrice(item.diff)}` : (isDown ? `-${formatPrice(Math.abs(item.diff))}` : '보합');
 
-                    const dongNameTag = item.dong ? `${item.dong} 1위` : '지역 최고가';
-                    const leaderTagHtml = `
-                        <div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
-                            👑 ${dongNameTag}
-                        </div>
-                    `;
+                    const leaderTagHtml = item.isDongLeader
+                        ? `<div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                               👑 ${item.dong ? item.dong + ' 1위' : '최고가'}
+                           </div>`
+                        : `<div class="bg-[#4f46e5] text-white text-[9px] font-bold px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                               🏢 단지 최고가
+                           </div>`;
+
+                    const dongNameTag = item.isDongLeader
+                        ? `👑 ${item.dong ? item.dong + ' 1위' : '동 최고가'}`
+                        : `🏢 ${item.dong || ''} 단지 최고가`;
 
                     const markerHtml = `
                         <div class="custom-overlay-group relative select-none"
@@ -824,14 +865,14 @@
 
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
                                     <div class="truncate pr-2">
-                                        <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">${dongNameTag}</span>
+                                        <span class="text-[10px] font-bold ${item.isDongLeader ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'} px-1.5 py-0.5 rounded">${dongNameTag}</span>
                                         <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${item.name}</h4>
                                         <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (targetDong + ' ' + item.jibun) : targetDong}</p>
                                     </div>
                                     <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
                                 </div>
                                 <div class="flex justify-between items-baseline text-xs mb-1">
-                                    <span class="text-slate-500 font-medium text-[11px]">최근 실거래가</span>
+                                    <span class="text-slate-500 font-medium text-[11px]">단지 최고 실거래가</span>
                                     <span class="font-black text-slate-900 text-sm">${formatPrice(item.latest_price)}</span>
                                 </div>
                                 <div class="flex justify-between items-center text-[11px]">
@@ -847,7 +888,7 @@
                         content: markerHtml,
                         xAnchor: 0.5,
                         yAnchor: 1.0,
-                        zIndex: 35
+                        zIndex: item.isDongLeader ? 40 : 35
                     });
 
                     const panelOverlay = new kakao.maps.CustomOverlay({
@@ -861,13 +902,29 @@
                     window.customOverlayStore = window.customOverlayStore || {};
                     window.customOverlayStore[badgeKey] = {
                         overlay: markerOverlay,
-                        originalZIndex: 35
+                        originalZIndex: item.isDongLeader ? 40 : 35
                     };
 
                     markerOverlay.setMap(map);
                     panelOverlay.setMap(map);
                     mapCustomOverlays.push(markerOverlay);
                     mapCustomOverlays.push(panelOverlay);
+                };
+
+                geocoder.addressSearch(searchQuery, function(result, status) {
+                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                        tryRenderBadge(new kakao.maps.LatLng(result[0].y, result[0].x));
+                    } else {
+                        places.keywordSearch(`${targetDong} ${item.name}`, function(pResult, pStatus) {
+                            if (pStatus === kakao.maps.services.Status.OK && pResult.length > 0) {
+                                tryRenderBadge(new kakao.maps.LatLng(pResult[0].y, pResult[0].x));
+                            } else if (currentLatLng) {
+                                const offsetLat = (Math.random() - 0.5) * 0.005;
+                                const offsetLng = (Math.random() - 0.5) * 0.005;
+                                tryRenderBadge(new kakao.maps.LatLng(currentLatLng.getLat() + offsetLat, currentLatLng.getLng() + offsetLng));
+                            }
+                        });
+                    }
                 });
             });
         }
@@ -914,13 +971,15 @@
             document.getElementById('detailPrevDate').textContent = `계약일: ${formatDate(item.previous_date)}`;
 
             const diffSign = item.diff > 0 ? '+' : '';
-            const diffPercent = ((item.diff / item.previous_price) * 100).toFixed(1);
-            const diffColor = item.diff > 0 ? 'text-red-500' : 'text-blue-500';
+            const diffPercent = item.previous_price ? ((item.diff / item.previous_price) * 100).toFixed(1) : '0.0';
+            const diffColor = item.diff > 0 ? 'text-red-500' : (item.diff < 0 ? 'text-blue-500' : 'text-slate-500');
             const diffEl = document.getElementById('detailDiffText');
             diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
-            diffEl.textContent = `직전 대비 ${diffSign}${formatPrice(item.diff)} (${diffSign}${diffPercent}%)`;
+            diffEl.textContent = item.diff !== 0
+                ? `직전 대비 ${diffSign}${formatPrice(item.diff)} (${diffSign}${diffPercent}%)`
+                : (item.latest_date === item.previous_date ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
 
-            document.getElementById('detailFlameBanner').textContent = `${currentDongName || '지역'} 실거래 핵심 변동 단지`;
+            document.getElementById('detailFlameBanner').textContent = `${item.name} 실거래 상세 분석`;
             document.getElementById('detailDateRange').textContent = `${formatDate(item.previous_date)} ~ ${formatDate(item.latest_date)}`;
 
             // 세금 계산 및 요약
@@ -1037,61 +1096,84 @@
         }
 
         function renderChart(type, dataList) {
+            const isHighest = type === 'highest';
             const isSoaring = type === 'soaring';
-            const canvasId = isSoaring ? 'soaringChart' : 'plungingChart';
-            const containerId = isSoaring ? 'soaringChartContainer' : 'plungingChartContainer';
-            const emptyId = isSoaring ? 'soaringEmpty' : 'plungingEmpty';
-            const pillsId = isSoaring ? 'soaringPills' : 'plungingPills';
+            const canvasId = isHighest ? 'highestChart' : (isSoaring ? 'soaringChart' : 'plungingChart');
+            const containerId = isHighest ? 'highestChartContainer' : (isSoaring ? 'soaringChartContainer' : 'plungingChartContainer');
+            const emptyId = isHighest ? 'highestEmpty' : (isSoaring ? 'soaringEmpty' : 'plungingEmpty');
+            const pillsId = isHighest ? 'highestPills' : (isSoaring ? 'soaringPills' : 'plungingPills');
 
             if (chartInstances[type]) chartInstances[type].destroy();
 
             const pillsEl = document.getElementById(pillsId);
-            pillsEl.innerHTML = '';
+            if (pillsEl) pillsEl.innerHTML = '';
+
+            const emptyEl = document.getElementById(emptyId);
+            const containerEl = document.getElementById(containerId);
 
             if (!dataList || dataList.length === 0) {
-                document.getElementById(emptyId).classList.remove('hidden');
-                document.getElementById(containerId).classList.add('hidden');
+                if (emptyEl) emptyEl.classList.remove('hidden');
+                if (containerEl) containerEl.classList.add('hidden');
                 return;
             }
 
-            document.getElementById(emptyId).classList.add('hidden');
-            document.getElementById(containerId).classList.remove('hidden');
+            if (emptyEl) emptyEl.classList.add('hidden');
+            if (containerEl) containerEl.classList.remove('hidden');
 
             const displayList = dataList.slice(0, 3);
-            displayList.forEach((item) => {
-                const chip = document.createElement('button');
-                chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
-                chip.textContent = `${item.name} 상세/시세 >`;
-                chip.onclick = () => showApartmentDetail(item);
-                pillsEl.appendChild(chip);
-            });
+            if (pillsEl) {
+                displayList.forEach((item) => {
+                    const chip = document.createElement('button');
+                    chip.className = "text-[11px] px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600 border border-slate-200 transition-colors font-medium";
+                    chip.textContent = `${item.name} 상세/시세 >`;
+                    chip.onclick = () => showApartmentDetail(item);
+                    pillsEl.appendChild(chip);
+                });
+            }
 
-            const ctx = document.getElementById(canvasId).getContext('2d');
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             const labels = displayList.map(item => (item.name.length > 8 ? item.name.substring(0,8) + '..' : item.name));
             const prevPrices = displayList.map(item => item.previous_price);
             const latestPrices = displayList.map(item => item.latest_price);
-            const activeColor = isSoaring ? '#ef4444' : '#3b82f6';
+            const activeColor = isHighest ? '#f59e0b' : (isSoaring ? '#ef4444' : '#3b82f6');
+
+            let datasets = [];
+            if (isHighest) {
+                datasets = [
+                    {
+                        label: '단지 최고가',
+                        data: latestPrices,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    }
+                ];
+            } else {
+                datasets = [
+                    {
+                        label: '직전가',
+                        data: prevPrices,
+                        backgroundColor: '#e2e8f0',
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    },
+                    {
+                        label: '최근가',
+                        data: latestPrices,
+                        backgroundColor: activeColor,
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    }
+                ];
+            }
 
             chartInstances[type] = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [
-                        {
-                            label: '직전가',
-                            data: prevPrices,
-                            backgroundColor: '#e2e8f0',
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        },
-                        {
-                            label: '최근가',
-                            data: latestPrices,
-                            backgroundColor: activeColor,
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        }
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     indexAxis: 'y',
@@ -1245,6 +1327,8 @@
             }
 
             const titlePrefix = tradeType === 'jeonse' ? '전세가' : (tradeType === 'rent' ? '월세가' : '매매가');
+            const highestTitle = document.getElementById('highestTitle');
+            if (highestTitle) highestTitle.textContent = `단지별 최고 ${titlePrefix} Top 3`;
             document.getElementById('soaringTitle').textContent = `가장 많이 오른 ${titlePrefix} Top 3`;
             document.getElementById('plungingTitle').textContent = `가장 많이 떨어진 ${titlePrefix} Top 3`;
 
