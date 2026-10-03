@@ -35,6 +35,7 @@ class RecentTransactionItem(BaseModel):
     date: str
     price: int
     floor: str
+    area: Optional[str] = "84.9㎡"
 
 
 class ComplexHistoryResponse(BaseModel):
@@ -93,9 +94,17 @@ def generate_mock_complex_data(dong: str, name: str, total_months: int = 120):
     day_offsets = [rng.randint(2, 8), rng.randint(9, 20), rng.randint(21, 45)]
     for day_ago in day_offsets:
         tx_date = (today - relativedelta(days=day_ago)).strftime("%Y.%m.%d")
-        tx_price = max(80000, min(150000, latest_avg + rng.randint(-3500, 4000)))
+        tx_price = max(40000, min(250000, latest_avg + rng.randint(-3500, 4000)))
         tx_price = (tx_price // 100) * 100
         tx_floor = f"{rng.randint(2, 28)}층"
+        recent_transactions.append(
+            RecentTransactionItem(
+                date=tx_date,
+                price=tx_price,
+                floor=tx_floor,
+                area="84.9㎡"
+            )
+        )
 
     # 3. 단지별 준공년도 매핑
     known_years = {

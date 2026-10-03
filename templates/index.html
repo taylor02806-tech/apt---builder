@@ -1688,14 +1688,34 @@
                             const detectedPropType = isApt ? 'apt' : (isOffi ? 'officetel' : (isRow ? 'rowhouse' : (isSingle ? 'singlehouse' : 'rowhouse')));
 
                             const realYear = findRealBuildYear(dong, jibun, place.place_name);
+
+                            const allDeals = (rawDataStore.items || []).concat(
+                                rawDataStore.soaring || [],
+                                rawDataStore.plunging || [],
+                                (window.rowhouseAgeStore && window.rowhouseAgeStore[dong]) || []
+                            );
+                            const realMatch = allDeals.find(d => {
+                                const dDong = d.dong || dong;
+                                if (dong && dDong && dong !== dDong) return false;
+                                const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
+                                if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === jibun.split('-')[0])) return true;
+                                const cleanP = place.place_name.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                                const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                                return cleanP && cleanD && (cleanP === cleanD || cleanP.includes(cleanD) || cleanD.includes(cleanP));
+                            });
+
                             const item = {
-                                name: place.place_name,
+                                name: (realMatch && realMatch.name) || place.place_name,
                                 dong: dong,
-                                jibun: jibun,
-                                prop_type: detectedPropType,
-                                area: isApt ? '84' : '60',
-                                latest_price: 0,
-                                build_year: realYear || null
+                                jibun: jibun || (realMatch && realMatch.jibun) || '',
+                                prop_type: (realMatch && realMatch.prop_type) || detectedPropType,
+                                area: (realMatch && realMatch.area) || (isApt ? '84' : '60'),
+                                latest_price: (realMatch && realMatch.latest_price) || 0,
+                                previous_price: (realMatch && realMatch.previous_price) || 0,
+                                latest_date: (realMatch && realMatch.latest_date) || '',
+                                previous_date: (realMatch && realMatch.previous_date) || '',
+                                diff: (realMatch && realMatch.diff) || 0,
+                                build_year: (realMatch && realMatch.build_year) || realYear || null
                             };
 
                             const ageInfo = getBuildingAgeInfo(item);
@@ -1851,15 +1871,55 @@
             createMapBadges(mapDisplayList.slice(0, maxBadges));
 
             // 지도 클릭 또는 검색으로 단지 포커스가 예약된 경우 상세 정보 자동 활성화
-            if (window.pendingComplexFocus) {
-                const searchTarget = window.pendingComplexFocus.replace(/아파트$/, '').trim();
-                const matched = complexList.find(c => {
-                    const cName = (c.name || '').replace(/아파트$/, '').trim();
-                    return cName.includes(searchTarget) || searchTarget.includes(cName);
-                }) || (rawDataStore.items || []).find(c => {
-                    const cName = (c.name || '').replace(/아파트$/, '').trim();
-                    return cName.includes(searchTarget) || searchTarget.includes(cName);
-                });
+            if (window.pendingComplexFocus || window.pendingClickedItem) {
+                const searchItem = window.pendingClickedItem;
+                const targetDong = (searchItem && searchItem.dong) || currentDongName || '';
+                const searchJibun = (searchItem && searchItem.jibun ? searchItem.jibun.replace(/[*~]+/g, '').trim() : '');
+                const searchMainJibun = searchJibun ? searchJibun.split('-')[0] : '';
+                const rawSearchName = window.pendingComplexFocus || (searchItem && searchItem.name) || '';
+                const cleanTarget = rawSearchName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
+
+                const allItems = (rawDataStore.items || []).concat(
+                    rawDataStore.soaring || [],
+                    rawDataStore.plunging || [],
+                    (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
+                );
+
+                // 1순위: 법정동 + 지번 완전 일치 (동일 번지 실거래 데이터)
+                let matched = null;
+                if (searchJibun) {
+                    matched = allItems.find(c => {
+                        const cDong = c.dong || targetDong;
+                        if (targetDong && cDong && targetDong !== cDong) return false;
+                        const cJibun = (c.jibun || '').replace(/[*~]+/g, '').trim();
+                        return cJibun && cJibun === searchJibun;
+                    });
+                }
+
+                // 2순위: 법정동 + 본번 일치 (대단지 아파트 등 부번 차이 매칭)
+                if (!matched && searchMainJibun) {
+                    matched = allItems.find(c => {
+                        const cDong = c.dong || targetDong;
+                        if (targetDong && cDong && targetDong !== cDong) return false;
+                        const cJibun = (c.jibun || '').replace(/[*~]+/g, '').trim();
+                        return cJibun && cJibun.split('-')[0] === searchMainJibun;
+                    });
+                }
+
+                // 3순위: 단지명/건물명 정규화 일치
+                if (!matched && cleanTarget) {
+                    matched = complexList.find(c => {
+                        const cDong = c.dong || targetDong;
+                        if (targetDong && cDong && targetDong !== cDong) return false;
+                        const cName = (c.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
+                        return cName && (cName === cleanTarget || cName.includes(cleanTarget) || cleanTarget.includes(cName));
+                    }) || allItems.find(c => {
+                        const cDong = c.dong || targetDong;
+                        if (targetDong && cDong && targetDong !== cDong) return false;
+                        const cName = (c.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
+                        return cName && (cName === cleanTarget || cName.includes(cleanTarget) || cleanTarget.includes(cName));
+                    });
+                }
 
                 if (matched) {
                     showApartmentDetail(matched);
@@ -2133,24 +2193,64 @@
         }
 
         function getAvailablePyeongsForComplex(item) {
-            const allItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
-            const matched = allItems.filter(t => t.name === item.name && (!item.dong || t.dong === item.dong));
+            const targetDong = item.dong || currentDongName || '';
+            const cleanItemName = (item.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
+            const cleanItemJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
+            const mainJibun = cleanItemJibun ? cleanItemJibun.split('-')[0] : '';
+
+            const allItems = (rawDataStore.items || []).concat(
+                rawDataStore.soaring || [],
+                rawDataStore.plunging || [],
+                (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
+            );
+
+            // 1. 단지/건물에 속한 모든 실거래 내역 매칭 (지번 일치 또는 정규화 이름 일치)
+            const matched = allItems.filter(t => {
+                const tDong = t.dong || targetDong;
+                if (targetDong && tDong && targetDong !== tDong) return false;
+
+                // 지번 일치 검사
+                const tCleanJibun = (t.jibun || '').replace(/[*~]+/g, '').trim();
+                if (cleanItemJibun && tCleanJibun) {
+                    if (cleanItemJibun === tCleanJibun) return true;
+                    if (mainJibun && tCleanJibun.split('-')[0] === mainJibun) return true;
+                }
+
+                // 단지명/건물명 정규화 일치 검사
+                const cleanTName = (t.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
+                if (cleanItemName && cleanTName) {
+                    if (cleanItemName === cleanTName) return true;
+                    if (cleanItemName.includes(cleanTName) || cleanTName.includes(cleanItemName)) return true;
+                }
+
+                return false;
+            });
+
             const pyeongMap = new Map();
-            
-            if (item.area) {
-                const p = Math.round(parseFloat(item.area) / 3.3058) || 34;
-                pyeongMap.set(p, { pyeong: p, area: parseFloat(item.area), hasData: true, item: item });
-            }
-            
+
+            // 매칭된 실거래 데이터들로부터 실제 전용면적(실수형 소수점) 및 평형 등록
             matched.forEach(m => {
-                if (m.area) {
-                    const p = Math.round(parseFloat(m.area) / 3.3058);
-                    if (p > 0 && !pyeongMap.has(p)) {
-                        pyeongMap.set(p, { pyeong: p, area: parseFloat(m.area), hasData: true, item: m });
+                if (m.area && m.latest_price > 0) {
+                    const areaVal = parseFloat(m.area);
+                    const p = Math.round(areaVal / 3.3058);
+                    if (p > 0) {
+                        if (!pyeongMap.has(p) || (m.latest_price > pyeongMap.get(p).item.latest_price)) {
+                            pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, item: m });
+                        }
                     }
                 }
             });
 
+            // item 자체에 유효한 가격과 면적이 있다면 추가
+            if (item.area && item.latest_price > 0) {
+                const areaVal = parseFloat(item.area);
+                const p = Math.round(areaVal / 3.3058) || 34;
+                if (!pyeongMap.has(p)) {
+                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, item: item });
+                }
+            }
+
+            // 표준 평형 (24, 30, 34, 43, 52) 보완
             const standardPyeongs = [24, 30, 34, 43, 52];
             standardPyeongs.forEach(sp => {
                 if (!pyeongMap.has(sp)) {
@@ -2205,7 +2305,10 @@
             const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
             const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
-            const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
+            const rawArea = (pInfo && pInfo.hasData && pInfo.item && pInfo.item.area) 
+                ? pInfo.item.area 
+                : (pInfo ? pInfo.area : (item.area || 84));
+            const effectiveArea = (typeof rawArea === 'number') ? rawArea.toFixed(1).replace(/\.0$/, '') : rawArea;
 
             const ageInfo = getBuildingAgeInfo(item);
             const ageBadgeHtml = ageInfo
@@ -2266,33 +2369,35 @@
             const txListEl = document.getElementById('transactionList');
 
             if (!pInfo || !pInfo.hasData) {
-                const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
-                if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
-                if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
-                if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
-                if (prevPriceEl) prevPriceEl.textContent = '-';
-                if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
-                if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
-                if (diffEl) {
-                    diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                    diffEl.textContent = `해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.`;
-                }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 정보 없음)`;
+                if (!item.latest_price || item.latest_price === 0) {
+                    const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
+                    if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
+                    if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
+                    if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
+                    if (prevPriceEl) prevPriceEl.textContent = '-';
+                    if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
+                    if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
+                    if (diffEl) {
+                        diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
+                        diffEl.textContent = `해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.`;
+                    }
+                    if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 정보 없음)`;
 
-                if (noDataOverlay) {
-                    noDataOverlay.classList.remove('hidden');
-                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 정보 없음`;
-                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
-                }
+                    if (noDataOverlay) {
+                        noDataOverlay.classList.remove('hidden');
+                        if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 정보 없음`;
+                        if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
+                    }
 
-                if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.</td></tr>`;
-                }
+                    if (txListEl) {
+                        txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.</td></tr>`;
+                    }
 
-                document.getElementById('miniTaxAcq').textContent = '정보 없음';
-                document.getElementById('miniTaxHolding').textContent = '정보 없음';
-                document.getElementById('miniTaxTransfer').textContent = '정보 없음';
-                return;
+                    document.getElementById('miniTaxAcq').textContent = '정보 없음';
+                    document.getElementById('miniTaxHolding').textContent = '정보 없음';
+                    document.getElementById('miniTaxTransfer').textContent = '정보 없음';
+                    return;
+                }
             }
 
             const pItem = pInfo.item || item;
@@ -2393,11 +2498,35 @@
         }
 
         function showApartmentDetail(item) {
-            if (item && !item.build_year) {
-                const targetDong = item.dong || currentDongName || currentAddressName || '';
+            if (!item) return;
+
+            const targetDong = item.dong || currentDongName || currentAddressName || '';
+            if (!item.build_year) {
                 const realYear = findRealBuildYear(targetDong, item.jibun, item.name);
                 if (realYear) item.build_year = realYear;
             }
+
+            // 실거래 데이터 자동 매칭 및 가격/면적 보강
+            const availablePyeongs = getAvailablePyeongsForComplex(item);
+            window.currentAvailablePyeongs = availablePyeongs;
+            const hasDataPyeongs = availablePyeongs.filter(p => p.hasData && p.item);
+
+            if (hasDataPyeongs.length > 0) {
+                // 34평형(국민평형)이 있으면 우선, 없으면 데이터가 있는 첫번째 평형 채택
+                const bestP = hasDataPyeongs.find(p => p.pyeong === 34) || hasDataPyeongs[0];
+                if (!item.latest_price || item.latest_price === 0) {
+                    item.latest_price = bestP.item.latest_price;
+                    item.previous_price = bestP.item.previous_price;
+                    item.latest_date = bestP.item.latest_date;
+                    item.previous_date = bestP.item.previous_date;
+                    item.diff = bestP.item.diff;
+                    item.area = bestP.item.area;
+                    if (bestP.item.name && (!item.name || item.name.includes('단독주택') || item.name.includes('주택'))) {
+                        item.name = bestP.item.name;
+                    }
+                }
+            }
+
             currentSelectedItem = item;
             const panel = document.getElementById('sidePanel');
             if (panel && panel.classList.contains('panel-closed')) {
@@ -2410,7 +2539,15 @@
 
             const checkedTrade = document.querySelector('input[name="trade_type"]:checked');
             window.currentDetailTradeType = checkedTrade ? checkedTrade.value : 'sale';
-            const initialPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+
+            // 초기 선택 평형: 거래 데이터가 존재하는 평형을 우선 선택
+            let initialPyeong = 34;
+            if (hasDataPyeongs.length > 0) {
+                const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
+                initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
+            } else if (item.area) {
+                initialPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+            }
             window.currentSelectedPyeong = initialPyeong;
 
             setupPyeongDropdown(item);
@@ -2626,6 +2763,9 @@
         function ensureFullHistoryData(fullData, item) {
             if (!fullData || !fullData.history || fullData.history.length === 0) {
                 return generateFallbackTrendData(item);
+            }
+            if (!fullData.recent_transactions || fullData.recent_transactions.length === 0) {
+                fullData.recent_transactions = generateFallbackTrendData(item).recent_transactions;
             }
             if (fullData.history.length < 120) {
                 const currentHistory = fullData.history;
@@ -3032,11 +3172,40 @@
                     } catch (e) {}
                 }
 
-                if (fetchedData && fetchedData.build_year) {
-                    item.build_year = fetchedData.build_year;
-                    registerBuildingYears([item]);
-                    const updatedAgeInfo = getBuildingAgeInfo(item);
-                    updateDetailAgeCardUI(item, updatedAgeInfo);
+                if (fetchedData) {
+                    if (fetchedData.build_year) {
+                        item.build_year = fetchedData.build_year;
+                        registerBuildingYears([item]);
+                        const updatedAgeInfo = getBuildingAgeInfo(item);
+                        updateDetailAgeCardUI(item, updatedAgeInfo);
+                    }
+
+                    // 가격 또는 면적 정보가 없는 임의 클릭 객체의 경우, API 이력에서 최근 거래가/면적 동기화
+                    if (!item.latest_price || item.latest_price === 0) {
+                        if (fetchedData.recent_transactions && fetchedData.recent_transactions.length > 0) {
+                            const latestTx = fetchedData.recent_transactions[0];
+                            const prevTx = fetchedData.recent_transactions[1] || latestTx;
+                            item.latest_price = latestTx.price;
+                            item.previous_price = prevTx.price;
+                            item.latest_date = (latestTx.date || '').replace(/[\.\-\s]/g, '');
+                            item.previous_date = (prevTx.date || '').replace(/[\.\-\s]/g, '');
+                            item.diff = item.latest_price - item.previous_price;
+                            if (latestTx.area) {
+                                const parsedA = parseFloat(latestTx.area);
+                                if (!isNaN(parsedA) && parsedA > 0) item.area = String(parsedA);
+                            }
+                            updateDetailView(item, window.currentDetailTradeType || 'sale', window.currentSelectedPyeong || 34);
+                        } else if (fetchedData.history && fetchedData.history.length > 0) {
+                            const lastHist = fetchedData.history[fetchedData.history.length - 1];
+                            const prevHist = fetchedData.history[fetchedData.history.length - 2] || lastHist;
+                            item.latest_price = lastHist.avg_price;
+                            item.previous_price = prevHist.avg_price;
+                            item.latest_date = (lastHist.month || '').replace(/[\.\-\s]/g, '') + '01';
+                            item.previous_date = (prevHist.month || '').replace(/[\.\-\s]/g, '') + '01';
+                            item.diff = item.latest_price - item.previous_price;
+                            updateDetailView(item, window.currentDetailTradeType || 'sale', window.currentSelectedPyeong || 34);
+                        }
+                    }
                 }
 
                 let baseData = null;
@@ -3190,7 +3359,27 @@
                 const jibun = mainNo + subNo;
                 const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
 
-                // 2. 카카오 장소 검색으로 반경 55m 내 아파트 단지 확인
+                // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 우선 검색
+                const allStoreDeals = (rawDataStore.items || []).concat(
+                    rawDataStore.soaring || [],
+                    rawDataStore.plunging || [],
+                    (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
+                );
+
+                const matchedRealDeal = allStoreDeals.find(d => {
+                    const dDong = d.dong || targetDong;
+                    if (targetDong && dDong && targetDong !== dDong) return false;
+                    const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
+                    if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === mainNo)) return true;
+                    if (buildingName) {
+                        const cleanB = buildingName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                        const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                        if (cleanB && cleanD && (cleanB === cleanD || cleanB.includes(cleanD) || cleanD.includes(cleanB))) return true;
+                    }
+                    return false;
+                });
+
+                // 3. 카카오 장소 검색으로 반경 55m 내 주거시설 확인
                 places.keywordSearch('아파트', function(pResult, pStatus) {
                     let nearbyApt = null;
                     if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
@@ -3204,18 +3393,18 @@
                         }
                     }
 
-                    // 3. 클릭 위치가 아파트인지 지능형 판별
                     const isAptByName = buildingName && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|파크|팰리스|우성|현대|한신|삼호|주공)/.test(buildingName);
                     const isAptByPlace = nearbyApt && (nearbyApt.place_name.includes('아파트') || (nearbyApt.category_name && nearbyApt.category_name.includes('아파트')));
                     const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
-                    const isApartment = isAptByName || isAptByPlace || isAptByHint;
+                    const isApartment = (matchedRealDeal && matchedRealDeal.prop_type === 'apt') || isAptByName || isAptByPlace || isAptByHint;
 
                     let finalName = '';
-                    let finalPropType = 'apt';
+                    let finalPropType = (matchedRealDeal && matchedRealDeal.prop_type) || 'apt';
 
-                    if (isApartment) {
+                    if (matchedRealDeal) {
+                        finalName = matchedRealDeal.name;
+                    } else if (isApartment) {
                         finalName = (nearbyApt ? nearbyApt.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
-                        // 101동 등 동 표시 제거하여 단지 대표명 추출
                         finalName = finalName.replace(/\s*\d+동.*$/, '').trim();
                         finalPropType = 'apt';
                     } else if (buildingName && buildingName.includes('오피스텔')) {
@@ -3229,24 +3418,29 @@
                         finalPropType = 'singlehouse';
                     }
 
-                    // 4. 🔥 사용자 요청 핵심 해결: 사용자가 '단독·다가구' 등 다른 모드에서 아파트를 클릭한 경우
+                    // 4. 부동산 유형 라디오 버튼 지능형 자동 동기화
                     const currentPropChecked = document.querySelector('input[name="prop_type"]:checked')?.value;
-                    if (isApartment && currentPropChecked !== 'apt') {
-                        const aptRadio = document.getElementById('prop_apt');
-                        if (aptRadio) {
-                            aptRadio.checked = true;
-                            showToast(`🏢 <strong>${finalName}</strong> (아파트 단지 감지)<br><span class="text-[11px] text-indigo-200">'단독·다가구'에서 <strong>'아파트'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
+                    if (finalPropType !== currentPropChecked) {
+                        const targetRadio = document.getElementById(`prop_${finalPropType}`);
+                        if (targetRadio) {
+                            targetRadio.checked = true;
+                            const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
+                            showToast(`🏢 <strong>${finalName}</strong> (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
                         }
                     }
 
-                    const realYear = findRealBuildYear(targetDong, jibun, finalName);
+                    const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
                     const clickedItem = {
                         name: finalName,
                         dong: targetDong,
-                        jibun: jibun,
+                        jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
                         prop_type: finalPropType,
-                        area: finalPropType === 'apt' ? '84' : '60',
-                        latest_price: 0,
+                        area: (matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'),
+                        latest_price: (matchedRealDeal && matchedRealDeal.latest_price) || 0,
+                        previous_price: (matchedRealDeal && matchedRealDeal.previous_price) || 0,
+                        latest_date: (matchedRealDeal && matchedRealDeal.latest_date) || '',
+                        previous_date: (matchedRealDeal && matchedRealDeal.previous_date) || '',
+                        diff: (matchedRealDeal && matchedRealDeal.diff) || 0,
                         build_year: realYear || null
                     };
 
