@@ -73,6 +73,9 @@
         @media (max-width: 767px) {
             .panel-closed {
                 transform: translateY(100%) !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
             }
             .panel-full {
                 height: 90vh !important;
@@ -734,60 +737,79 @@
 
     <script>
         function togglePanel(forceOpen = null) {
-            const panel = document.getElementById('sidePanel');
-            const icon = document.getElementById('toggleIcon');
-            const openBtn = document.getElementById('mobileMenuOpenBtn');
-            const fab = document.getElementById('mobileFab');
+            try {
+                const panel = document.getElementById('sidePanel');
+                const icon = document.getElementById('toggleIcon');
+                const openBtn = document.getElementById('mobileMenuOpenBtn');
+                const fab = document.getElementById('mobileFab');
 
-            const isCurrentlyOpen = !panel.classList.contains('panel-closed');
-            const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+                const isCurrentlyOpen = !panel.classList.contains('panel-closed');
+                const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
-            if (!shouldOpen) {
-                clearHoverTimer();
-                hoverStateRef.isPinned = false;
-                hoverStateRef.isHoveringMarker = false;
-                hoverStateRef.isHoveringPanel = false;
-                hoverStateRef.currentKey = null;
-                if (panel) panel.classList.remove('hover-bridge');
-                
-                // 메뉴 닫기 (반응형 CSS 클래스)
-                panel.classList.add('panel-closed');
-                panel.classList.remove('panel-full');
-                
-                if (icon && icon.parentElement) {
-                    icon.parentElement.classList.replace('-right-8', '-right-12');
-                    icon.parentElement.classList.add('w-12');
-                    icon.parentElement.classList.remove('w-8');
-                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
-                }
-                if (openBtn) openBtn.classList.remove('hidden');
-                if (fab) fab.classList.remove('translate-y-32');
-            } else {
-                // 메뉴 열기 (반응형 CSS 클래스)
-                panel.classList.remove('panel-closed');
-                panel.classList.remove('panel-full');
-                
-                if (icon && icon.parentElement) {
-                    icon.parentElement.classList.replace('-right-12', '-right-8');
-                    icon.parentElement.classList.add('w-8');
-                    icon.parentElement.classList.remove('w-12');
-                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
-                }
-                if (openBtn) openBtn.classList.add('hidden');
-                if (fab) fab.classList.add('translate-y-32');
-            }
-
-            setTimeout(() => {
-                try {
-                    if (typeof map !== 'undefined' && map) {
-                        const center = map.getCenter();
-                        map.relayout();
-                        map.setCenter(center);
+                if (!shouldOpen) {
+                    try { clearHoverTimer(); } catch(e) {}
+                    try {
+                        if (typeof hoverStateRef !== 'undefined') {
+                            hoverStateRef.isPinned = false;
+                            hoverStateRef.isHoveringMarker = false;
+                            hoverStateRef.isHoveringPanel = false;
+                            hoverStateRef.currentKey = null;
+                        }
+                    } catch(e) {}
+                    
+                    if (panel) panel.classList.remove('hover-bridge');
+                    
+                    // 메뉴 닫기 (반응형 CSS 클래스)
+                    if (panel) {
+                        panel.classList.add('panel-closed');
+                        panel.classList.remove('panel-full');
                     }
-                } catch (e) {
-                    console.error('Map relayout error:', e);
+                    
+                    if (icon && icon.parentElement) {
+                        icon.parentElement.classList.replace('-right-8', '-right-12');
+                        icon.parentElement.classList.add('w-12');
+                        icon.parentElement.classList.remove('w-8');
+                        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
+                    }
+                    if (openBtn) openBtn.classList.remove('hidden');
+                    if (fab) fab.classList.remove('translate-y-32');
+                } else {
+                    // 메뉴 열기 (반응형 CSS 클래스)
+                    if (panel) {
+                        panel.classList.remove('panel-closed');
+                        panel.classList.remove('panel-full');
+                    }
+                    
+                    if (icon && icon.parentElement) {
+                        icon.parentElement.classList.replace('-right-12', '-right-8');
+                        icon.parentElement.classList.add('w-8');
+                        icon.parentElement.classList.remove('w-12');
+                        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+                    }
+                    if (openBtn) openBtn.classList.add('hidden');
+                    if (fab) fab.classList.add('translate-y-32');
                 }
-            }, 500);
+
+                setTimeout(() => {
+                    try {
+                        if (typeof map !== 'undefined' && map) {
+                            const center = map.getCenter();
+                            map.relayout();
+                            map.setCenter(center);
+                        }
+                    } catch (e) {
+                        console.error('Map relayout error:', e);
+                    }
+                }, 500);
+            } catch (error) {
+                console.error('togglePanel execution error:', error);
+                // 최후의 방어 수단: 에러가 나더라도 무조건 닫기
+                const panel = document.getElementById('sidePanel');
+                if (panel && forceOpen === false) {
+                    panel.classList.add('panel-closed');
+                    panel.classList.remove('panel-full');
+                }
+            }
         }
 
         // [상세 패널 및 사이드바 터치/클릭 방어벽]
