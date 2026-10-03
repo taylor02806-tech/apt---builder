@@ -308,6 +308,7 @@ def get_building_info():
     trade_type = request.args.get('trade_type', 'sale')
     start_month = request.args.get('start_month')
     end_month = request.args.get('end_month')
+    building_dong = request.args.get('building_dong', '')
 
     if not lawd_cd:
         lawd_cd = '11650'
@@ -321,7 +322,8 @@ def get_building_info():
         prop_type=prop_type,
         trade_type=trade_type,
         start_month=start_month,
-        end_month=end_month
+        end_month=end_month,
+        building_dong=building_dong
     )
     return jsonify(data)
 
@@ -335,6 +337,7 @@ def get_complex_history():
     trade_type = request.args.get('trade_type', 'sale')
     start_month = request.args.get('start_month')
     end_month = request.args.get('end_month')
+    building_dong = request.args.get('building_dong', '')
 
     from building_service import get_building_info_from_gov
     real_data = get_building_info_from_gov(
@@ -345,7 +348,8 @@ def get_complex_history():
         prop_type=prop_type,
         trade_type=trade_type,
         start_month=start_month,
-        end_month=end_month
+        end_month=end_month,
+        building_dong=building_dong
     )
     if real_data.get('has_real_deals'):
         return jsonify({
@@ -355,6 +359,7 @@ def get_complex_history():
             'history': real_data['history'],
             'recent_transactions': real_data['recent_transactions'],
             'pyeongs': real_data['pyeongs'],
+            'matched_dong_pyeong': real_data.get('matched_dong_pyeong'),
             'is_real_data': True
         })
 

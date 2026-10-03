@@ -426,6 +426,7 @@
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="font-black text-sm text-indigo-950 truncate" id="detailDongName">101동</span>
                                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">선택한 동</span>
+                                    <span id="detailDongPyeongTag" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs"></span>
                                 </div>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate" id="detailDongAddress">진관동 25</p>
                             </div>
@@ -434,6 +435,11 @@
                             <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             동 로드뷰
                         </button>
+                    </div>
+                    <!-- 동 전용 평형 자동 매칭 알림 안내 바 -->
+                    <div id="detailDongPyeongNotice" class="hidden mt-2.5 p-2.5 bg-white/90 rounded-xl border border-indigo-100 text-[11px] text-indigo-950 flex items-center gap-2 shadow-2xs">
+                        <span class="text-base leading-none shrink-0">🎯</span>
+                        <div id="detailDongPyeongNoticeText" class="leading-tight"></div>
                     </div>
                     <div class="mt-2.5 pt-2 border-t border-indigo-100/70 text-[10px] text-slate-500 flex items-center gap-1.5">
                         <span class="text-indigo-600 font-bold shrink-0">ℹ️</span>
@@ -1965,6 +1971,14 @@
                 }
 
                 if (matched) {
+                    if (window.pendingClickedItem) {
+                        if (window.pendingClickedItem.building_dong) {
+                            matched.building_dong = window.pendingClickedItem.building_dong;
+                        }
+                        if (window.pendingClickedItem.road_address) {
+                            matched.road_address = window.pendingClickedItem.road_address;
+                        }
+                    }
                     showApartmentDetail(matched);
                 } else if (window.pendingClickedItem) {
                     showApartmentDetail(window.pendingClickedItem);
@@ -2335,7 +2349,9 @@
 
             listEl.innerHTML = availablePyeongs.map(pInfo => {
                 const isCurrent = pInfo.pyeong === window.currentSelectedPyeong;
+                const isDongMatched = item.matched_dong_pyeong && item.matched_dong_pyeong.pyeong === pInfo.pyeong;
                 const currentMark = isCurrent ? '<span class="text-[9px] text-blue-600 font-bold ml-1">✓</span>' : '';
+                const dongMatchedBadge = isDongMatched ? '<span class="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-bold ml-1.5 shadow-2xs">선택 동 평형</span>' : '';
                 const dealCountText = pInfo.deal_count ? `${pInfo.deal_count}건 실거래` : (pInfo.hasData || pInfo.has_data ? '거래 있음' : '신고 없음');
                 const statusBadge = (pInfo.hasData || pInfo.has_data)
                     ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">${dealCountText}</span>`
@@ -2344,9 +2360,12 @@
                 return `
                     <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
                         <div class="flex flex-col">
-                            <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
-                                ${pInfo.pyeong}평형 ${currentMark}
-                            </span>
+                            <div class="flex items-center">
+                                <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
+                                    ${pInfo.pyeong}평형 ${currentMark}
+                                </span>
+                                ${dongMatchedBadge}
+                            </div>
                             <span class="text-[10px] text-slate-400 font-mono">전용 ${pInfo.area}㎡</span>
                         </div>
                         ${statusBadge}
@@ -2419,6 +2438,34 @@
                     if (dAddrEl) {
                         const fullAddr = item.road_address || (addressText + (item.building_dong ? ' ' + item.building_dong : ''));
                         dAddrEl.textContent = fullAddr;
+                    }
+
+                    const pTagEl = document.getElementById('detailDongPyeongTag');
+                    const pNoticeEl = document.getElementById('detailDongPyeongNotice');
+                    const pNoticeTextEl = document.getElementById('detailDongPyeongNoticeText');
+                    const matchedInfo = item.matched_dong_pyeong;
+
+                    if (matchedInfo && matchedInfo.pyeong) {
+                        if (pTagEl) {
+                            pTagEl.classList.remove('hidden');
+                            pTagEl.textContent = `${matchedInfo.pyeong}평형 (${matchedInfo.area}㎡) 자동 연동`;
+                        }
+                        if (pNoticeEl && pNoticeTextEl) {
+                            pNoticeEl.classList.remove('hidden');
+                            pNoticeTextEl.innerHTML = `<strong>${item.building_dong}</strong> 전용 <strong>${matchedInfo.area}㎡ (${matchedInfo.pyeong}평형)</strong> 실거래가 및 시세 추이로 자동 세팅되었습니다.`;
+                        }
+                    } else if (item.building_dong && pyeong) {
+                        if (pTagEl) {
+                            pTagEl.classList.remove('hidden');
+                            pTagEl.textContent = `${pyeong}평형 자동 매칭`;
+                        }
+                        if (pNoticeEl && pNoticeTextEl) {
+                            pNoticeEl.classList.remove('hidden');
+                            pNoticeTextEl.innerHTML = `<strong>${item.building_dong}</strong> ${pyeong}평형(전용 ${effectiveArea}㎡) 실거래가 데이터로 연동되었습니다.`;
+                        }
+                    } else {
+                        if (pTagEl) pTagEl.classList.add('hidden');
+                        if (pNoticeEl) pNoticeEl.classList.add('hidden');
                     }
                 } else {
                     dongCard.classList.add('hidden');
@@ -2598,13 +2645,14 @@
             const cleanName = (item.complex_name || item.name || '').replace(/\s*\d+동.*$/, '').trim();
             const propType = item.prop_type || document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
             const lawdCd = item.lawd_cd || currentLawdCd || '';
+            const buildingDong = item.building_dong || '';
 
             const startEl = document.getElementById('startMonth');
             const endEl = document.getElementById('endMonth');
             const startMonth = startEl ? startEl.value.replace('-', '') : '';
             const endMonth = endEl ? endEl.value.replace('-', '') : '';
 
-            const query = `lawd_cd=${encodeURIComponent(lawdCd)}&dong=${encodeURIComponent(targetDong)}&jibun=${encodeURIComponent(cleanJibun)}&name=${encodeURIComponent(cleanName)}&prop_type=${encodeURIComponent(propType)}&trade_type=${encodeURIComponent(tradeType)}&start_month=${startMonth}&end_month=${endMonth}`;
+            const query = `lawd_cd=${encodeURIComponent(lawdCd)}&dong=${encodeURIComponent(targetDong)}&jibun=${encodeURIComponent(cleanJibun)}&name=${encodeURIComponent(cleanName)}&prop_type=${encodeURIComponent(propType)}&trade_type=${encodeURIComponent(tradeType)}&start_month=${startMonth}&end_month=${endMonth}&building_dong=${encodeURIComponent(buildingDong)}`;
 
             const candidateUrls = [
                 `/api/building-info?${query}`,
@@ -2637,20 +2685,73 @@
                 item.official_pyeongs = officialData.pyeongs || [];
                 item.official_history = officialData.history || [];
                 item.official_transactions = officialData.recent_transactions || [];
+                item.matched_dong_pyeong = officialData.matched_dong_pyeong || null;
                 window.currentAvailablePyeongs = item.official_pyeongs;
 
-                // 평형 선택 동기화: 기존 선택 평형이 존재하면 유지, 없으면 34평 또는 최다 거래 평형 선택
-                const currentP = window.currentSelectedPyeong;
-                const exists = item.official_pyeongs.some(p => p.pyeong === currentP);
-                if (!exists && item.official_pyeongs.length > 0) {
-                    const default34 = item.official_pyeongs.find(p => p.pyeong === 34);
-                    window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
+                // 🔥 클릭한 동(예: 924동)에 매칭되는 평형이 있으면 최우선 자동 선택!
+                if (item.matched_dong_pyeong && item.matched_dong_pyeong.pyeong) {
+                    const matchedP = item.matched_dong_pyeong.pyeong;
+                    const exists = item.official_pyeongs.some(p => p.pyeong === matchedP);
+                    if (exists) {
+                        window.currentSelectedPyeong = matchedP;
+                    }
+                } else {
+                    // 평형 선택 동기화: 기존 선택 평형이 존재하면 유지, 없으면 34평 또는 최다 거래 평형 선택
+                    const currentP = window.currentSelectedPyeong;
+                    const exists = item.official_pyeongs.some(p => p.pyeong === currentP);
+                    if (!exists && item.official_pyeongs.length > 0) {
+                        const default34 = item.official_pyeongs.find(p => p.pyeong === 34);
+                        window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
+                    }
                 }
 
                 setupPyeongDropdown(item);
                 updateDetailView(item, tradeType, window.currentSelectedPyeong);
                 renderDetailTrendChart(item, tradeType, window.currentSelectedPyeong);
             }
+        }
+
+        function getQuickMatchedPyeong(item) {
+            if (!item || !item.building_dong) return null;
+            const dongMatch = item.building_dong.match(/\d+/);
+            if (!dongMatch) return null;
+            const dongNum = parseInt(dongMatch[0], 10);
+            const cleanName = (item.complex_name || item.name || '').replace(/\s+/g, '');
+
+            // 1. 구파발 9단지 래미안 (916~928동)
+            if (cleanName.includes('구파발9단지') || cleanName.includes('우물골9단지') || (cleanName.includes('우물골') && dongNum >= 916 && dongNum <= 928)) {
+                if (dongNum >= 916 && dongNum <= 920) return 34;
+                if (dongNum >= 921 && dongNum <= 922) return 41;
+                if (dongNum >= 923 && dongNum <= 926) return 54;
+                if (dongNum >= 927 && dongNum <= 928) return 67;
+            }
+            // 2. 우물골 2단지 (201~244동)
+            if (cleanName.includes('우물골2단지') || (cleanName.includes('우물골') && dongNum >= 201 && dongNum <= 244)) {
+                if (dongNum >= 201 && dongNum <= 205) return 24;
+                if (dongNum >= 206 && dongNum <= 215) return 34;
+                if (dongNum >= 216 && dongNum <= 220) return 41;
+                if (dongNum >= 221 && dongNum <= 230) return 54;
+                if (dongNum >= 231 && dongNum <= 244) return 67;
+            }
+            // 3. 박석고개 1단지 (101~131동)
+            if (cleanName.includes('박석고개1단지') || (cleanName.includes('박석고개') && dongNum >= 101 && dongNum <= 131)) {
+                if (dongNum >= 101 && dongNum <= 110) return 24;
+                if (dongNum >= 111 && dongNum <= 122) return 34;
+                if (dongNum >= 123 && dongNum <= 128) return 41;
+                if (dongNum >= 129 && dongNum <= 131) return 54;
+            }
+            // 4. 은평스카이뷰자이 (101~103동)
+            if (cleanName.includes('은평스카이뷰자이')) return 34;
+
+            // 5. 반포자이 (101~144동)
+            if (cleanName.includes('반포자이')) {
+                if (dongNum >= 101 && dongNum <= 114) return 35;
+                if (dongNum >= 115 && dongNum <= 120) return 50;
+                if (dongNum >= 121 && dongNum <= 125) return 60;
+                if (dongNum >= 126 && dongNum <= 130) return 70;
+                if (dongNum >= 131 && dongNum <= 144) return 35;
+            }
+            return null;
         }
 
         async function showApartmentDetail(item) {
@@ -2680,12 +2781,15 @@
             window.currentAvailablePyeongs = availablePyeongs;
             const hasDataPyeongs = availablePyeongs.filter(p => (p.hasData || p.has_data));
 
-            let initialPyeong = 34;
-            if (hasDataPyeongs.length > 0) {
-                const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
-                initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
-            } else if (item.area) {
-                initialPyeong = convertAreaToPyeong(item.area, item.prop_type || 'apt');
+            const quickP = getQuickMatchedPyeong(item);
+            let initialPyeong = quickP || 34;
+            if (!quickP) {
+                if (hasDataPyeongs.length > 0) {
+                    const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
+                    initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
+                } else if (item.area) {
+                    initialPyeong = convertAreaToPyeong(item.area, item.prop_type || 'apt');
+                }
             }
             window.currentSelectedPyeong = initialPyeong;
 
@@ -3645,6 +3749,7 @@
                     }
 
                     // 6. 클릭한 건물 상세 패널 즉시 오픈 & 공공데이터 실거래 API 중계 호출
+                    window.pendingClickedItem = clickedItem;
                     showApartmentDetail(clickedItem);
 
                     // 7. 법정동 실거래가 데이터 갱신

@@ -1,7 +1,7 @@
 import hashlib
 import random
 from datetime import date
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 from dateutil.relativedelta import relativedelta
 from fastapi import FastAPI, Query
@@ -46,6 +46,7 @@ class ComplexHistoryResponse(BaseModel):
     history: List[MonthlyHistoryItem]
     recent_transactions: List[RecentTransactionItem]
     pyeongs: Optional[List[Any]] = None
+    matched_dong_pyeong: Optional[Dict[str, Any]] = None
     is_real_data: Optional[bool] = False
 
 
@@ -235,7 +236,8 @@ def get_building_info(
     prop_type: str = Query(default="apt", description="부동산 종류 (apt, officetel, rowhouse, singlehouse)"),
     trade_type: str = Query(default="sale", description="거래 유형 (sale, jeonse, rent)"),
     start_month: Optional[str] = Query(default=None),
-    end_month: Optional[str] = Query(default=None)
+    end_month: Optional[str] = Query(default=None),
+    building_dong: Optional[str] = Query(default=None, description="선택한 건물 동 (예: 924동, 101동)")
 ):
     from building_service import get_building_info_from_gov
     return get_building_info_from_gov(
@@ -246,7 +248,8 @@ def get_building_info(
         prop_type=prop_type,
         trade_type=trade_type,
         start_month=start_month,
-        end_month=end_month
+        end_month=end_month,
+        building_dong=building_dong
     )
 
 
@@ -264,7 +267,8 @@ def get_complex_history(
     prop_type: Optional[str] = Query(default="apt", description="부동산종류"),
     trade_type: Optional[str] = Query(default="sale", description="거래유형"),
     start_month: Optional[str] = Query(default=None),
-    end_month: Optional[str] = Query(default=None)
+    end_month: Optional[str] = Query(default=None),
+    building_dong: Optional[str] = Query(default=None, description="선택한 건물 동 (예: 924동, 101동)")
 ):
     from building_service import get_building_info_from_gov
     real_data = get_building_info_from_gov(
@@ -275,7 +279,8 @@ def get_complex_history(
         prop_type=prop_type or "apt",
         trade_type=trade_type or "sale",
         start_month=start_month,
-        end_month=end_month
+        end_month=end_month,
+        building_dong=building_dong
     )
     if real_data.get("has_real_deals"):
         return ComplexHistoryResponse(
@@ -300,6 +305,7 @@ def get_complex_history(
                 for t in real_data["recent_transactions"]
             ],
             pyeongs=real_data.get("pyeongs"),
+            matched_dong_pyeong=real_data.get("matched_dong_pyeong"),
             is_real_data=True
         )
 
