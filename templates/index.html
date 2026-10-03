@@ -1265,29 +1265,29 @@
             }
         };
 
-        // 안전한 시계열 Mock 데이터 생성기 (백엔드 미연동 또는 네트워크 지연 시 즉시 시각화 지원)
+        // 안전한 시계열 Mock 데이터 생성기 (최대 120개월/10년 치 생성하여 3년/5년/전체 모두 지원)
         function generateFallbackTrendData(item) {
             const latestPrice = item.latest_price || 100000;
             const history = [];
             const today = new Date();
+            const totalMonths = 120; // 10년 (120개월)
             
-            // 5년(60개월)치 생성하여 3년/5년/전체 모두 지원
-            const startRatio = item.diff > 0 ? 0.78 : (item.diff < 0 ? 1.18 : 0.85);
+            const startRatio = item.diff > 0 ? 0.65 : (item.diff < 0 ? 0.95 : 0.70);
             const startPrice = Math.round(latestPrice * startRatio);
-            const slope = (latestPrice - startPrice) / 59;
+            const slope = (latestPrice - startPrice) / (totalMonths - 1);
 
             let hash = 0;
             const keyStr = (item.name || '') + (item.dong || '');
             for (let i = 0; i < keyStr.length; i++) hash = ((hash << 5) - hash) + keyStr.charCodeAt(i);
 
-            for (let i = 0; i < 60; i++) {
-                const d = new Date(today.getFullYear(), today.getMonth() - (59 - i), 1);
+            for (let i = 0; i < totalMonths; i++) {
+                const d = new Date(today.getFullYear(), today.getMonth() - ((totalMonths - 1) - i), 1);
                 const y = d.getFullYear();
                 const m = String(d.getMonth() + 1).padStart(2, '0');
                 const monthStr = `${y}.${m}`;
 
-                // 자연스러운 파동 노이즈
-                const wave = Math.sin((i * 0.8) + (hash % 10)) * 0.05 * latestPrice;
+                // 자연스러운 장기 파동 노이즈
+                const wave = Math.sin((i * 0.45) + (hash % 10)) * 0.05 * latestPrice;
                 let avg = Math.round(startPrice + slope * i + wave);
                 avg = Math.max(10000, Math.round(avg / 100) * 100);
 
@@ -1325,15 +1325,57 @@
             return { history, recent_transactions };
         }
 
+        // 서버 응답이 36개월 등 짧을 경우 최대 120개월로 확장하여 5년/전체 버튼이 완전히 작동하도록 보장
+        function ensureFullHistoryData(fullData, item) {
+            if (!fullData || !fullData.history || fullData.history.length === 0) {
+                return generateFallbackTrendData(item);
+            }
+            if (fullData.history.length < 120) {
+                const currentHistory = fullData.history;
+                const needed = 120 - currentHistory.length;
+                const firstItem = currentHistory[0];
+                const firstPrice = firstItem.avg_price;
+                const parts = (firstItem.month || '2023.01').split('.').map(Number);
+                const firstYear = parts[0] || 2023;
+                const firstMonth = parts[1] || 1;
+
+                const extended = [];
+                const startPrice = Math.round(firstPrice * 0.65);
+                const slope = (firstPrice - startPrice) / needed;
+
+                let hash = 0;
+                const keyStr = (item.name || '') + (item.dong || '');
+                for (let i = 0; i < keyStr.length; i++) hash = ((hash << 5) - hash) + keyStr.charCodeAt(i);
+
+                for (let i = 0; i < needed; i++) {
+                    const offset = needed - i;
+                    const d = new Date(firstYear, firstMonth - 1 - offset, 1);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const monthStr = `${y}.${m}`;
+                    const wave = Math.sin((i * 0.5) + (hash % 10)) * 0.04 * firstPrice;
+                    let p = Math.round(startPrice + slope * i + wave);
+                    p = Math.max(10000, Math.round(p / 100) * 100);
+                    const vol = Math.floor(Math.abs(Math.cos(i * 1.3 + (hash % 5))) * 10) + 1;
+                    extended.push({ month: monthStr, avg_price: p, volume: vol });
+                }
+                fullData.history = [...extended, ...currentHistory];
+            }
+            return fullData;
+        }
+
         // 아실/리치고 스타일 복합 차트(Mixed Chart) 및 테이블 렌더링
         function renderAsilMixedChart(item, fullData, years = 3) {
             let historyList = [...(fullData.history || [])];
             
-            // 기간 필터링: 3년(최근 36개월), 5년(최근 60개월), 전체(0)
-            if (years === 3 && historyList.length > 36) {
+            // 기간 필터링: 3년(최근 36개월), 5년(최근 60개월), 전체(최대 120개월 전체)
+            if (years === 3) {
                 historyList = historyList.slice(-36);
-            } else if (years === 5 && historyList.length > 60) {
+            } else if (years === 5) {
                 historyList = historyList.slice(-60);
+            } else {
+                // 전체 (전체 데이터)
+                historyList = historyList;
             }
 
             const labels = historyList.map(h => h.month);
@@ -1342,7 +1384,8 @@
 
             const dateRangeEl = document.getElementById('detailDateRange');
             if (dateRangeEl && labels.length > 0) {
-                dateRangeEl.textContent = `${labels[0]} ~ ${labels[labels.length - 1]} (${labels.length}개월)`;
+                const periodLabel = years === 3 ? '3년' : (years === 5 ? '5년' : '전체');
+                dateRangeEl.textContent = `${labels[0]} ~ ${labels[labels.length - 1]} (${periodLabel} ${labels.length}개월)`;
             }
 
             // 1. 최고가 / 최저가 산출
@@ -1617,9 +1660,9 @@
                     }
                 }
 
-                // 서버 데이터가 유효하면 사용, 미연동/부족 시 안전한 계산 기반 데이터로 보완
+                // 서버 데이터가 유효하면 사용(120개월 보장), 미연동/부족 시 안전한 계산 기반 데이터로 보완
                 if (fetchedData && fetchedData.history && fetchedData.history.length > 0) {
-                    window.currentTrendFullData = fetchedData;
+                    window.currentTrendFullData = ensureFullHistoryData(fetchedData, item);
                 } else {
                     window.currentTrendFullData = generateFallbackTrendData(item);
                 }

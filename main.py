@@ -45,10 +45,10 @@ class ComplexHistoryResponse(BaseModel):
 
 
 # --- Mock Data Generator ---
-def generate_mock_complex_data(dong: str, name: str):
+def generate_mock_complex_data(dong: str, name: str, total_months: int = 120):
     """
     공공데이터 실거래가 API 연동 전 프론트엔드 차트 및 대시보드 테스트용 Mock 데이터 생성기.
-    동일한 단지(dong, name)에 대해 일관된 시세 패턴을 제공하도록 해시 시드를 적용합니다.
+    3년(36개월), 5년(60개월), 전체(최대 120개월/10년) 기간별 조회를 위해 기본 120개월 치를 생성합니다.
     """
     seed_str = f"{dong.strip()}_{name.strip()}"
     seed_val = int(hashlib.md5(seed_str.encode("utf-8")).hexdigest()[:8], 16)
@@ -56,26 +56,25 @@ def generate_mock_complex_data(dong: str, name: str):
 
     today = date.today()
 
-    # 80000 ~ 150000 사이 우상향 트렌드 설정
-    base_price = rng.randint(82000, 92000)       # 약 3년 전 초기 가격
+    # 10년 전부터 현재 시점까지 자연스러운 장기 상승 흐름 (초기 약 58,000~72,000만원 -> 현재 132,000~148,000만원)
+    base_price = rng.randint(58000, 72000)       # 약 10년 전 초기 가격
     target_price = rng.randint(132000, 148000)   # 현재 시점 목표 가격
-    price_slope = (target_price - base_price) / 35.0
+    price_slope = (target_price - base_price) / float(max(1, total_months - 1))
 
-    # 1. 과거 36개월(3년) 치 월별 시세 및 거래량 데이터
+    # 1. 과거 total_months (기본 120개월/10년) 치 월별 시세 및 거래량 데이터
     history: List[MonthlyHistoryItem] = []
-    for i in range(36):
-        month_offset = 35 - i  # 35개월 전부터 이번 달까지
+    for i in range(total_months):
+        month_offset = (total_months - 1) - i
         dt = today - relativedelta(months=month_offset)
         month_str = dt.strftime("%Y.%m")
 
-        # 완만한 우상향에 자연스러운 월별 등락(±2500만원) 추가
+        # 완만한 장기 우상향에 자연스러운 월별 등락(±2500만원) 추가
         fluctuation = rng.randint(-2500, 2500)
         simulated_price = int(base_price + (price_slope * i) + fluctuation)
-        # 80,000 ~ 150,000 만원 범위 내 클램핑 및 백만원 단위 반올림
-        avg_price = max(80000, min(150000, (simulated_price // 100) * 100))
+        avg_price = max(40000, min(160000, (simulated_price // 100) * 100))
 
-        # 0 ~ 15건 사이 월별 거래량
-        volume = rng.randint(0, 15)
+        # 1 ~ 15건 사이 월별 거래량
+        volume = rng.randint(1, 15)
 
         history.append(
             MonthlyHistoryItem(
