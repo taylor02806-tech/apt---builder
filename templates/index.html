@@ -2664,12 +2664,16 @@
                         window.currentSelectedPyeong = closest.pyeong;
                     }
                 } else {
-                    // 평형 선택 동기화: 기존 선택 평형이 존재하면 유지, 없으면 34평 또는 최다 거래 평형 선택
-                    const currentP = window.currentSelectedPyeong;
-                    const exists = item.official_pyeongs.some(p => p.pyeong === currentP);
-                    if (!exists && item.official_pyeongs.length > 0) {
-                        const default34 = item.official_pyeongs.find(p => p.pyeong === 34);
-                        window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
+                    const quickP = getQuickMatchedPyeong(item);
+                    if (quickP && item.official_pyeongs.some(p => p.pyeong === quickP)) {
+                        window.currentSelectedPyeong = quickP;
+                    } else {
+                        const currentP = window.currentSelectedPyeong;
+                        const exists = item.official_pyeongs.some(p => p.pyeong === currentP);
+                        if (!exists && item.official_pyeongs.length > 0) {
+                            const default34 = item.official_pyeongs.find(p => p.pyeong === 34);
+                            window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
+                        }
                     }
                 }
 
@@ -2699,32 +2703,86 @@
             const dongNum = parseInt(dongMatch[0], 10);
             const cleanName = (item.complex_name || item.name || '').replace(/\s+/g, '');
 
-            // 1. 구파발 9단지 래미안 (916~928동)
+            // 1. 은평구 은평뉴타운
             if (cleanName.includes('구파발9단지') || cleanName.includes('우물골9단지') || (cleanName.includes('우물골') && dongNum >= 916 && dongNum <= 928)) {
                 if (dongNum >= 916 && dongNum <= 920) return 34;
                 if (dongNum >= 921 && dongNum <= 922) return 41;
                 if (dongNum >= 923 && dongNum <= 926) return 54;
                 if (dongNum >= 927 && dongNum <= 928) return 67;
             }
-            // 2. 우물골 2단지 (201~244동)
-            if (cleanName.includes('우물골2단지') || (cleanName.includes('우물골') && dongNum >= 201 && dongNum <= 244)) {
+            if (cleanName.includes('우물골2단지') || (cleanName.includes('우물골') && dongNum >= 201 && dongNum <= 255)) {
                 if (dongNum >= 201 && dongNum <= 205) return 24;
                 if (dongNum >= 206 && dongNum <= 215) return 34;
                 if (dongNum >= 216 && dongNum <= 220) return 41;
                 if (dongNum >= 221 && dongNum <= 230) return 54;
-                if (dongNum >= 231 && dongNum <= 244) return 67;
+                if (dongNum >= 231 && dongNum <= 255) return 67;
             }
-            // 3. 박석고개 1단지 (101~131동)
             if (cleanName.includes('박석고개1단지') || (cleanName.includes('박석고개') && dongNum >= 101 && dongNum <= 131)) {
                 if (dongNum >= 101 && dongNum <= 110) return 24;
                 if (dongNum >= 111 && dongNum <= 122) return 34;
                 if (dongNum >= 123 && dongNum <= 128) return 41;
                 if (dongNum >= 129 && dongNum <= 131) return 54;
             }
-            // 4. 은평스카이뷰자이 (101~103동)
+            if (cleanName.includes('박석고개12단지') || (cleanName.includes('박석고개') && dongNum >= 1201 && dongNum <= 1215)) {
+                if (dongNum >= 1201 && dongNum <= 1208) return 34;
+                if (dongNum >= 1209 && dongNum <= 1215) return 41;
+            }
+            if (cleanName.includes('박석고개13단지') || (cleanName.includes('박석고개') && dongNum >= 1301 && dongNum <= 1320)) {
+                if (dongNum >= 1301 && dongNum <= 1310) return 34;
+                if (dongNum >= 1311 && dongNum <= 1320) return 41;
+            }
+            if (cleanName.includes('우물골8단지')) {
+                if (dongNum >= 801 && dongNum <= 810) return 34;
+                if (dongNum >= 811 && dongNum <= 820) return 41;
+            }
+            if (cleanName.includes('우물골7단지')) {
+                if (dongNum >= 701 && dongNum <= 710) return 34;
+                if (dongNum >= 711 && dongNum <= 720) return 41;
+            }
+            if (cleanName.includes('마고정1단지')) {
+                if (dongNum >= 101 && dongNum <= 110) return 34;
+                if (dongNum >= 111 && dongNum <= 120) return 41;
+            }
+            if (cleanName.includes('마고정2단지')) {
+                if (dongNum >= 201 && dongNum <= 215) return 34;
+                if (dongNum >= 216 && dongNum <= 225) return 41;
+            }
+            if (cleanName.includes('마고정3단지') || (cleanName.includes('마고정') && dongNum >= 301 && dongNum <= 330)) {
+                if (dongNum >= 301 && dongNum <= 308) return 34;
+                if (dongNum >= 309 && dongNum <= 316) return 41;
+                if (dongNum >= 317 && dongNum <= 324) return 54;
+                if (dongNum >= 325 && dongNum <= 330) return 67;
+            }
+            if (cleanName.includes('제각말5단지') || (cleanName.includes('제각말') && dongNum >= 501 && dongNum <= 518)) {
+                if (dongNum >= 501 && dongNum <= 510) return 34;
+                if (dongNum >= 511 && dongNum <= 518) return 41;
+            }
+            if (cleanName.includes('상림마을8단지') || (cleanName.includes('상림마을') && dongNum >= 801 && dongNum <= 830)) {
+                if (dongNum >= 801 && dongNum <= 810) return 34;
+                if (dongNum >= 811 && dongNum <= 820) return 41;
+                if (dongNum >= 821 && dongNum <= 830) return 54;
+            }
+            if (cleanName.includes('상림마을7단지')) {
+                if (dongNum >= 701 && dongNum <= 712) return 34;
+                if (dongNum >= 713 && dongNum <= 720) return 41;
+            }
             if (cleanName.includes('은평스카이뷰자이')) return 34;
+            if (cleanName.includes('녹번역e편한세상캐슬')) {
+                if (dongNum >= 101 && dongNum <= 115) return 24;
+                if (dongNum >= 116 && dongNum <= 130) return 34;
+                if (dongNum >= 131 && dongNum <= 144) return 45;
+            }
+            if (cleanName.includes('힐스테이트녹번')) {
+                if (dongNum >= 101 && dongNum <= 105) return 24;
+                if (dongNum >= 106 && dongNum <= 115) return 34;
+            }
+            if (cleanName.includes('북한산푸르지오')) {
+                if (dongNum >= 101 && dongNum <= 112) return 24;
+                if (dongNum >= 113 && dongNum <= 125) return 34;
+                if (dongNum >= 126 && dongNum <= 135) return 45;
+            }
 
-            // 5. 반포자이 (101~144동)
+            // 2. 서초 / 강남
             if (cleanName.includes('반포자이')) {
                 if (dongNum >= 101 && dongNum <= 114) return 35;
                 if (dongNum >= 115 && dongNum <= 120) return 50;
@@ -2732,6 +2790,126 @@
                 if (dongNum >= 126 && dongNum <= 130) return 70;
                 if (dongNum >= 131 && dongNum <= 144) return 35;
             }
+            if (cleanName.includes('래미안원베일리')) {
+                if (dongNum >= 101 && dongNum <= 110) return 34;
+                if (dongNum >= 111 && dongNum <= 116) return 24;
+                if (dongNum >= 117 && dongNum <= 123) return 46;
+            }
+            if (cleanName.includes('아크로리버파크')) {
+                if (dongNum >= 101 && dongNum <= 108) return 34;
+                if (dongNum >= 109 && dongNum <= 112) return 24;
+                if (dongNum >= 113 && dongNum <= 116) return 45;
+                if (dongNum >= 117 && dongNum <= 120) return 52;
+            }
+            if (cleanName.includes('반포래미안퍼스티지')) {
+                if (dongNum >= 101 && dongNum <= 115) return 34;
+                if (dongNum >= 116 && dongNum <= 122) return 26;
+                if (dongNum >= 123 && dongNum <= 128) return 44;
+            }
+            if (cleanName.includes('반포리체')) {
+                if (dongNum >= 101 && dongNum <= 105) return 25;
+                if (dongNum >= 106 && dongNum <= 110) return 34;
+                if (dongNum >= 111 && dongNum <= 115) return 40;
+            }
+            if (cleanName.includes('디에이치퍼스티어아이파크')) {
+                if (dongNum >= 101 && dongNum <= 130) return 34;
+                if (dongNum >= 131 && dongNum <= 160) return 25;
+                if (dongNum >= 161 && dongNum <= 174) return 43;
+            }
+            if (cleanName.includes('래미안블레스티지')) {
+                if (dongNum >= 201 && dongNum <= 212) return 24;
+                if (dongNum >= 213 && dongNum <= 223) return 34;
+                if (dongNum >= 224 && dongNum <= 230) return 45;
+            }
+            if (cleanName.includes('도곡렉슬')) {
+                if (dongNum >= 101 && dongNum <= 115) return 26;
+                if (dongNum >= 116 && dongNum <= 130) return 33;
+                if (dongNum >= 131 && dongNum <= 145) return 43;
+            }
+            if (cleanName.includes('은마')) {
+                if (dongNum >= 1 && dongNum <= 15) return 31;
+                if (dongNum >= 16 && dongNum <= 31) return 34;
+            }
+
+            // 3. 송파
+            if (cleanName.includes('잠실엘스')) {
+                if (dongNum >= 101 && dongNum <= 140) return 34;
+                if (dongNum >= 141 && dongNum <= 155) return 25;
+                if (dongNum >= 156 && dongNum <= 172) return 45;
+            }
+            if (cleanName.includes('리센츠')) {
+                if (dongNum >= 201 && dongNum <= 220) return 33;
+                if (dongNum >= 221 && dongNum <= 240) return 24;
+                if (dongNum >= 241 && dongNum <= 265) return 48;
+            }
+            if (cleanName.includes('트리지움')) {
+                if (dongNum >= 301 && dongNum <= 325) return 33;
+                if (dongNum >= 326 && dongNum <= 338) return 25;
+                if (dongNum >= 339 && dongNum <= 346) return 43;
+            }
+            if (cleanName.includes('레이크팰리스')) {
+                if (dongNum >= 101 && dongNum <= 115) return 26;
+                if (dongNum >= 116 && dongNum <= 130) return 34;
+                if (dongNum >= 131 && dongNum <= 140) return 43;
+            }
+            if (cleanName.includes('헬리오시티')) {
+                if (dongNum >= 101 && dongNum <= 118) return 33;
+                if (dongNum >= 201 && dongNum <= 215) return 25;
+                if (dongNum >= 301 && dongNum <= 320) return 38;
+                if (dongNum >= 401 && dongNum <= 418) return 42;
+                if (dongNum >= 501 && dongNum <= 514) return 50;
+            }
+            if (cleanName.includes('파크리오')) {
+                if (dongNum >= 101 && dongNum <= 130) return 33;
+                if (dongNum >= 201 && dongNum <= 218) return 26;
+                if (dongNum >= 301 && dongNum <= 320) return 45;
+            }
+            if (cleanName.includes('올림픽선수기자촌')) {
+                if (dongNum >= 101 && dongNum <= 120) return 34;
+                if (dongNum >= 201 && dongNum <= 220) return 40;
+                if (dongNum >= 301 && dongNum <= 325) return 49;
+                if (dongNum >= 326 && dongNum <= 340) return 57;
+            }
+            if (cleanName.includes('올림픽훼밀리타운')) {
+                if (dongNum >= 101 && dongNum <= 115) return 32;
+                if (dongNum >= 201 && dongNum <= 215) return 42;
+                if (dongNum >= 301 && dongNum <= 315) return 49;
+            }
+
+            // 4. 마포 / 서대문
+            if (cleanName.includes('마포래미안푸르지오')) {
+                if (dongNum >= 101 && dongNum <= 114) return 34;
+                if (dongNum >= 201 && dongNum <= 214) return 24;
+                if (dongNum >= 301 && dongNum <= 315) return 34;
+                if (dongNum >= 401 && dongNum <= 415) return 45;
+            }
+            if (cleanName.includes('마포프레스티지자이')) {
+                if (dongNum >= 101 && dongNum <= 108) return 24;
+                if (dongNum >= 109 && dongNum <= 118) return 34;
+            }
+            if (cleanName.includes('신촌그랑자이')) {
+                if (dongNum >= 101 && dongNum <= 108) return 24;
+                if (dongNum >= 109 && dongNum <= 118) return 34;
+                if (dongNum >= 119 && dongNum <= 125) return 40;
+            }
+
+            // 5. 강동
+            if (cleanName.includes('고덕그라시움')) {
+                if (dongNum >= 101 && dongNum <= 125) return 34;
+                if (dongNum >= 126 && dongNum <= 140) return 25;
+                if (dongNum >= 141 && dongNum <= 153) return 40;
+            }
+            if (cleanName.includes('고덕아르테온')) {
+                if (dongNum >= 101 && dongNum <= 120) return 34;
+                if (dongNum >= 121 && dongNum <= 135) return 25;
+                if (dongNum >= 136 && dongNum <= 145) return 42;
+            }
+            if (cleanName.includes('올림픽파크포레온')) {
+                if (dongNum >= 101 && dongNum <= 135) return 34;
+                if (dongNum >= 201 && dongNum <= 225) return 25;
+                if (dongNum >= 301 && dongNum <= 325) return 39;
+            }
+
             return null;
         }
 
@@ -3520,6 +3698,28 @@
             handleMapClickLocation(latlng);
         });
 
+        function extractDongFromText(str) {
+            if (!str) return '';
+            // 1. 단지 동 범위 (예: (916~928동), (223~244동)BL2-7, 916-928동) 제거
+            let cleaned = str.replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, ' ');
+            cleaned = cleaned.replace(/\b\d+\s*[-~]\s*\d+동\b/g, ' ');
+            // 2. 단일 특정 동 번호 (예: 924동, 101동, 101-1동, 제101동, A동) 추출
+            const m = cleaned.match(/(?:제\s*)?(\b[A-Z0-9]+(?:-\d+)?동\b|\b\d+동\b)/);
+            if (m) {
+                return m[1];
+            }
+            // 3. 5개 동 이하 소규모 밀집 건물군 (예: (201~203동))인 경우 시작 동 번호 채택
+            const rangeMatch = str.match(/\(?(\d+)\s*[-~]\s*(\d+)동\)?/);
+            if (rangeMatch) {
+                const start = parseInt(rangeMatch[1], 10);
+                const end = parseInt(rangeMatch[2], 10);
+                if (end - start <= 5) {
+                    return `${start}동`;
+                }
+            }
+            return '';
+        }
+
         function handleMapClickLocation(latlng, hintQuery = '') {
             // 1. 역지오코딩으로 지번 및 건물명 추출
             geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
@@ -3558,42 +3758,17 @@
                     return false;
                 });
 
-                // 3. 카카오 장소 검색으로 반경 55m 내 주거시설 확인 및 개별 동 번호(예: 915동, 101동) 추출
-                places.keywordSearch('아파트', function(pResult, pStatus) {
-                    let nearbyApt = null;
-                    let detectedDong = '';
-                    const dongRegex = /(\b[A-Z0-9]+(?:-\d+)?동\b|\d+동)/;
+                // 3. 지점 주변 건물 동 번호(예: 924동, 101동) 및 주거시설 POI 정밀 추출 (정규식 버그 방지 & 반경 95m 정밀 거리순)
+                let detectedDong = extractDongFromText(buildingName);
+                let nearbyApt = null;
+                const complexQuery = (matchedRealDeal && matchedRealDeal.name) || (buildingName ? buildingName.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
 
-                    // 1) 도로명 상세 주소의 건물명에서 동 번호(예: 915동) 우선 확인
-                    if (buildingName) {
-                        const m = buildingName.match(dongRegex);
-                        if (m) detectedDong = m[1];
-                    }
-
-                    // 2) 장소 검색 결과 중 가장 가까운 POI 및 동 번호 탐색
-                    if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
-                        const sortedP = pResult.map(p => {
-                            const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
-                            return { ...p, dist };
-                        }).sort((a, b) => a.dist - b.dist);
-
-                        for (let i = 0; i < sortedP.length; i++) {
-                            const p = sortedP[i];
-                            if (p.dist <= 55 && !nearbyApt) {
-                                nearbyApt = p;
-                            }
-                            if (p.dist <= 48 && !detectedDong) {
-                                const m = p.place_name.match(dongRegex);
-                                if (m) {
-                                    detectedDong = m[1];
-                                    if (p.dist <= 35) nearbyApt = p;
-                                }
-                            }
-                        }
-                    }
+                function proceedWithDetectedInfo(finalDetectedDong, foundNearbyApt) {
+                    const nearby = foundNearbyApt;
+                    let detectedD = finalDetectedDong;
 
                     const isAptByName = buildingName && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|파크|팰리스|우성|현대|한신|삼호|주공)/.test(buildingName);
-                    const isAptByPlace = nearbyApt && (nearbyApt.place_name.includes('아파트') || (nearbyApt.category_name && nearbyApt.category_name.includes('아파트')));
+                    const isAptByPlace = nearby && (nearby.place_name.includes('아파트') || (nearby.category_name && nearby.category_name.includes('아파트')));
                     const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
                     const isApartment = (matchedRealDeal && matchedRealDeal.prop_type === 'apt') || isAptByName || isAptByPlace || isAptByHint;
 
@@ -3603,12 +3778,11 @@
                     if (matchedRealDeal) {
                         finalName = matchedRealDeal.name;
                     } else if (isApartment) {
-                        finalName = (nearbyApt ? nearbyApt.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
-                        if (!detectedDong) {
-                            const m = finalName.match(dongRegex);
-                            if (m) detectedDong = m[1];
+                        finalName = (nearby ? nearby.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
+                        if (!detectedD) {
+                            detectedD = extractDongFromText(finalName);
                         }
-                        finalName = finalName.replace(/\s*\d+동.*$/, '').trim();
+                        finalName = finalName.replace(/\s*\d+동.*$/, '').replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, '').trim();
                         finalPropType = 'apt';
                     } else if (buildingName && buildingName.includes('오피스텔')) {
                         finalName = buildingName;
@@ -3628,18 +3802,18 @@
                         if (targetRadio) {
                             targetRadio.checked = true;
                             const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
-                            const dongNotice = detectedDong ? ` <strong>${detectedDong}</strong>` : '';
+                            const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
                             showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
                         }
-                    } else if (detectedDong) {
-                        showToast(`🏢 <strong>${finalName} ${detectedDong}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedDong} 정보와 단지 실거래가가 연동되었습니다.</span>`);
+                    } else if (detectedD) {
+                        showToast(`🏢 <strong>${finalName} ${detectedD}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedD} 정보와 단지 실거래가가 자동 연동되었습니다.</span>`);
                     }
 
                     const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
                     const clickedItem = {
                         name: finalName,
                         complex_name: finalName,
-                        building_dong: detectedDong || '',
+                        building_dong: detectedD || '',
                         road_address: roadAddr ? (roadAddr.address_name + (roadAddr.building_name ? ' ' + roadAddr.building_name : '')) : '',
                         dong: targetDong,
                         jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
@@ -3668,7 +3842,58 @@
 
                     // 7. 법정동 실거래가 데이터 갱신
                     fetchRegionInfo(latlng, false);
-                }, { location: latlng, radius: 55 });
+                }
+
+                // 1단계: '아파트' 키워드로 반경 95m 정밀 거리순 검색
+                places.keywordSearch('아파트', function(pResult, pStatus) {
+                    if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
+                        const sortedP = pResult.map(p => {
+                            const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                            return { ...p, dist };
+                        }).sort((a, b) => a.dist - b.dist);
+
+                        for (let i = 0; i < sortedP.length; i++) {
+                            const p = sortedP[i];
+                            if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                            if (p.dist <= 85) {
+                                const foundDong = extractDongFromText(p.place_name);
+                                if (foundDong) {
+                                    detectedDong = foundDong;
+                                    nearbyApt = p;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 2단계: '아파트' 검색으로 동을 특정하지 못했고 단지명이 있는 경우, 단지명으로 2차 정밀 검색
+                    if (!detectedDong && complexQuery && complexQuery.length >= 2) {
+                        places.keywordSearch(complexQuery, function(cResult, cStatus) {
+                            if (cStatus === kakao.maps.services.Status.OK && cResult && cResult.length > 0) {
+                                const sortedC = cResult.map(p => {
+                                    const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                                    return { ...p, dist };
+                                }).sort((a, b) => a.dist - b.dist);
+
+                                for (let i = 0; i < sortedC.length; i++) {
+                                    const p = sortedC[i];
+                                    if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                                    if (p.dist <= 85) {
+                                        const foundDong = extractDongFromText(p.place_name);
+                                        if (foundDong) {
+                                            detectedDong = foundDong;
+                                            nearbyApt = p;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            proceedWithDetectedInfo(detectedDong, nearbyApt);
+                        }, { location: latlng, radius: 95 });
+                    } else {
+                        proceedWithDetectedInfo(detectedDong, nearbyApt);
+                    }
+                }, { location: latlng, radius: 95 });
             });
         }
 
