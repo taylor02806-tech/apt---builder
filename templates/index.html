@@ -426,7 +426,6 @@
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="font-black text-sm text-indigo-950 truncate" id="detailDongName">101동</span>
                                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">선택한 동</span>
-                                    <span id="detailDongPyeongTag" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs"></span>
                                 </div>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate" id="detailDongAddress">진관동 25</p>
                             </div>
@@ -435,11 +434,6 @@
                             <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             동 로드뷰
                         </button>
-                    </div>
-                    <!-- 동 전용 평형 자동 매칭 알림 안내 바 -->
-                    <div id="detailDongPyeongNotice" class="hidden mt-2.5 p-2.5 bg-white/90 rounded-xl border border-indigo-100 text-[11px] text-indigo-950 flex items-center gap-2 shadow-2xs">
-                        <span class="text-base leading-none shrink-0">🎯</span>
-                        <div id="detailDongPyeongNoticeText" class="leading-tight"></div>
                     </div>
                     <div class="mt-2.5 pt-2 border-t border-indigo-100/70 text-[10px] text-slate-500 flex items-center gap-1.5">
                         <span class="text-indigo-600 font-bold shrink-0">ℹ️</span>
@@ -2349,9 +2343,7 @@
 
             listEl.innerHTML = availablePyeongs.map(pInfo => {
                 const isCurrent = pInfo.pyeong === window.currentSelectedPyeong;
-                const isDongMatched = item.matched_dong_pyeong && item.matched_dong_pyeong.pyeong === pInfo.pyeong;
                 const currentMark = isCurrent ? '<span class="text-[9px] text-blue-600 font-bold ml-1">✓</span>' : '';
-                const dongMatchedBadge = isDongMatched ? '<span class="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-bold ml-1.5 shadow-2xs">선택 동 평형</span>' : '';
                 const dealCountText = pInfo.deal_count ? `${pInfo.deal_count}건 실거래` : (pInfo.hasData || pInfo.has_data ? '거래 있음' : '신고 없음');
                 const statusBadge = (pInfo.hasData || pInfo.has_data)
                     ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">${dealCountText}</span>`
@@ -2360,12 +2352,9 @@
                 return `
                     <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
                         <div class="flex flex-col">
-                            <div class="flex items-center">
-                                <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
-                                    ${pInfo.pyeong}평형 ${currentMark}
-                                </span>
-                                ${dongMatchedBadge}
-                            </div>
+                            <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
+                                ${pInfo.pyeong}평형 ${currentMark}
+                            </span>
                             <span class="text-[10px] text-slate-400 font-mono">전용 ${pInfo.area}㎡</span>
                         </div>
                         ${statusBadge}
@@ -2427,7 +2416,7 @@
             `;
             document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
 
-            // 클릭한 동 전용 카드 업데이트
+            // 클릭한 동 전용 카드 업데이트 (기존 깔끔한 디자인 유지)
             const dongCard = document.getElementById('detailBuildingDongCard');
             if (dongCard) {
                 if (item.building_dong) {
@@ -2438,34 +2427,6 @@
                     if (dAddrEl) {
                         const fullAddr = item.road_address || (addressText + (item.building_dong ? ' ' + item.building_dong : ''));
                         dAddrEl.textContent = fullAddr;
-                    }
-
-                    const pTagEl = document.getElementById('detailDongPyeongTag');
-                    const pNoticeEl = document.getElementById('detailDongPyeongNotice');
-                    const pNoticeTextEl = document.getElementById('detailDongPyeongNoticeText');
-                    const matchedInfo = item.matched_dong_pyeong;
-
-                    if (matchedInfo && matchedInfo.pyeong) {
-                        if (pTagEl) {
-                            pTagEl.classList.remove('hidden');
-                            pTagEl.textContent = `${matchedInfo.pyeong}평형 (${matchedInfo.area}㎡) 자동 연동`;
-                        }
-                        if (pNoticeEl && pNoticeTextEl) {
-                            pNoticeEl.classList.remove('hidden');
-                            pNoticeTextEl.innerHTML = `<strong>${item.building_dong}</strong> 전용 <strong>${matchedInfo.area}㎡ (${matchedInfo.pyeong}평형)</strong> 실거래가 및 시세 추이로 자동 세팅되었습니다.`;
-                        }
-                    } else if (item.building_dong && pyeong) {
-                        if (pTagEl) {
-                            pTagEl.classList.remove('hidden');
-                            pTagEl.textContent = `${pyeong}평형 자동 매칭`;
-                        }
-                        if (pNoticeEl && pNoticeTextEl) {
-                            pNoticeEl.classList.remove('hidden');
-                            pNoticeTextEl.innerHTML = `<strong>${item.building_dong}</strong> ${pyeong}평형(전용 ${effectiveArea}㎡) 실거래가 데이터로 연동되었습니다.`;
-                        }
-                    } else {
-                        if (pTagEl) pTagEl.classList.add('hidden');
-                        if (pNoticeEl) pNoticeEl.classList.add('hidden');
                     }
                 } else {
                     dongCard.classList.add('hidden');
@@ -2694,6 +2655,11 @@
                     const exists = item.official_pyeongs.some(p => p.pyeong === matchedP);
                     if (exists) {
                         window.currentSelectedPyeong = matchedP;
+                    } else if (item.official_pyeongs.length > 0) {
+                        const closest = item.official_pyeongs.reduce((prev, curr) => 
+                            Math.abs(curr.pyeong - matchedP) < Math.abs(prev.pyeong - matchedP) ? curr : prev
+                        );
+                        window.currentSelectedPyeong = closest.pyeong;
                     }
                 } else {
                     // 평형 선택 동기화: 기존 선택 평형이 존재하면 유지, 없으면 34평 또는 최다 거래 평형 선택
@@ -2704,6 +2670,10 @@
                         window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
                     }
                 }
+
+                // 직전 거래가 바로 위 [평형 선택 버튼] 자동 변경
+                const pBtn = document.getElementById('detailPyeong');
+                if (pBtn) pBtn.textContent = `${window.currentSelectedPyeong}평 ▾`;
 
                 setupPyeongDropdown(item);
                 updateDetailView(item, tradeType, window.currentSelectedPyeong);
@@ -2781,7 +2751,7 @@
             window.currentAvailablePyeongs = availablePyeongs;
             const hasDataPyeongs = availablePyeongs.filter(p => (p.hasData || p.has_data));
 
-            const quickP = getQuickMatchedPyeong(item);
+            const quickP = (item.matched_dong_pyeong && item.matched_dong_pyeong.pyeong) || getQuickMatchedPyeong(item);
             let initialPyeong = quickP || 34;
             if (!quickP) {
                 if (hasDataPyeongs.length > 0) {
@@ -2792,6 +2762,8 @@
                 }
             }
             window.currentSelectedPyeong = initialPyeong;
+            const pBtn = document.getElementById('detailPyeong');
+            if (pBtn) pBtn.textContent = `${initialPyeong}평 ▾`;
 
             setupPyeongDropdown(item);
             updateDetailTradeTypeButtons(window.currentDetailTradeType);
