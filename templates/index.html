@@ -419,7 +419,10 @@
                                 <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium" id="detailLatestBadge">최신</span>
                             </div>
                         </div>
-                        <p class="text-[11px] font-bold mt-2" id="detailDiffText">-</p>
+                        <div class="mt-2 space-y-0.5">
+                            <p class="text-[11px] font-bold" id="detailDiffText">-</p>
+                            <p class="text-[10px] text-slate-500 font-medium" id="detailLatestDate">계약일: -</p>
+                        </div>
                     </div>
 
                     <div class="border border-slate-200 bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between" id="cardDetailPrev">
@@ -430,7 +433,10 @@
                                 <span class="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded font-medium" id="detailPrevBadge">직전</span>
                             </div>
                         </div>
-                        <p class="text-[11px] text-slate-400 mt-2 font-medium" id="detailPrevDate">계약일: -</p>
+                        <div class="mt-2 space-y-0.5">
+                            <p class="text-[11px] text-slate-400 font-medium" id="detailPrevStatus">직전 신고 내역</p>
+                            <p class="text-[10px] text-slate-400 font-medium" id="detailPrevDate">계약일: -</p>
+                        </div>
                     </div>
                 </div>
 
@@ -700,6 +706,34 @@
                 현재 위치 로드뷰
             </button>
         </div>
+
+        <!-- 우측 하단 줌(+/-) 및 내 위치 플로팅 컨트롤 -->
+        <div class="absolute right-5 bottom-8 z-20 flex flex-col items-center gap-2.5 pointer-events-auto select-none">
+            <!-- 지도 줌 조절 컨트롤 (+ / -) -->
+            <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 flex flex-col overflow-hidden divide-y divide-slate-100">
+                <!-- 줌 인 (+) -->
+                <button type="button" onclick="zoomInMap()" title="지도 확대 (+)" class="w-10 h-10 flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </button>
+                <!-- 줌 아웃 (-) -->
+                <button type="button" onclick="zoomOutMap()" title="지도 축소 (-)" class="w-10 h-10 flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 내 위치 바로가기 버튼 -->
+            <button type="button" onclick="moveToMyLocation()" id="btnMyLocation" title="내 위치로 이동" class="w-10 h-10 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 active:bg-slate-100 transition-all group">
+                <svg id="iconMyLocation" class="w-5 h-5 text-slate-700 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+                    <circle cx="12" cy="12" r="7" stroke-width="2" />
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                </svg>
+            </button>
+        </div>
     </main>
 
     <!-- 팝업 및 로드뷰 모달 -->
@@ -800,6 +834,101 @@
         const geocoder = new kakao.maps.services.Geocoder();
         const places = new kakao.maps.services.Places();
         let marker = new kakao.maps.Marker();
+
+        // 지도 줌 컨트롤 (+ / -)
+        function zoomInMap() {
+            if (!map) return;
+            const currentLevel = map.getLevel();
+            if (currentLevel > 1) {
+                map.setLevel(currentLevel - 1, { animate: true });
+            }
+        }
+
+        function zoomOutMap() {
+            if (!map) return;
+            const currentLevel = map.getLevel();
+            if (currentLevel < 14) {
+                map.setLevel(currentLevel + 1, { animate: true });
+            }
+        }
+
+        // 내 위치 표시 오버레이 및 이동 핸들러
+        let myLocationOverlay = null;
+
+        function renderMyLocationMarker(position) {
+            if (myLocationOverlay) {
+                myLocationOverlay.setPosition(position);
+                myLocationOverlay.setMap(map);
+                return;
+            }
+
+            const content = `
+                <div class="relative flex items-center justify-center select-none" style="pointer-events: none;">
+                    <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-400 opacity-60"></span>
+                    <span class="relative inline-flex rounded-full h-4 w-4 bg-blue-600 border-2 border-white shadow-xl"></span>
+                </div>
+            `;
+
+            myLocationOverlay = new kakao.maps.CustomOverlay({
+                position: position,
+                content: content,
+                xAnchor: 0.5,
+                yAnchor: 0.5,
+                zIndex: 60
+            });
+            myLocationOverlay.setMap(map);
+        }
+
+        function moveToMyLocation() {
+            if (!navigator.geolocation) {
+                alert("현재 브라우저에서는 위치 서비스를 지원하지 않습니다.");
+                return;
+            }
+
+            const btn = document.getElementById('btnMyLocation');
+            const icon = document.getElementById('iconMyLocation');
+            if (btn) btn.classList.add('border-blue-500', 'text-blue-600');
+            if (icon) icon.classList.add('animate-spin');
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    if (btn) btn.classList.remove('border-blue-500', 'text-blue-600');
+                    if (icon) icon.classList.remove('animate-spin');
+
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const locPosition = new kakao.maps.LatLng(lat, lng);
+
+                    map.setCenter(locPosition);
+                    map.setLevel(3, { animate: true });
+                    renderMyLocationMarker(locPosition);
+                    currentLatLng = locPosition;
+
+                    if (typeof fetchRegionInfo === 'function') {
+                        fetchRegionInfo(locPosition);
+                    }
+                },
+                function(error) {
+                    if (btn) btn.classList.remove('border-blue-500', 'text-blue-600');
+                    if (icon) icon.classList.remove('animate-spin');
+
+                    let msg = "위치 정보를 가져올 수 없습니다.";
+                    if (error.code === error.PERMISSION_DENIED) {
+                        msg = "위치 정보 접근 권한이 허용되지 않았습니다. 브라우저 설정에서 위치 권한을 허용해 주세요.";
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        msg = "현재 위치를 확인할 수 없습니다.";
+                    } else if (error.code === error.TIMEOUT) {
+                        msg = "위치 정보를 가져오는 시간이 초과되었습니다.";
+                    }
+                    alert(msg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
 
         let idleTimer = null;
         kakao.maps.event.addListener(map, 'idle', function() {
@@ -1239,6 +1368,7 @@
 
             const latestPriceEl = document.getElementById('detailLatestPrice');
             const prevPriceEl = document.getElementById('detailPrevPrice');
+            const latestDateEl = document.getElementById('detailLatestDate');
             const prevDateEl = document.getElementById('detailPrevDate');
             const diffEl = document.getElementById('detailDiffText');
             const latestLabelEl = document.getElementById('detailLatestLabel');
@@ -1256,6 +1386,7 @@
                 if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
                 if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
                 if (prevPriceEl) prevPriceEl.textContent = '-';
+                if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
                 if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
@@ -1295,6 +1426,7 @@
                     if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
                     if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
                     if (prevPriceEl) prevPriceEl.textContent = '-';
+                    if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
                     if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
                     if (diffEl) {
                         diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
@@ -1338,7 +1470,8 @@
                 if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
                 if (latestPriceEl) latestPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${monthly}만`;
                 if (prevPriceEl) prevPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${Math.max(40, monthly - 10)}만`;
-                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date)}`;
+                if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(pItem.latest_date) || '-'}`;
+                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date) || '-'}`;
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-bold mt-2 text-slate-600';
                     diffEl.textContent = `직전 대비 월세 약 +10만원 변동`;
@@ -1354,7 +1487,8 @@
 
             if (latestPriceEl) latestPriceEl.textContent = formatPrice(displayLatestPrice);
             if (prevPriceEl) prevPriceEl.textContent = formatPrice(displayPrevPrice);
-            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date)}`;
+            if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(pItem.latest_date) || '-'}`;
+            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date) || '-'}`;
 
             const diffSign = displayDiff > 0 ? '+' : '';
             const diffPercent = displayPrevPrice ? ((displayDiff / displayPrevPrice) * 100).toFixed(1) : '0.0';
