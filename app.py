@@ -298,10 +298,66 @@ def get_rankings():
         'items': items
     })
 
+@app.route('/api/building-info', methods=['GET'])
+def get_building_info():
+    lawd_cd = request.args.get('lawd_cd', '')
+    dong = request.args.get('dong', '')
+    jibun = request.args.get('jibun', '')
+    name = request.args.get('name', '')
+    prop_type = request.args.get('prop_type', 'apt')
+    trade_type = request.args.get('trade_type', 'sale')
+    start_month = request.args.get('start_month')
+    end_month = request.args.get('end_month')
+
+    if not lawd_cd:
+        lawd_cd = '11650'
+
+    from building_service import get_building_info_from_gov
+    data = get_building_info_from_gov(
+        lawd_cd=lawd_cd,
+        dong=dong,
+        jibun=jibun,
+        name=name,
+        prop_type=prop_type,
+        trade_type=trade_type,
+        start_month=start_month,
+        end_month=end_month
+    )
+    return jsonify(data)
+
 @app.route('/api/complex-history', methods=['GET'])
 def get_complex_history():
     dong = request.args.get('dong', '')
     name = request.args.get('name', '')
+    jibun = request.args.get('jibun', '')
+    lawd_cd = request.args.get('lawd_cd', '11650')
+    prop_type = request.args.get('prop_type', 'apt')
+    trade_type = request.args.get('trade_type', 'sale')
+    start_month = request.args.get('start_month')
+    end_month = request.args.get('end_month')
+
+    from building_service import get_building_info_from_gov
+    real_data = get_building_info_from_gov(
+        lawd_cd=lawd_cd or '11650',
+        dong=dong,
+        jibun=jibun,
+        name=name,
+        prop_type=prop_type,
+        trade_type=trade_type,
+        start_month=start_month,
+        end_month=end_month
+    )
+    if real_data.get('has_real_deals'):
+        return jsonify({
+            'dong': real_data['dong'],
+            'name': real_data['name'],
+            'build_year': real_data['build_year'],
+            'history': real_data['history'],
+            'recent_transactions': real_data['recent_transactions'],
+            'pyeongs': real_data['pyeongs'],
+            'is_real_data': True
+        })
+
     from main import generate_mock_complex_data
     history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
     return jsonify({
@@ -309,7 +365,8 @@ def get_complex_history():
         'name': name,
         'build_year': build_year,
         'history': [h.model_dump() for h in history],
-        'recent_transactions': [t.model_dump() for t in recent_transactions]
+        'recent_transactions': [t.model_dump() for t in recent_transactions],
+        'is_real_data': False
     })
 
 if __name__ == '__main__':

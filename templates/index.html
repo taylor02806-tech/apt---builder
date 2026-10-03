@@ -2168,12 +2168,25 @@
             }
         }
 
+        function convertAreaToPyeong(areaVal, propType = 'apt') {
+            const a = parseFloat(areaVal);
+            if (!a || isNaN(a) || a <= 0) return 34;
+            if (propType === 'apt') {
+                return Math.max(1, Math.round((a / 0.75) / 3.3058));
+            } else if (propType === 'officetel') {
+                return Math.max(1, Math.round((a / 0.50) / 3.3058));
+            } else {
+                return Math.max(1, Math.round(a / 3.3058));
+            }
+        }
+
         function switchDetailTradeType(tradeType) {
             window.currentDetailTradeType = tradeType;
             updateDetailTradeTypeButtons(tradeType);
 
             if (currentSelectedItem) {
                 updateDetailView(currentSelectedItem, tradeType, window.currentSelectedPyeong || 34);
+                fetchOfficialBuildingData(currentSelectedItem, tradeType);
             }
         }
 
@@ -2193,6 +2206,10 @@
         }
 
         function getAvailablePyeongsForComplex(item) {
+            if (item && item.official_pyeongs && item.official_pyeongs.length > 0) {
+                return item.official_pyeongs;
+            }
+
             const targetDong = item.dong || currentDongName || '';
             const cleanItemName = (item.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
             const cleanItemJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
@@ -2232,10 +2249,10 @@
             matched.forEach(m => {
                 if (m.area && m.latest_price > 0) {
                     const areaVal = parseFloat(m.area);
-                    const p = Math.round(areaVal / 3.3058);
+                    const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
                     if (p > 0) {
                         if (!pyeongMap.has(p) || (m.latest_price > pyeongMap.get(p).item.latest_price)) {
-                            pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, item: m });
+                            pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, deal_count: 1, item: m });
                         }
                     }
                 }
@@ -2244,19 +2261,22 @@
             // item 자체에 유효한 가격과 면적이 있다면 추가
             if (item.area && item.latest_price > 0) {
                 const areaVal = parseFloat(item.area);
-                const p = Math.round(areaVal / 3.3058) || 34;
+                const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
                 if (!pyeongMap.has(p)) {
-                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, item: item });
+                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, deal_count: 1, item: item });
                 }
             }
 
             // 표준 평형 (24, 30, 34, 43, 52) 보완
-            const standardPyeongs = [24, 30, 34, 43, 52];
-            standardPyeongs.forEach(sp => {
-                if (!pyeongMap.has(sp)) {
-                    pyeongMap.set(sp, { pyeong: sp, area: Math.round(sp * 3.3058 * 10) / 10, hasData: false, item: null });
-                }
-            });
+            if (!item.prop_type || item.prop_type === 'apt') {
+                const standardPyeongs = [24, 30, 34, 43, 52];
+                standardPyeongs.forEach(sp => {
+                    if (!pyeongMap.has(sp)) {
+                        const stdArea = Math.round(sp * 3.3058 * 0.75 * 10) / 10;
+                        pyeongMap.set(sp, { pyeong: sp, area: stdArea, hasData: false, deal_count: 0, item: null });
+                    }
+                });
+            }
 
             const list = Array.from(pyeongMap.values());
             list.sort((a, b) => a.pyeong - b.pyeong);
@@ -2273,9 +2293,10 @@
             listEl.innerHTML = availablePyeongs.map(pInfo => {
                 const isCurrent = pInfo.pyeong === window.currentSelectedPyeong;
                 const currentMark = isCurrent ? '<span class="text-[9px] text-blue-600 font-bold ml-1">✓</span>' : '';
-                const statusBadge = pInfo.hasData
-                    ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">거래 있음</span>`
-                    : `<span class="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">정보 없음</span>`;
+                const dealCountText = pInfo.deal_count ? `${pInfo.deal_count}건 실거래` : (pInfo.hasData || pInfo.has_data ? '거래 있음' : '신고 없음');
+                const statusBadge = (pInfo.hasData || pInfo.has_data)
+                    ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">${dealCountText}</span>`
+                    : `<span class="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">신고 없음</span>`;
 
                 return `
                     <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
@@ -2294,7 +2315,7 @@
         function updateDetailView(item, tradeType, pyeong) {
             if (!item) return;
 
-            const targetDong = item.dong || currentDongName || currentAddressName;
+            const targetDong = item.dong || currentDongName || currentAddressName || '';
             const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
             const displayName = getBuildingDisplayName(item);
             document.getElementById('detailName').textContent = displayName;
@@ -2304,11 +2325,12 @@
             const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
             const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
-            const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
-            const rawArea = (pInfo && pInfo.hasData && pInfo.item && pInfo.item.area) 
-                ? pInfo.item.area 
-                : (pInfo ? pInfo.area : (item.area || 84));
-            const effectiveArea = (typeof rawArea === 'number') ? rawArea.toFixed(1).replace(/\.0$/, '') : rawArea;
+            const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong) ||
+                          (item.official_pyeongs || []).find(p => p.pyeong === pyeong);
+            const rawArea = (pInfo && pInfo.area) 
+                ? pInfo.area 
+                : ((pInfo && pInfo.item && pInfo.item.area) ? pInfo.item.area : (item.area || 84));
+            const effectiveArea = (typeof rawArea === 'number') ? rawArea.toFixed(2).replace(/\.?0+$/, '') : rawArea;
 
             const ageInfo = getBuildingAgeInfo(item);
             const ageBadgeHtml = ageInfo
@@ -2318,9 +2340,19 @@
                    </span>`
                 : '';
 
+            const isOfficialLinked = !!(item.official_pyeongs && item.official_pyeongs.length > 0);
+            const govBadgeHtml = isOfficialLinked
+                ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>국토교통부 실거래 연동
+                   </span>`
+                : '';
+
             document.getElementById('detailSubtitle').innerHTML = `
                 <div class="flex flex-col gap-1">
-                    <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                        ${govBadgeHtml}
+                    </div>
                     ${ageBadgeHtml ? `<div>${ageBadgeHtml}</div>` : ''}
                 </div>
             `;
@@ -2368,100 +2400,71 @@
             const noDataDesc = document.getElementById('detailNoDataDesc');
             const txListEl = document.getElementById('transactionList');
 
-            if (!pInfo || !pInfo.hasData) {
-                if (!item.latest_price || item.latest_price === 0) {
-                    const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
-                    if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
-                    if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
-                    if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
-                    if (prevPriceEl) prevPriceEl.textContent = '-';
-                    if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
-                    if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
-                    if (diffEl) {
-                        diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                        diffEl.textContent = `해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.`;
-                    }
-                    if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 정보 없음)`;
+            const hasPData = pInfo && (pInfo.hasData || pInfo.has_data);
+            const pItem = (pInfo && pInfo.item) ? pInfo.item : item;
 
-                    if (noDataOverlay) {
-                        noDataOverlay.classList.remove('hidden');
-                        if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 정보 없음`;
-                        if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
-                    }
-
-                    if (txListEl) {
-                        txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">해당 평형(${pyeong}평)의 ${typeName} 실거래 신고 내역이 없습니다.</td></tr>`;
-                    }
-
-                    document.getElementById('miniTaxAcq').textContent = '정보 없음';
-                    document.getElementById('miniTaxHolding').textContent = '정보 없음';
-                    document.getElementById('miniTaxTransfer').textContent = '정보 없음';
-                    return;
+            if (!hasPData && (!item.latest_price || item.latest_price === 0)) {
+                const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
+                if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
+                if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
+                if (latestPriceEl) latestPriceEl.textContent = '신고 내역 없음';
+                if (prevPriceEl) prevPriceEl.textContent = '-';
+                if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
+                if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
+                if (diffEl) {
+                    diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
+                    diffEl.textContent = `해당 평형(${pyeong}평형)의 ${typeName} 실거래 신고 내역이 없습니다.`;
                 }
-            }
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 신고 없음)`;
 
-            const pItem = pInfo.item || item;
-
-            if (tradeType === 'rent') {
-                const hashVal = ((item.name || '').charCodeAt(0) || 0) + pyeong;
-                const hasRentData = (hashVal % 2 === 0);
-
-                if (!hasRentData) {
-                    if (latestLabelEl) latestLabelEl.textContent = '최근 월세 실거래가';
-                    if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
-                    if (latestPriceEl) latestPriceEl.textContent = '정보 없음';
-                    if (prevPriceEl) prevPriceEl.textContent = '-';
-                    if (latestDateEl) latestDateEl.textContent = '계약 정보 없음';
-                    if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
-                    if (diffEl) {
-                        diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                        diffEl.textContent = `해당 단지(${pyeong}평형)에 최근 신고된 월세 거래 내역이 없습니다.`;
-                    }
-                    if (flameBannerEl) flameBannerEl.textContent = `${item.name} (월세 정보 없음)`;
-
-                    if (noDataOverlay) {
-                        noDataOverlay.classList.remove('hidden');
-                        if (noDataTitle) noDataTitle.textContent = `${item.name} 월세 실거래 정보 없음`;
-                        if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 월세 실거래 내역이 존재하지 않습니다.`;
-                    }
-                    if (txListEl) {
-                        txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">최근 신고된 월세 실거래 내역이 없습니다.</td></tr>`;
-                    }
-                    document.getElementById('miniTaxAcq').textContent = '해당 없음';
-                    document.getElementById('miniTaxHolding').textContent = '해당 없음';
-                    document.getElementById('miniTaxTransfer').textContent = '해당 없음';
-                    return;
+                if (noDataOverlay) {
+                    noDataOverlay.classList.remove('hidden');
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 신고 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
                 }
+
+                if (txListEl) {
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${pyeong}평형(${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
+                }
+
+                document.getElementById('miniTaxAcq').textContent = '정보 없음';
+                document.getElementById('miniTaxHolding').textContent = '정보 없음';
+                document.getElementById('miniTaxTransfer').textContent = '정보 없음';
+                return;
             }
 
             if (noDataOverlay) noDataOverlay.classList.add('hidden');
 
-            let displayLatestPrice = pItem.latest_price;
-            let displayPrevPrice = pItem.previous_price;
-            let displayDiff = pItem.diff;
+            let displayLatestPrice = (pInfo && pInfo.latest_price > 0) ? pInfo.latest_price : pItem.latest_price;
+            let displayPrevPrice = (pInfo && pInfo.previous_price > 0) ? pInfo.previous_price : (pItem.previous_price || displayLatestPrice);
+            let displayDiff = (pInfo && typeof pInfo.diff === 'number') ? pInfo.diff : (displayLatestPrice - displayPrevPrice);
+            let displayLatestDate = (pInfo && pInfo.latest_date) ? pInfo.latest_date : pItem.latest_date;
+            let displayPrevDate = (pInfo && pInfo.previous_date) ? pInfo.previous_date : pItem.previous_date;
 
             if (tradeType === 'jeonse') {
-                displayLatestPrice = Math.round((pItem.latest_price * 0.58) / 100) * 100;
-                displayPrevPrice = Math.round((pItem.previous_price * 0.58) / 100) * 100;
-                displayDiff = displayLatestPrice - displayPrevPrice;
+                if (!pInfo || !pInfo.has_data || tradeType !== (pInfo.trade_type || 'jeonse')) {
+                    displayLatestPrice = Math.round((displayLatestPrice * 0.58) / 100) * 100;
+                    displayPrevPrice = Math.round((displayPrevPrice * 0.58) / 100) * 100;
+                    displayDiff = displayLatestPrice - displayPrevPrice;
+                }
                 if (latestLabelEl) latestLabelEl.textContent = '최근 전세 실거래가';
                 if (prevLabelEl) prevLabelEl.textContent = '직전 전세 거래가';
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 전세 시세 분석`;
             } else if (tradeType === 'rent') {
-                const deposit = Math.round((pItem.latest_price * 0.15) / 100) * 100;
-                const monthly = Math.max(50, Math.round(((pItem.latest_price * 0.43) * 0.045) / 12));
+                const deposit = Math.round((displayLatestPrice * 0.15) / 100) * 100;
+                const monthly = Math.max(50, Math.round(((displayLatestPrice * 0.43) * 0.045) / 12));
                 if (latestLabelEl) latestLabelEl.textContent = '최근 월세 실거래가';
                 if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
                 if (latestPriceEl) latestPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${monthly}만`;
                 if (prevPriceEl) prevPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${Math.max(40, monthly - 10)}만`;
-                if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(pItem.latest_date) || '-'}`;
-                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date) || '-'}`;
+                if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(displayLatestDate) || '-'}`;
+                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(displayPrevDate) || '-'}`;
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-bold mt-2 text-slate-600';
                     diffEl.textContent = `직전 대비 월세 약 +10만원 변동`;
                 }
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 월세 시세 분석`;
-                renderDetailTrendChart(pItem, tradeType, pyeong);
+                renderDetailTrendChart(item, tradeType, pyeong);
                 return;
             } else {
                 if (latestLabelEl) latestLabelEl.textContent = '최근 실거래가';
@@ -2471,8 +2474,8 @@
 
             if (latestPriceEl) latestPriceEl.textContent = formatPrice(displayLatestPrice);
             if (prevPriceEl) prevPriceEl.textContent = formatPrice(displayPrevPrice);
-            if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(pItem.latest_date) || '-'}`;
-            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(pItem.previous_date) || '-'}`;
+            if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(displayLatestDate) || '-'}`;
+            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(displayPrevDate) || '-'}`;
 
             const diffSign = displayDiff > 0 ? '+' : '';
             const diffPercent = displayPrevPrice ? ((displayDiff / displayPrevPrice) * 100).toFixed(1) : '0.0';
@@ -2481,7 +2484,30 @@
                 diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
                 diffEl.textContent = displayDiff !== 0
                     ? `직전 대비 ${diffSign}${formatPrice(displayDiff)} (${diffSign}${diffPercent}%)`
-                    : (pItem.latest_date === pItem.previous_date ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
+                    : (displayLatestDate === displayPrevDate ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
+            }
+
+            // 실거래 내역 테이블 렌더링
+            if (txListEl) {
+                const dealsToRender = (pInfo && pInfo.deals && pInfo.deals.length > 0)
+                    ? pInfo.deals
+                    : ((item.official_transactions && item.official_transactions.length > 0) ? item.official_transactions : []);
+                if (dealsToRender.length > 0) {
+                    txListEl.innerHTML = dealsToRender.slice(0, 15).map(tx => {
+                        const areaText = tx.area || (effectiveArea + '㎡');
+                        const priceText = (typeof tx.price === 'number') ? formatPrice(tx.price) : tx.price;
+                        return `
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="py-2.5 px-3 font-mono text-slate-500">${tx.date}</td>
+                                <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
+                                <td class="py-2.5 px-3 font-mono text-slate-500">${areaText}</td>
+                                <td class="py-2.5 px-3 text-right font-medium text-slate-600">${tx.floor || '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">최근 신고된 실거래 내역이 없습니다.</td></tr>`;
+                }
             }
 
             const taxes = calculateTaxes(displayLatestPrice, displayPrevPrice, effectiveArea);
@@ -2494,37 +2520,79 @@
                 document.getElementById('taxAcqRateDetail').textContent = `총 실효세율 ${taxes.acq.rate}%`;
             }
 
-            renderDetailTrendChart(pItem, tradeType, pyeong);
+            renderDetailTrendChart(item, tradeType, pyeong);
         }
 
-        function showApartmentDetail(item) {
+        async function fetchOfficialBuildingData(item, tradeType = 'sale') {
+            if (!item) return;
+
+            const targetDong = item.dong || currentDongName || currentAddressName || '';
+            const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
+            const cleanName = (item.name || '').trim();
+            const propType = item.prop_type || document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
+            const lawdCd = currentLawdCd || '11650';
+
+            const startEl = document.getElementById('startMonth');
+            const endEl = document.getElementById('endMonth');
+            const startMonth = startEl ? startEl.value.replace('-', '') : '';
+            const endMonth = endEl ? endEl.value.replace('-', '') : '';
+
+            const query = `lawd_cd=${encodeURIComponent(lawdCd)}&dong=${encodeURIComponent(targetDong)}&jibun=${encodeURIComponent(cleanJibun)}&name=${encodeURIComponent(cleanName)}&prop_type=${encodeURIComponent(propType)}&trade_type=${encodeURIComponent(tradeType)}&start_month=${startMonth}&end_month=${endMonth}`;
+
+            const candidateUrls = [
+                `/api/building-info?${query}`,
+                `http://127.0.0.1:8000/api/building-info?${query}`
+            ];
+
+            let officialData = null;
+            for (const url of candidateUrls) {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        officialData = await res.json();
+                        break;
+                    }
+                } catch (e) {}
+            }
+
+            if (officialData && officialData.has_real_deals) {
+                if (officialData.name) item.name = officialData.name;
+                if (officialData.dong) item.dong = officialData.dong;
+                if (officialData.jibun) item.jibun = officialData.jibun;
+                if (officialData.build_year) {
+                    item.build_year = officialData.build_year;
+                    registerBuildingYears([item]);
+                    const updatedAgeInfo = getBuildingAgeInfo(item);
+                    updateDetailAgeCardUI(item, updatedAgeInfo);
+                }
+                if (officialData.prop_type) item.prop_type = officialData.prop_type;
+
+                item.official_pyeongs = officialData.pyeongs || [];
+                item.official_history = officialData.history || [];
+                item.official_transactions = officialData.recent_transactions || [];
+                window.currentAvailablePyeongs = item.official_pyeongs;
+
+                // 평형 선택 동기화: 기존 선택 평형이 존재하면 유지, 없으면 34평 또는 최다 거래 평형 선택
+                const currentP = window.currentSelectedPyeong;
+                const exists = item.official_pyeongs.some(p => p.pyeong === currentP);
+                if (!exists && item.official_pyeongs.length > 0) {
+                    const default34 = item.official_pyeongs.find(p => p.pyeong === 34);
+                    window.currentSelectedPyeong = default34 ? 34 : item.official_pyeongs[0].pyeong;
+                }
+
+                setupPyeongDropdown(item);
+                updateDetailView(item, tradeType, window.currentSelectedPyeong);
+                renderDetailTrendChart(item, tradeType, window.currentSelectedPyeong);
+            }
+        }
+
+        async function showApartmentDetail(item) {
             if (!item) return;
 
             const targetDong = item.dong || currentDongName || currentAddressName || '';
             if (!item.build_year) {
                 const realYear = findRealBuildYear(targetDong, item.jibun, item.name);
                 if (realYear) item.build_year = realYear;
-            }
-
-            // 실거래 데이터 자동 매칭 및 가격/면적 보강
-            const availablePyeongs = getAvailablePyeongsForComplex(item);
-            window.currentAvailablePyeongs = availablePyeongs;
-            const hasDataPyeongs = availablePyeongs.filter(p => p.hasData && p.item);
-
-            if (hasDataPyeongs.length > 0) {
-                // 34평형(국민평형)이 있으면 우선, 없으면 데이터가 있는 첫번째 평형 채택
-                const bestP = hasDataPyeongs.find(p => p.pyeong === 34) || hasDataPyeongs[0];
-                if (!item.latest_price || item.latest_price === 0) {
-                    item.latest_price = bestP.item.latest_price;
-                    item.previous_price = bestP.item.previous_price;
-                    item.latest_date = bestP.item.latest_date;
-                    item.previous_date = bestP.item.previous_date;
-                    item.diff = bestP.item.diff;
-                    item.area = bestP.item.area;
-                    if (bestP.item.name && (!item.name || item.name.includes('단독주택') || item.name.includes('주택'))) {
-                        item.name = bestP.item.name;
-                    }
-                }
             }
 
             currentSelectedItem = item;
@@ -2540,19 +2608,26 @@
             const checkedTrade = document.querySelector('input[name="trade_type"]:checked');
             window.currentDetailTradeType = checkedTrade ? checkedTrade.value : 'sale';
 
-            // 초기 선택 평형: 거래 데이터가 존재하는 평형을 우선 선택
+            // 초기 캐시 기반 화면 렌더링
+            const availablePyeongs = getAvailablePyeongsForComplex(item);
+            window.currentAvailablePyeongs = availablePyeongs;
+            const hasDataPyeongs = availablePyeongs.filter(p => (p.hasData || p.has_data));
+
             let initialPyeong = 34;
             if (hasDataPyeongs.length > 0) {
                 const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
                 initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
             } else if (item.area) {
-                initialPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
+                initialPyeong = convertAreaToPyeong(item.area, item.prop_type || 'apt');
             }
             window.currentSelectedPyeong = initialPyeong;
 
             setupPyeongDropdown(item);
             updateDetailTradeTypeButtons(window.currentDetailTradeType);
             updateDetailView(item, window.currentDetailTradeType, initialPyeong);
+
+            // 국토교통부 공공데이터 실거래 API 중계 비동기 조회 및 UI 동기화
+            await fetchOfficialBuildingData(item, window.currentDetailTradeType);
         }
 
         function closeApartmentDetail() {
@@ -3153,23 +3228,36 @@
             if (errorEl) errorEl.classList.add('hidden');
 
             try {
-                const targetDong = item.dong || currentDongName || '';
-                const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}`;
-                
-                const candidateUrls = [
-                    `/api/complex-history?${queryParam}`,
-                    `http://127.0.0.1:8000/api/complex-history?${queryParam}`
-                ];
-
                 let fetchedData = null;
-                for (const url of candidateUrls) {
-                    try {
-                        const res = await fetch(url);
-                        if (res.ok) {
-                            fetchedData = await res.json();
-                            break;
-                        }
-                    } catch (e) {}
+                if (item.official_history && item.official_history.length > 0) {
+                    fetchedData = {
+                        dong: item.dong,
+                        name: item.name,
+                        build_year: item.build_year,
+                        history: item.official_history,
+                        recent_transactions: item.official_transactions || [],
+                        pyeongs: item.official_pyeongs || [],
+                        is_real_data: true
+                    };
+                } else {
+                    const targetDong = item.dong || currentDongName || '';
+                    const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
+                    const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}&jibun=${encodeURIComponent(cleanJibun)}&lawd_cd=${currentLawdCd || '11650'}&prop_type=${item.prop_type || 'apt'}&trade_type=${tradeType}`;
+                    
+                    const candidateUrls = [
+                        `/api/complex-history?${queryParam}`,
+                        `http://127.0.0.1:8000/api/complex-history?${queryParam}`
+                    ];
+
+                    for (const url of candidateUrls) {
+                        try {
+                            const res = await fetch(url);
+                            if (res.ok) {
+                                fetchedData = await res.json();
+                                break;
+                            }
+                        } catch (e) {}
+                    }
                 }
 
                 if (fetchedData) {
@@ -3452,9 +3540,8 @@
                         }
                     }
 
-                    // 6. 단지 정보 패널 예약
-                    window.pendingComplexFocus = finalName;
-                    window.pendingClickedItem = clickedItem;
+                    // 6. 클릭한 건물 상세 패널 즉시 오픈 & 공공데이터 실거래 API 중계 호출
+                    showApartmentDetail(clickedItem);
 
                     // 7. 법정동 실거래가 데이터 갱신
                     fetchRegionInfo(latlng, false);
@@ -3482,7 +3569,7 @@
                             document.getElementById('areaCode').textContent = `법정동: ${dongName} (${lawdCd})`;
                             document.getElementById('roadviewTitle').textContent = `${addressName} 현장 로드뷰`;
                             
-                            if (shouldCloseDetail && !window.pendingComplexFocus) {
+                            if (shouldCloseDetail && !window.pendingComplexFocus && !currentSelectedItem) {
                                 closeApartmentDetail();
                             }
                             fetchData(lawdCd, dongName);

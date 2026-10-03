@@ -1,7 +1,7 @@
 import hashlib
 import random
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from dateutil.relativedelta import relativedelta
 from fastapi import FastAPI, Query
@@ -44,6 +44,8 @@ class ComplexHistoryResponse(BaseModel):
     build_year: Optional[int] = None
     history: List[MonthlyHistoryItem]
     recent_transactions: List[RecentTransactionItem]
+    pyeongs: Optional[List[Any]] = None
+    is_real_data: Optional[bool] = False
 
 
 # --- Mock Data Generator ---
@@ -213,20 +215,92 @@ def read_root():
 
 
 @app.get(
+    "/api/building-info",
+    summary="공공데이터포털 실거래가 기반 건물 상세 및 평형 정보 중계",
+    description="국토교통부 실거래가 API를 조회하여 단지/건물의 전용면적별 평형 목록과 실거래 내역을 반환합니다."
+)
+def get_building_info(
+    lawd_cd: str = Query(default="11650", description="법정동 시군구코드 (예: 11650)"),
+    dong: str = Query(default="", description="법정동 이름 (예: 반포동)"),
+    jibun: str = Query(default="", description="지번 (예: 20-43)"),
+    name: str = Query(default="", description="단지명 (예: 반포자이)"),
+    prop_type: str = Query(default="apt", description="부동산 종류 (apt, officetel, rowhouse, singlehouse)"),
+    trade_type: str = Query(default="sale", description="거래 유형 (sale, jeonse, rent)"),
+    start_month: Optional[str] = Query(default=None),
+    end_month: Optional[str] = Query(default=None)
+):
+    from building_service import get_building_info_from_gov
+    return get_building_info_from_gov(
+        lawd_cd=lawd_cd,
+        dong=dong,
+        jibun=jibun,
+        name=name,
+        prop_type=prop_type,
+        trade_type=trade_type,
+        start_month=start_month,
+        end_month=end_month
+    )
+
+
+@app.get(
     "/api/complex-history",
     response_model=ComplexHistoryResponse,
-    summary="단지별 36개월 시세 추이 및 최근 실거래 내역 조회",
-    description="법정동과 단지명을 받아 과거 36개월 월별 평균가(우상향 트렌드), 거래량 및 최근 실거래 3건을 반환합니다."
+    summary="단지별 시세 추이 및 최근 실거래 내역 조회",
+    description="법정동과 단지명을 받아 국토교통부 실거래 데이터를 우선 조회하고, 없을 경우 시뮬레이션 데이터를 반환합니다."
 )
 def get_complex_history(
     dong: str = Query(..., description="법정동 이름 (예: 반포동)"),
-    name: str = Query(..., description="아파트 단지명 (예: 아크로리버파크)")
+    name: str = Query(..., description="아파트 단지명 (예: 아크로리버파크)"),
+    jibun: Optional[str] = Query(default="", description="지번"),
+    lawd_cd: Optional[str] = Query(default="11650", description="법정동코드"),
+    prop_type: Optional[str] = Query(default="apt", description="부동산종류"),
+    trade_type: Optional[str] = Query(default="sale", description="거래유형"),
+    start_month: Optional[str] = Query(default=None),
+    end_month: Optional[str] = Query(default=None)
 ):
+    from building_service import get_building_info_from_gov
+    real_data = get_building_info_from_gov(
+        lawd_cd=lawd_cd or "11650",
+        dong=dong,
+        jibun=jibun or "",
+        name=name,
+        prop_type=prop_type or "apt",
+        trade_type=trade_type or "sale",
+        start_month=start_month,
+        end_month=end_month
+    )
+    if real_data.get("has_real_deals"):
+        return ComplexHistoryResponse(
+            dong=real_data["dong"],
+            name=real_data["name"],
+            build_year=real_data["build_year"],
+            history=[
+                MonthlyHistoryItem(
+                    month=h["month"],
+                    avg_price=h["avg_price"],
+                    volume=h["volume"]
+                )
+                for h in real_data["history"]
+            ],
+            recent_transactions=[
+                RecentTransactionItem(
+                    date=t["date"],
+                    price=t["price"],
+                    floor=t["floor"],
+                    area=t["area"]
+                )
+                for t in real_data["recent_transactions"]
+            ],
+            pyeongs=real_data.get("pyeongs"),
+            is_real_data=True
+        )
+
     history, recent_transactions, build_year = generate_mock_complex_data(dong, name)
     return ComplexHistoryResponse(
         dong=dong,
         name=name,
         build_year=build_year,
         history=history,
-        recent_transactions=recent_transactions
+        recent_transactions=recent_transactions,
+        is_real_data=False
     )
