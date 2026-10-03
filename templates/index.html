@@ -152,7 +152,7 @@
     </script>
         
         <!-- 모바일 전용 핸들 및 닫기 버튼 -->
-        <div class="md:hidden flex items-center justify-center pt-4 pb-2 relative shrink-0 z-[1001] cursor-pointer" style="touch-action: none;" onclick="const p = document.getElementById('sidePanel'); p.classList.contains('panel-full') ? p.classList.remove('panel-full') : p.classList.add('panel-full');">
+        <div id="dragHandle" class="md:hidden flex items-center justify-center pt-4 pb-2 relative shrink-0 z-[1001] cursor-pointer" style="touch-action: none;" onclick="const p = document.getElementById('sidePanel'); p.style.height = ''; p.classList.contains('panel-full') ? p.classList.remove('panel-full') : p.classList.add('panel-full');">
             <div class="w-12 h-1.5 bg-slate-300 rounded-full"></div>
             <button type="button" onclick="event.preventDefault(); event.stopPropagation(); togglePanel(false);" ontouchend="event.preventDefault(); event.stopPropagation(); togglePanel(false);" class="absolute right-4 top-2 p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 z-[1002]">
                 <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -2180,8 +2180,65 @@
         marker.setMap(map);
         setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
 
-        // 모바일 스와이프(상/하 드래그) 패널 확장 및 닫기 로직
+        // 모바일 핸들바 실시간 자유 드래그 로직
+        const dragHandle = document.getElementById('dragHandle');
         const sidePanelEl = document.getElementById('sidePanel');
+        let dragStartY = 0;
+        let dragStartHeight = 0;
+        let isDraggingPanel = false;
+
+        if (dragHandle && sidePanelEl) {
+            dragHandle.addEventListener('touchstart', (e) => {
+                isDraggingPanel = true;
+                dragStartY = e.touches[0].screenY;
+                dragStartHeight = sidePanelEl.getBoundingClientRect().height;
+                // 실시간으로 따라오도록 트랜지션 제거
+                sidePanelEl.classList.remove('transition-all', 'duration-300');
+                sidePanelEl.style.transition = 'none';
+                e.stopPropagation(); // 기존 스와이프 로직 방해 금지
+            }, {passive: true});
+
+            dragHandle.addEventListener('touchmove', (e) => {
+                if (!isDraggingPanel) return;
+                const currentY = e.touches[0].screenY;
+                const deltaY = dragStartY - currentY; // 올리면 양수
+                let newHeight = dragStartHeight + deltaY;
+                
+                const windowHeight = window.innerHeight;
+                if (newHeight > windowHeight * 0.95) newHeight = windowHeight * 0.95;
+                if (newHeight < windowHeight * 0.1) newHeight = windowHeight * 0.1;
+
+                sidePanelEl.style.height = `${newHeight}px`;
+                e.stopPropagation();
+            }, {passive: false});
+
+            dragHandle.addEventListener('touchend', (e) => {
+                if (!isDraggingPanel) return;
+                isDraggingPanel = false;
+                
+                // 트랜지션 복구
+                sidePanelEl.style.transition = '';
+                sidePanelEl.classList.add('transition-all', 'duration-300');
+                
+                const currentHeight = sidePanelEl.getBoundingClientRect().height;
+                const windowHeight = window.innerHeight;
+                const percent = currentHeight / windowHeight;
+                
+                // 너무 낮게 내리면 아예 닫기
+                if (percent < 0.15) {
+                    sidePanelEl.style.height = '';
+                    sidePanelEl.classList.remove('panel-full');
+                    togglePanel(false);
+                } else {
+                    // 유저가 멈춘 크기를 vh로 고정하여 맘대로 쓰게 냅둠
+                    sidePanelEl.style.height = `${(currentHeight / windowHeight) * 100}vh`;
+                    sidePanelEl.classList.remove('panel-full');
+                }
+                e.stopPropagation();
+            });
+        }
+
+        // 모바일 스와이프(상/하 퀵 스와이프) 패널 확장 및 닫기 로직
         let touchStartY = 0;
         let touchEndY = 0;
         sidePanelEl.addEventListener('touchstart', (e) => {
