@@ -1805,6 +1805,9 @@
 
                 const tryRenderBadge = (position) => {
                     if (!position) return;
+                    item.position = position;
+                    item.lat = typeof position.getLat === 'function' ? position.getLat() : position.lat;
+                    item.lng = typeof position.getLng === 'function' ? position.getLng() : position.lng;
 
                     const pyeong = convertAreaToPyeong(item.area || 84, item.prop_type || 'apt');
                     const pyeongText = `${pyeong}평`;
@@ -2365,7 +2368,7 @@
             const hasPData = pInfo && (pInfo.hasData || pInfo.has_data);
             const pItem = (pInfo && pInfo.item) ? pInfo.item : item;
 
-            if (item.is_loading) {
+            if (item.is_loading && (!item.latest_price || item.latest_price === 0)) {
                 const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
                 if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
                 if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
@@ -2401,18 +2404,18 @@
                 if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                    diffEl.textContent = `해당 평형(${safePyeong}평형 / 전용 ${effectiveArea}㎡)의 ${typeName} 실거래 신고 내역이 없습니다.`;
+                    diffEl.textContent = `해당 위치(단지)에 등록된 ${typeName} 실거래 신고 내역이 없습니다.`;
                 }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${safePyeong}평형 · 전용 ${effectiveArea}㎡ 신고 없음)`;
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (실거래 신고 없음)`;
 
                 if (noDataOverlay) {
                     noDataOverlay.classList.remove('hidden');
-                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${safePyeong}평형 (전용 ${effectiveArea}㎡) ${typeName} 신고 없음`;
-                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${safePyeong}평형(전용 ${effectiveArea}㎡) ${typeName} 실거래 내역이 존재하지 않습니다.`;
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} 실거래 신고 내역 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${typeName} 실거래 내역이 존재하지 않는 단지/건물입니다.`;
                 }
 
                 if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${safePyeong}평형(전용 ${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 실거래 내역이 없습니다.</td></tr>`;
                 }
 
                 document.getElementById('miniTaxAcq').textContent = '정보 없음';
@@ -2940,9 +2943,9 @@
             setupPyeongDropdown(item);
             updateDetailTradeTypeButtons(window.currentDetailTradeType);
 
-            if (!item.latest_price || item.latest_price === 0) {
-                item.is_loading = true;
-            }
+            // 🔥 클릭한 단지의 최고가 정보가 있으면 0초 만에 즉시 메뉴창에 표출!
+            // 단지 내 정보가 없는 경우에도 '국토부 실시간 조회중' 스피너로 멈추지 않고 즉시 '정보 없음'으로 표출!
+            item.is_loading = false;
             updateDetailView(item, window.currentDetailTradeType, initialPyeong);
 
             // 국토교통부 공공데이터 실거래 API 중계 비동기 조회 및 UI 동기화
@@ -3746,6 +3749,150 @@
             return '';
         }
 
+        // 🔥 클릭한 지점이 실제 지도 위 아파트 단지 영역 내인지 엄격하게 검증하는 함수
+        function findComplexInClickedArea(latlng, targetDong, jibun, buildingName, nearbyApt, detectedDong) {
+            if (!latlng) return null;
+            
+            // 1. 현재 지도에 렌더링된 단지 뱃지들을 최우선 검사 (지도에 떠 있는 최고가 패널들)
+            const activeBadges = Object.values(window.badgeItemStore || {});
+            const storeDeals = (rawDataStore.items || []).concat(
+                rawDataStore.soaring || [],
+                rawDataStore.plunging || []
+            );
+
+            // activeBadges 우선, 그 다음 storeDeals 중 최고가가 있는 단지들
+            const candidates = [];
+            const seenKeys = new Set();
+            for (const b of activeBadges) {
+                if (b && b.name && b.latest_price > 0) {
+                    const k = (b.name || '') + '_' + (b.dong || '') + '_' + (b.jibun || '');
+                    if (!seenKeys.has(k)) {
+                        seenKeys.add(k);
+                        candidates.push(b);
+                    }
+                }
+            }
+            for (const d of storeDeals) {
+                if (d && d.name && d.latest_price > 0) {
+                    const k = (d.name || '') + '_' + (d.dong || '') + '_' + (d.jibun || '');
+                    if (!seenKeys.has(k)) {
+                        seenKeys.add(k);
+                        candidates.push(d);
+                    }
+                }
+            }
+
+            if (candidates.length === 0) return null;
+
+            const cleanJibun = (jibun || '').replace(/[*~]+/g, '').trim();
+            const cleanMainJibun = cleanJibun ? cleanJibun.split('-')[0] : '';
+
+            const cleanBName = (buildingName || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+            const cleanPName = (nearbyApt && nearbyApt.place_name) ? nearbyApt.place_name.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '') : '';
+
+            const dongMatch = detectedDong ? String(detectedDong).match(/\d+/) : null;
+            const dongNum = dongMatch ? parseInt(dongMatch[0], 10) : null;
+
+            let bestMatch = null;
+            let highestScore = 0;
+
+            for (const c of candidates) {
+                const cDong = c.dong || targetDong;
+                // 법정동이 다르면 절대 같은 단지 영역이 아님
+                if (targetDong && cDong && targetDong !== cDong) continue;
+
+                const cJibun = (c.jibun || '').replace(/[*~]+/g, '').trim();
+                const cMainJibun = cJibun ? cJibun.split('-')[0] : '';
+                const cName = c.name || '';
+                const cleanCName = cName.replace(/\s*\d+동.*$/, '')
+                                        .replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, '')
+                                        .replace(/\([^\)]*\)/g, '')
+                                        .replace(/아파트$/, '')
+                                        .replace(/BL\d+(-\d+)?/gi, '')
+                                        .replace(/\s+/g, '');
+
+                // 1. 지번 일치 여부
+                const isExactJibun = Boolean(cleanJibun && cJibun && (cleanJibun === cJibun));
+                const isMainJibun = Boolean(cleanMainJibun && cMainJibun && (cleanMainJibun === cMainJibun));
+
+                // 2. 단지명/건물명 일치 여부
+                let isNameMatched = false;
+                if (cleanBName && cleanCName) {
+                    if (cleanBName === cleanCName || cleanBName.includes(cleanCName) || cleanCName.includes(cleanBName)) {
+                        isNameMatched = true;
+                    }
+                }
+                if (!isNameMatched && cleanPName && cleanCName) {
+                    if (cleanPName === cleanCName || cleanPName.includes(cleanCName) || cleanCName.includes(cleanPName)) {
+                        isNameMatched = true;
+                    }
+                }
+
+                // 3. 단지 내 동 번호 범위(예: 916~928동, 201~208동) 확인
+                let isDongRangeMatched = false;
+                const rangeMatch = cName.match(/\(?(\d+)\s*[-~]\s*(\d+)동\)?/);
+                if (rangeMatch && dongNum) {
+                    const startD = parseInt(rangeMatch[1], 10);
+                    const endD = parseInt(rangeMatch[2], 10);
+                    if (dongNum >= startD && dongNum <= endD) {
+                        isDongRangeMatched = true;
+                    } else {
+                        // 특정 동 범위가 명시된 단지인데 클릭한 동이 그 범위 밖이면 다른 블록이므로 매칭 제외
+                        continue;
+                    }
+                }
+
+                // 4. 거리 계산 (뱃지 좌표가 있는 경우)
+                let dist = 99999;
+                let bLat = null;
+                let bLng = null;
+                if (c.lat && c.lng) {
+                    bLat = typeof c.lat === 'function' ? c.lat() : c.lat;
+                    bLng = typeof c.lng === 'function' ? c.lng() : c.lng;
+                } else if (c.position) {
+                    bLat = typeof c.position.getLat === 'function' ? c.position.getLat() : c.position.lat;
+                    bLng = typeof c.position.getLng === 'function' ? c.position.getLng() : c.position.lng;
+                }
+                if (bLat && bLng && latlng) {
+                    const dLat = (bLat - latlng.getLat()) * 111000;
+                    const dLng = (bLng - latlng.getLng()) * 111000 * Math.cos(latlng.getLat() * (Math.PI / 180));
+                    dist = Math.sqrt(dLat * dLat + dLng * dLng);
+                }
+
+                // 5. 엄격한 "해당 단지 영역 내" 판별 조건:
+                // 조건 A: 지번 완전 일치 + (이름 일치 OR 거리 250m 이내 OR 좌표 없음)
+                // 조건 B: 대단지 본번 일치 + (이름 일치 OR 동범위 일치 OR 거리 200m 이내)
+                // 조건 C: 단지명 일치 + (동범위 일치 OR 거리 220m 이내)
+                let isInsideArea = false;
+                let score = 0;
+
+                if (isExactJibun && (isNameMatched || dist <= 250 || dist === 99999)) {
+                    isInsideArea = true;
+                    score += 100;
+                } else if (isMainJibun && (isNameMatched || isDongRangeMatched || dist <= 200)) {
+                    isInsideArea = true;
+                    score += 80;
+                } else if (isNameMatched && (isDongRangeMatched || dist <= 220 || dist === 99999)) {
+                    isInsideArea = true;
+                    score += 70;
+                }
+
+                if (!isInsideArea) continue;
+
+                if (isDongRangeMatched) score += 30;
+                if (isExactJibun) score += 20;
+                if (isNameMatched) score += 15;
+                if (dist <= 100) score += 15;
+
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestMatch = c;
+                }
+            }
+
+            return bestMatch;
+        }
+
         function handleMapClickLocation(latlng, hintQuery = '') {
             // 1. 역지오코딩으로 법정동 코드 및 지번 추출 (coord2RegionCode + coord2Address 병행)
             geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(regionResult, regionStatus) {
@@ -3813,10 +3960,16 @@
                     const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
                     const isApartment = (matchedRealDeal && matchedRealDeal.prop_type === 'apt') || isAptByName || isAptByPlace || isAptByHint;
 
+                    // 🔥 클릭한 지점이 지도 위 단지 영역 내인지 엄격하게 검증
+                    const complexInArea = findComplexInClickedArea(latlng, targetDong, jibun, buildingName, nearby, detectedD);
+
                     let finalName = '';
                     let finalPropType = (matchedRealDeal && matchedRealDeal.prop_type) || 'apt';
 
-                    if (matchedRealDeal) {
+                    if (complexInArea) {
+                        finalName = complexInArea.name;
+                        finalPropType = complexInArea.prop_type || 'apt';
+                    } else if (matchedRealDeal) {
                         finalName = matchedRealDeal.name;
                     } else if (isApartment) {
                         finalName = (nearby ? nearby.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
@@ -3846,29 +3999,47 @@
                             const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
                             showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
                         }
+                    } else if (complexInArea) {
+                        const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
+                        showToast(`🏢 <strong>${finalName}</strong>${dongNotice} 선택됨<br><span class="text-[11px] text-emerald-200">지도에 표시된 단지 최고가 실거래 정보가 메뉴창에 즉시 연동되었습니다.</span>`);
                     } else if (detectedD) {
                         showToast(`🏢 <strong>${finalName} ${detectedD}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedD} 정보와 단지 실거래가가 자동 연동되었습니다.</span>`);
                     } else if (finalPropType === 'apt') {
-                        showToast(`🏢 <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">포털에 개별 동 미등록 단지 - 대표 평형 실거래가로 연동되었습니다.</span>`);
+                        showToast(`🏢 <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">국토교통부 실거래 신고 내역을 확인합니다.</span>`);
                     }
 
-                    const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
+                    const realYear = (complexInArea && complexInArea.build_year) || (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
+                    
+                    const activePrice = complexInArea 
+                        ? complexInArea.latest_price 
+                        : ((matchedRealDeal && matchedRealDeal.latest_price) || 0);
+                    const activePrevPrice = complexInArea 
+                        ? (complexInArea.previous_price || complexInArea.latest_price) 
+                        : ((matchedRealDeal && matchedRealDeal.previous_price) || 0);
+                    const activeDiff = complexInArea 
+                        ? (typeof complexInArea.diff === 'number' ? complexInArea.diff : 0) 
+                        : ((matchedRealDeal && matchedRealDeal.diff) || 0);
+                    const activeArea = complexInArea 
+                        ? complexInArea.area 
+                        : ((matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'));
+
                     const clickedItem = {
                         name: finalName,
                         complex_name: finalName,
                         building_dong: detectedD || '',
                         road_address: roadAddr ? (roadAddr.address_name + (roadAddr.building_name ? ' ' + roadAddr.building_name : '')) : '',
                         dong: targetDong,
-                        jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
+                        jibun: jibun || (complexInArea && complexInArea.jibun) || (matchedRealDeal && matchedRealDeal.jibun) || '',
                         lawd_cd: clickLawdCd || currentLawdCd || '',
                         prop_type: finalPropType,
-                        area: (matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'),
-                        latest_price: (matchedRealDeal && matchedRealDeal.latest_price) || 0,
-                        previous_price: (matchedRealDeal && matchedRealDeal.previous_price) || 0,
-                        latest_date: (matchedRealDeal && matchedRealDeal.latest_date) || '',
-                        previous_date: (matchedRealDeal && matchedRealDeal.previous_date) || '',
-                        diff: (matchedRealDeal && matchedRealDeal.diff) || 0,
-                        build_year: realYear || null
+                        area: activeArea,
+                        latest_price: activePrice,
+                        previous_price: activePrevPrice,
+                        latest_date: (complexInArea && complexInArea.latest_date) || (matchedRealDeal && matchedRealDeal.latest_date) || '',
+                        previous_date: (complexInArea && complexInArea.previous_date) || (matchedRealDeal && matchedRealDeal.previous_date) || '',
+                        diff: activeDiff,
+                        build_year: realYear || null,
+                        official_pyeongs: (complexInArea && complexInArea.official_pyeongs) ? complexInArea.official_pyeongs : []
                     };
 
                     // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
