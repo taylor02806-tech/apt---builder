@@ -4904,7 +4904,7 @@
             const w = window.innerWidth;
             const h = window.innerHeight;
 
-            // [1] 씬 & 카메라 초기화
+            // [1] 씬 & 렌더러 (쨍한 발색을 위한 ACES 톤매핑 세팅)
             sScene = new THREE.Scene();
             sCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 14000);
             sCamera.position.set(0, 700, 5200);
@@ -4913,7 +4913,15 @@
             sRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
             sRenderer.setSize(w, h);
             sRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            if (THREE.sRGBEncoding) sRenderer.outputEncoding = THREE.sRGBEncoding;
+
+            // 물 빠진 색감을 없애고 쨍한 명암비를 만들어주는 필수 세팅
+            if (THREE.SRGBColorSpace) {
+                sRenderer.outputColorSpace = THREE.SRGBColorSpace;
+            } else if (THREE.sRGBEncoding) {
+                sRenderer.outputEncoding = THREE.sRGBEncoding;
+            }
+            sRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            sRenderer.toneMappingExposure = 1.25;
 
             // [2] 우주 별빛 배경
             const starGeo = new THREE.BufferGeometry();
@@ -4927,16 +4935,18 @@
             sStars = new THREE.Points(starGeo, starMat);
             sScene.add(sStars);
 
-            // [3] 조명 (태양광)
-            sScene.add(new THREE.AmbientLight(0x475569, 1.3));
-            const sunLight = new THREE.DirectionalLight(0xffffff, 2.3);
-            sunLight.position.set(3500, 1500, 2500);
+            // [3] 조명 재설정 (우주 암부 대비 극대화)
+            sScene.add(new THREE.AmbientLight(0x0f172a, 0.4)); // 뿌연 빛을 걷어내고 깊은 암부 형성
+            const sunLight = new THREE.DirectionalLight(0xffffff, 3.2); // 강렬한 직사 태양광
+            sunLight.position.set(3800, 1600, 2600);
             sScene.add(sunLight);
 
-            // [4] 4K 지구본 (이방성 필터링 극대화)
+            // [4] 3D 지구본 (선명한 발색 튜닝)
             const earthRadius = 350;
             const textureLoader = new THREE.TextureLoader();
-            const highResEarthUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg';
+            
+            // 선명한 NASA 블루마블 원본 소스
+            const highResEarthUrl = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
 
             const earthTexture = textureLoader.load(
                 highResEarthUrl,
@@ -4958,11 +4968,10 @@
             );
 
             const earthGeo = new THREE.SphereGeometry(earthRadius, 128, 128);
-            const earthMat = new THREE.MeshPhongMaterial({
+            const earthMat = new THREE.MeshStandardMaterial({
                 map: earthTexture,
-                color: 0xffffff,
-                specular: 0x1e293b,
-                shininess: 12
+                roughness: 0.55,
+                metalness: 0.05
             });
             sEarth = new THREE.Mesh(earthGeo, earthMat);
             sScene.add(sEarth);
