@@ -1785,6 +1785,9 @@
             }
             const maxBadges = (span >= 0.04) ? 25 : 50;
             createMapBadges(mapDisplayList.slice(0, maxBadges));
+
+            // 🔥 지도 최고가 패널 로딩 전 클릭된 대기 상태가 있으면, 최고가 패널 정보로 자동 연동!
+            checkAndResolvePendingClick(complexList);
         }
 
         function clearMapBadges() {
@@ -1991,9 +1994,71 @@
         };
 
         window.onMapBadgeClick = function(key) {
+            window.pendingMapClick = null;
             const item = window.badgeItemStore[key];
             if (item) showApartmentDetail(item);
         };
+
+        function checkAndResolvePendingClick(complexList) {
+            if (!complexList || complexList.length === 0) return;
+
+            // 1. 최고가 패널 로딩 전 지도 클릭 예약 건이 있는 경우 자동 연동
+            if (window.pendingMapClick) {
+                const p = window.pendingMapClick;
+                const isFresh = (Date.now() - (p.timestamp || 0)) < 60000;
+                if (isFresh) {
+                    const matched = findComplexInClickedArea(
+                        p.latlng,
+                        p.targetDong,
+                        p.jibun,
+                        p.buildingName,
+                        p.roadAddress,
+                        p.nearbyApt,
+                        p.detectedDong
+                    );
+                    if (matched) {
+                        window.pendingMapClick = null;
+                        if (p.detectedDong && !matched.building_dong) {
+                            matched.building_dong = p.detectedDong;
+                        }
+                        showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 최고가 패널 로딩 완료! 메뉴창에 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
+                        showApartmentDetail(matched);
+                        return;
+                    }
+                }
+                window.pendingMapClick = null;
+            }
+
+            // 2. 현재 메뉴창이 열려있으나 단지 최고가 수신 대기 중(is_region_waiting)이거나 실거래가가 0인 경우
+            if (currentSelectedItem && (currentSelectedItem.is_region_waiting || !currentSelectedItem.latest_price || currentSelectedItem.latest_price === 0)) {
+                const curName = (currentSelectedItem.complex_name || currentSelectedItem.name || '').replace(/\s*\d+동.*$/, '').trim();
+                const curJibun = (currentSelectedItem.jibun || '').replace(/[*~]+/g, '').trim();
+                const curDong = currentSelectedItem.dong || currentDongName || '';
+
+                const matched = complexList.find(c => {
+                    const cDong = c.dong || curDong;
+                    if (curDong && cDong && curDong !== cDong) return false;
+                    if (curJibun && c.jibun && c.jibun === curJibun) return true;
+                    if (curName && c.name) {
+                        const cleanC = c.name.replace(/\s*\d+동.*$/, '').trim();
+                        if (cleanC === curName || cleanC.includes(curName) || curName.includes(cleanC)) return true;
+                    }
+                    return false;
+                });
+
+                if (matched) {
+                    currentSelectedItem.is_region_waiting = false;
+                    currentSelectedItem.is_loading = false;
+                    showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 최고가 패널 로딩 완료! 메뉴창에 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
+                    showApartmentDetail(matched);
+                    return;
+                } else if (currentSelectedItem.is_region_waiting) {
+                    currentSelectedItem.is_region_waiting = false;
+                    currentSelectedItem.is_loading = false;
+                    updateDetailView(currentSelectedItem, window.currentDetailTradeType || 'sale', window.currentSelectedPyeong || 34);
+                }
+            }
+        }
 
         window.currentDetailTradeType = 'sale';
         window.currentSelectedPyeong = 34;
@@ -2364,24 +2429,24 @@
             const hasPData = pInfo && (pInfo.hasData || pInfo.has_data);
             const pItem = (pInfo && pInfo.item) ? pInfo.item : item;
 
-            if (item.is_loading && item.is_explicit_searching) {
+            if (item.is_region_waiting) {
                 const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
                 if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
                 if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
-                if (latestPriceEl) latestPriceEl.innerHTML = `<span class="text-indigo-600 animate-pulse text-sm font-bold">국토부 실시간 조회 중...</span>`;
+                if (latestPriceEl) latestPriceEl.innerHTML = `<span class="text-indigo-600 animate-pulse text-sm font-bold flex items-center gap-1.5"><div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block"></div>단지 최고가 수신 대기 중...</span>`;
                 if (prevPriceEl) prevPriceEl.textContent = '-';
                 if (latestDateEl) latestDateEl.textContent = '확인 중';
                 if (prevDateEl) prevDateEl.textContent = '확인 중';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-indigo-500 mt-2 animate-pulse';
-                    diffEl.textContent = `국토교통부 공공데이터 실거래 내역을 확인하고 있습니다...`;
+                    diffEl.textContent = `지도에 단지 최고가 패널이 로딩되는 즉시 실거래 정보가 자동 반영됩니다...`;
                 }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 내역 조회 중`;
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 정보 로딩 중`;
 
                 if (noDataOverlay) noDataOverlay.classList.add('hidden');
 
                 if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-indigo-500 text-xs font-bold"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block mr-2 align-middle"></div>국토교통부 실시간 실거래 정보 조회 중...</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-indigo-500 text-xs font-bold"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block mr-2 align-middle"></div>지도 단지 최고가 데이터 수신 중... 완료 시 실거래 내역이 자동 표시됩니다.</td></tr>`;
                 }
 
                 document.getElementById('miniTaxAcq').textContent = '계산 중...';
@@ -2941,8 +3006,12 @@
 
             // 🔥 클릭한 단지의 최고가 정보가 있으면 0초 만에 즉시 메뉴창에 표출!
             // 단지 내 정보가 없는 경우에도 '국토부 실시간 조회중' 스피너로 멈추지 않고 즉시 '정보 없음'으로 표출!
-            item.is_loading = false;
             updateDetailView(item, window.currentDetailTradeType, initialPyeong);
+
+            // 단지 최고가 수신 대기 중인 상태면, 지도 로딩이 끝난 후 정식 단지 정보로 조회하도록 비동기 호출 유예
+            if (item.is_region_waiting) {
+                return;
+            }
 
             // 국토교통부 공공데이터 실거래 API 중계 비동기 조회 및 UI 동기화
             try {
@@ -3492,6 +3561,12 @@
             const errorEl = document.getElementById('detailChartError');
             const noDataOverlay = document.getElementById('detailChartNoData');
 
+            if (item && item.is_region_waiting) {
+                if (loadingEl) loadingEl.classList.add('hidden');
+                if (noDataOverlay) noDataOverlay.classList.remove('hidden');
+                return;
+            }
+
             if (noDataOverlay) noDataOverlay.classList.add('hidden');
             if (loadingEl) loadingEl.classList.remove('hidden');
             if (errorEl) errorEl.classList.add('hidden');
@@ -4033,6 +4108,25 @@
                     // 🔥 클릭한 지점이 지도 위 단지 영역 내인지 주소 및 위치 기반 정밀 검증
                     const complexInArea = findComplexInClickedArea(latlng, targetDong, jibun, buildingName, roadAddress, nearby, detectedD);
 
+                    // 지도 최고가 패널/단지 데이터가 아직 로딩 중인 상태인지 확인
+                    const isWaitingRegion = (!complexInArea && (window.isRegionLoading || !window.allComplexList || window.allComplexList.length === 0));
+
+                    if (isWaitingRegion) {
+                        window.pendingMapClick = {
+                            latlng: latlng,
+                            targetDong: targetDong,
+                            jibun: jibun,
+                            buildingName: buildingName,
+                            roadAddress: roadAddress,
+                            nearbyApt: nearby,
+                            detectedDong: detectedD,
+                            clickLawdCd: clickLawdCd || currentLawdCd || '',
+                            timestamp: Date.now()
+                        };
+                    } else if (complexInArea) {
+                        window.pendingMapClick = null;
+                    }
+
                     let finalName = '';
                     let finalPropType = (matchedRealDeal && matchedRealDeal.prop_type) || 'apt';
                     let activePrice = 0;
@@ -4112,6 +4206,8 @@
                             const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
                             showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
                         }
+                    } else if (isWaitingRegion) {
+                        showToast(`⏳ <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">지도 최고가 패널 로딩이 완료되면 메뉴창에 실거래가가 자동으로 연동됩니다.</span>`);
                     } else if (complexInArea) {
                         const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
                         showToast(`🏢 <strong>${finalName}</strong>${dongNotice} 선택됨<br><span class="text-[11px] text-emerald-200">지도에 표시된 단지 최고가 실거래 정보가 메뉴창에 즉시 연동되었습니다.</span>`);
@@ -4139,7 +4235,8 @@
                         diff: activeDiff,
                         build_year: realYear || null,
                         official_pyeongs: officialPyeongs,
-                        is_loading: false
+                        is_loading: isWaitingRegion,
+                        is_region_waiting: isWaitingRegion
                     };
 
                     // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
@@ -4256,6 +4353,8 @@
                             const lawdCd = bCode.substring(0, 5);
                             const dongName = result[i].region_3depth_name;
                             const addressName = result[i].address_name;
+
+                            const isSameDong = (currentLawdCd === lawdCd && currentDongName === dongName && window.allComplexList && window.allComplexList.length > 0);
                             
                             currentLawdCd = lawdCd;
                             currentDongName = dongName;
@@ -4270,7 +4369,9 @@
                             if (shouldCloseDetail && !window.pendingComplexFocus && !currentSelectedItem) {
                                 closeApartmentDetail();
                             }
-                            fetchData(lawdCd, dongName);
+                            if (!isSameDong) {
+                                fetchData(lawdCd, dongName);
+                            }
                             break;
                         }
                     }
@@ -4279,6 +4380,7 @@
         }
 
         async function fetchData(lawdCd, dongName) {
+            window.isRegionLoading = true;
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
             const error = document.getElementById('error');
@@ -4317,6 +4419,7 @@
                 error.classList.remove('hidden');
             } finally {
                 loading.classList.add('hidden');
+                window.isRegionLoading = false;
             }
         }
 
