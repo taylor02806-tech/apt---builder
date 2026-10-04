@@ -1668,7 +1668,7 @@
             if (!map) return;
             const badgeEl = document.getElementById('zoomFilterBadge');
             if (badgeEl) {
-                badgeEl.textContent = `🏢 지도의 건물을 클릭하면 최고·최저가 시세가 표시됩니다.`;
+                badgeEl.textContent = `🏢 지도의 아파트나 건물을 클릭하면 상세 시세와 실거래 정보가 표시됩니다.`;
             }
 
             const soaringFiltered = rawDataStore.soaring || [];
@@ -1685,10 +1685,6 @@
         }
 
         function clearMapBadges() {
-            if (activeBuildingOverlay) {
-                activeBuildingOverlay.setMap(null);
-                activeBuildingOverlay = null;
-            }
             mapCustomOverlays.forEach(ov => ov.setMap(null));
             mapCustomOverlays = [];
             window.badgeItemStore = {};
@@ -3249,137 +3245,249 @@
             });
         }
 
-        // 1. 파이썬 등으로 미리 계산해둘 건물별 최고/최저가 정적 데이터 (테스트용 목업)
-        window.precompiledData = {
-            "진관동_25": { name: "은평뉴타운꿈에그린", high: 120000, low: 85000 },
-            "아현동_777": { name: "마포래미안푸르지오", high: 180000, low: 140000 },
-            "대치동_316": { name: "은마아파트", high: 280000, low: 220000 }
-        };
-
-        // 2. 현재 지도에 떠 있는 단일 팝업을 관리할 변수
-        let activeBuildingOverlay = null;
-
-        // 3. 지도 클릭 이벤트 (기존 click 이벤트 리스너를 이걸로 교체)
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            const latlng = mouseEvent.latLng;
+            const latlng = mouseEvent.latLng; 
             currentLatLng = latlng;
+            marker.setPosition(latlng);
+            marker.setMap(map);
             const roadviewBtn = document.getElementById('floatingRoadviewBtn');
             if (roadviewBtn) roadviewBtn.classList.remove('hidden');
 
-            // 다른 곳을 클릭하면 기존 팝업 제거 (과부하 완벽 방지)
-            if (activeBuildingOverlay) {
-                activeBuildingOverlay.setMap(null);
-                activeBuildingOverlay = null;
-            }
-
-            // 클릭한 위치의 법정동과 지번 추출
-            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(result, status) {
-                if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                    const address = result[0].address;
-                    const dong = address.region_3depth_name; // 예: 아현동
-                    const mainNo = address.main_address_no; // 본번
-                    const subNo = address.sub_address_no ? '-' + address.sub_address_no : ''; // 부번
-                    const jibun = mainNo + subNo;
-
-                    // 키 조합 (예: "아현동_777")
-                    const lookupKey = `${dong}_${jibun}`;
-                    const buildingInfo = window.precompiledData[lookupKey];
-
-                    if (buildingInfo) {
-                        showBuildingPopup(latlng, buildingInfo);
-                    } else {
-                        // 데이터가 없는 건물을 클릭했을 때 가벼운 토스트 알림
-                        showToast(`🏢 해당 지번(${lookupKey})의 실거래 정보가 없습니다.`);
-                    }
-                }
-            });
+            handleMapClickLocation(latlng);
         });
 
-        // 4. 클릭한 위치에 단일 팝업을 띄우는 함수
-        function showBuildingPopup(latlng, info) {
-            const content = `
-                <div class="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-[200px] mb-4 pointer-events-auto">
-                    <div class="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
-                        <div>
-                            <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">단지/건물 시세</span>
-                            <h3 class="font-black text-slate-900 text-sm mt-1 truncate max-w-[150px] cursor-pointer hover:text-indigo-600" onclick="window.onBuildingPopupClick('${info.name}')" title="상세 정보 보기">${info.name}</h3>
-                        </div>
-                        <button onclick="event.stopPropagation(); closeBuildingPopup();" class="text-slate-400 hover:text-slate-600 bg-slate-50 rounded-lg p-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="text-red-500 font-extrabold flex items-center gap-1">🔴 최고가</span>
-                            <span class="font-black text-slate-800 text-sm">${formatPrice(info.high)}</span>
-                        </div>
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="text-blue-500 font-extrabold flex items-center gap-1">🔵 최저가</span>
-                            <span class="font-black text-slate-800 text-sm">${formatPrice(info.low)}</span>
-                        </div>
-                    </div>
-                    <!-- 말풍선 꼬리 -->
-                    <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-200 rotate-45"></div>
-                </div>
-            `;
-
-            activeBuildingOverlay = new kakao.maps.CustomOverlay({
-                position: latlng,
-                content: content,
-                yAnchor: 1.0,
-                zIndex: 1500,
-                clickable: true
-            });
-
-            activeBuildingOverlay.setMap(map);
-            map.panTo(latlng); // 클릭한 마커 위치로 부드럽게 지도 이동
+        function extractDongFromText(str) {
+            if (!str) return '';
+            // 1. 단지 동 범위 (예: (916~928동), (223~244동)BL2-7, 916-928동) 제거
+            let cleaned = str.replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, ' ');
+            cleaned = cleaned.replace(/\b\d+\s*[-~]\s*\d+동\b/g, ' ');
+            // 2. 단일 특정 동 번호 (예: 924동, 101동, 101-1동, 제101동, A동) 추출
+            const m = cleaned.match(/(?:제\s*)?(\b[A-Z0-9]+(?:-\d+)?동\b|\b\d+동\b)/);
+            if (m) {
+                return m[1];
+            }
+            // 3. 5개 동 이하 소규모 밀집 건물군 (예: (201~203동))인 경우 시작 동 번호 채택
+            const rangeMatch = str.match(/\(?(\d+)\s*[-~]\s*(\d+)동\)?/);
+            if (rangeMatch) {
+                const start = parseInt(rangeMatch[1], 10);
+                const end = parseInt(rangeMatch[2], 10);
+                if (end - start <= 5) {
+                    return `${start}동`;
+                }
+            }
+            return '';
         }
 
-        // 5. 팝업 닫기 전역 함수
-        window.closeBuildingPopup = function() {
-            if (activeBuildingOverlay) {
-                activeBuildingOverlay.setMap(null);
-                activeBuildingOverlay = null;
-            }
-        };
-
-        window.onBuildingPopupClick = function(name) {
-            const allItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
-            const matched = allItems.find(it => it.name === name || it.name.includes(name) || name.includes(it.name));
-            if (matched) {
-                showApartmentDetail(matched);
-            } else {
-                const info = Object.values(window.precompiledData || {}).find(v => v.name === name);
-                showApartmentDetail({
-                    name: name,
-                    complex_name: name,
-                    latest_price: (info && info.high) || 0,
-                    previous_price: (info && info.low) || 0,
-                    diff: (info && (info.high - info.low)) || 0
-                });
-            }
-        };
-
         function handleMapClickLocation(latlng, hintQuery = '') {
-            if (activeBuildingOverlay) {
-                activeBuildingOverlay.setMap(null);
-                activeBuildingOverlay = null;
-            }
-            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(result, status) {
-                if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                    const address = result[0].address;
-                    const dong = address.region_3depth_name;
-                    const mainNo = address.main_address_no;
-                    const subNo = address.sub_address_no ? '-' + address.sub_address_no : '';
-                    const jibun = mainNo + subNo;
-                    const lookupKey = `${dong}_${jibun}`;
-                    const buildingInfo = window.precompiledData[lookupKey];
-                    if (buildingInfo) {
-                        showBuildingPopup(latlng, buildingInfo);
-                    } else {
-                        showToast(`🏢 해당 지번(${lookupKey})의 실거래 정보가 없습니다.`);
-                    }
+            // 1. 역지오코딩으로 지번 및 건물명 추출
+            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
+                const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
+                const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
+
+                let clickLawdCd = '';
+                if (addr && addr.b_code) {
+                    clickLawdCd = addr.b_code.substring(0, 5);
+                    currentLawdCd = clickLawdCd;
                 }
+
+                const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
+                const mainNo = addr ? addr.main_address_no : '';
+                const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
+                const jibun = mainNo + subNo;
+                const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
+
+                // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 우선 검색
+                const allStoreDeals = (rawDataStore.items || []).concat(
+                    rawDataStore.soaring || [],
+                    rawDataStore.plunging || [],
+                    (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
+                );
+
+                const matchedRealDeal = allStoreDeals.find(d => {
+                    const dDong = d.dong || targetDong;
+                    if (targetDong && dDong && targetDong !== dDong) return false;
+                    const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
+                    if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === mainNo)) return true;
+                    if (buildingName) {
+                        const cleanB = buildingName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                        const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
+                        if (cleanB && cleanD && (cleanB === cleanD || cleanB.includes(cleanD) || cleanD.includes(cleanB))) return true;
+                    }
+                    return false;
+                });
+
+                // 3. 지점 주변 건물 동 번호(예: 924동, 101동) 및 주거시설 POI 정밀 추출 (정규식 버그 방지 & 반경 95m 정밀 거리순)
+                let detectedDong = extractDongFromText(buildingName);
+                let nearbyApt = null;
+                const complexQuery = (matchedRealDeal && matchedRealDeal.name) || (buildingName ? buildingName.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
+
+                function proceedWithDetectedInfo(finalDetectedDong, foundNearbyApt) {
+                    const nearby = foundNearbyApt;
+                    let detectedD = finalDetectedDong;
+
+                    const isAptByName = buildingName && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|파크|팰리스|우성|현대|한신|삼호|주공)/.test(buildingName);
+                    const isAptByPlace = nearby && (nearby.place_name.includes('아파트') || (nearby.category_name && nearby.category_name.includes('아파트')));
+                    const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
+                    const isApartment = (matchedRealDeal && matchedRealDeal.prop_type === 'apt') || isAptByName || isAptByPlace || isAptByHint;
+
+                    let finalName = '';
+                    let finalPropType = (matchedRealDeal && matchedRealDeal.prop_type) || 'apt';
+
+                    if (matchedRealDeal) {
+                        finalName = matchedRealDeal.name;
+                    } else if (isApartment) {
+                        finalName = (nearby ? nearby.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
+                        if (!detectedD) {
+                            detectedD = extractDongFromText(finalName);
+                        }
+                        finalName = finalName.replace(/\s*\d+동.*$/, '').replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, '').trim();
+                        finalPropType = 'apt';
+                    } else if (buildingName && buildingName.includes('오피스텔')) {
+                        finalName = buildingName;
+                        finalPropType = 'officetel';
+                    } else if (buildingName && /(빌라|연립|다세대|맨션)/.test(buildingName)) {
+                        finalName = buildingName;
+                        finalPropType = 'rowhouse';
+                    } else {
+                        finalName = buildingName || (jibun ? `${targetDong} ${jibun} 단독주택` : `${targetDong} 주택`);
+                        finalPropType = 'singlehouse';
+                    }
+
+                    // 4. 부동산 유형 라디오 버튼 지능형 자동 동기화
+                    const currentPropChecked = document.querySelector('input[name="prop_type"]:checked')?.value;
+                    if (finalPropType !== currentPropChecked) {
+                        const targetRadio = document.getElementById(`prop_${finalPropType}`);
+                        if (targetRadio) {
+                            targetRadio.checked = true;
+                            const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
+                            const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
+                            showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
+                        }
+                    } else if (detectedD) {
+                        showToast(`🏢 <strong>${finalName} ${detectedD}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedD} 정보와 단지 실거래가가 자동 연동되었습니다.</span>`);
+                    } else if (finalPropType === 'apt') {
+                        showToast(`🏢 <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">포털에 개별 동 미등록 단지 - 대표 평형 실거래가로 연동되었습니다.</span>`);
+                    }
+
+                    const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
+                    const clickedItem = {
+                        name: finalName,
+                        complex_name: finalName,
+                        building_dong: detectedD || '',
+                        road_address: roadAddr ? (roadAddr.address_name + (roadAddr.building_name ? ' ' + roadAddr.building_name : '')) : '',
+                        dong: targetDong,
+                        jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
+                        lawd_cd: clickLawdCd || currentLawdCd || '',
+                        prop_type: finalPropType,
+                        area: (matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'),
+                        latest_price: (matchedRealDeal && matchedRealDeal.latest_price) || 0,
+                        previous_price: (matchedRealDeal && matchedRealDeal.previous_price) || 0,
+                        latest_date: (matchedRealDeal && matchedRealDeal.latest_date) || '',
+                        previous_date: (matchedRealDeal && matchedRealDeal.previous_date) || '',
+                        diff: (matchedRealDeal && matchedRealDeal.diff) || 0,
+                        build_year: realYear || null
+                    };
+
+                    // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
+                    if (isBuildingAgeActive) {
+                        const ageInfo = getBuildingAgeInfo(clickedItem);
+                        if (ageInfo) {
+                            createAgeDotOverlay(latlng, clickedItem, ageInfo);
+                        }
+                    }
+
+                    // 6. 클릭한 건물 상세 패널 즉시 오픈 & 공공데이터 실거래 API 중계 호출
+                    window.pendingClickedItem = clickedItem;
+                    showApartmentDetail(clickedItem);
+
+                    // 7. 법정동 실거래가 데이터 갱신
+                    fetchRegionInfo(latlng, false);
+                }
+
+                // 3. 지점 주변 건물 동 번호(예: 105동, 924동) 정밀 탐색 3단계 파이프라인
+                // [1단계]: 카카오 세부 카테고리 '아파트 동' 키워드로 반경 85m 거리순(DISTANCE) 최우선 검색
+                places.keywordSearch('아파트 동', function(pResult, pStatus) {
+                    if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
+                        const sortedP = pResult.map(p => {
+                            const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                            return { ...p, dist };
+                        }).sort((a, b) => a.dist - b.dist);
+
+                        for (let i = 0; i < sortedP.length; i++) {
+                            const p = sortedP[i];
+                            if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                            if (p.dist <= 85) {
+                                const foundDong = extractDongFromText(p.place_name);
+                                if (foundDong) {
+                                    detectedDong = foundDong;
+                                    nearbyApt = p;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 1단계에서 동을 찾았으면 즉시 상세 패널 오픈
+                    if (detectedDong) {
+                        proceedWithDetectedInfo(detectedDong, nearbyApt);
+                        return;
+                    }
+
+                    // [2단계]: '아파트 동' 키워드에 없는 경우, '아파트' 키워드로 반경 95m 거리순 탐색
+                    places.keywordSearch('아파트', function(aResult, aStatus) {
+                        if (aStatus === kakao.maps.services.Status.OK && aResult && aResult.length > 0) {
+                            const sortedA = aResult.map(p => {
+                                const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                                return { ...p, dist };
+                            }).sort((a, b) => a.dist - b.dist);
+
+                            for (let i = 0; i < sortedA.length; i++) {
+                                const p = sortedA[i];
+                                if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                                if (p.dist <= 85) {
+                                    const foundDong = extractDongFromText(p.place_name);
+                                    if (foundDong) {
+                                        detectedDong = foundDong;
+                                        nearbyApt = p;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        const targetComplexQuery = complexQuery || (nearbyApt ? nearbyApt.place_name.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
+
+                        // 2단계에서 동을 찾았거나 단지 검색어가 없으면 완료
+                        if (detectedDong || !targetComplexQuery || targetComplexQuery.length < 2) {
+                            proceedWithDetectedInfo(detectedDong, nearbyApt);
+                            return;
+                        }
+
+                        // [3단계]: 단지명이 파악된 경우 단지명으로 반경 95m 3차 정밀 거리순 검색
+                        places.keywordSearch(targetComplexQuery, function(cResult, cStatus) {
+                            if (cStatus === kakao.maps.services.Status.OK && cResult && cResult.length > 0) {
+                                const sortedC = cResult.map(p => {
+                                    const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                                    return { ...p, dist };
+                                }).sort((a, b) => a.dist - b.dist);
+
+                                for (let i = 0; i < sortedC.length; i++) {
+                                    const p = sortedC[i];
+                                    if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                                    if (p.dist <= 85) {
+                                        const foundDong = extractDongFromText(p.place_name);
+                                        if (foundDong) {
+                                            detectedDong = foundDong;
+                                            nearbyApt = p;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            proceedWithDetectedInfo(detectedDong, nearbyApt);
+                        }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
+                    }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
+                }, { location: latlng, radius: 85, sort: kakao.maps.services.SortBy.DISTANCE });
             });
         }
 
@@ -3445,31 +3553,6 @@
                 if (data.items) registerBuildingYears(data.items);
                 if (data.soaring) registerBuildingYears(data.soaring);
                 if (data.plunging) registerBuildingYears(data.plunging);
-
-                // 검색된 데이터를 가벼운 precompiledData 인메모리 객체에 동기화 (마커 렌더링 없이 클릭 조회 지원)
-                const allDeals = (data.items || []).concat(data.soaring || [], data.plunging || []);
-                allDeals.forEach(it => {
-                    const d = it.dong || dongName || '';
-                    const j = (it.jibun || '').replace(/[*~]+/g, '').trim();
-                    if (d && j) {
-                        const key = `${d}_${j}`;
-                        const p = it.latest_price || it.price || 0;
-                        if (p > 0) {
-                            if (!window.precompiledData[key]) {
-                                window.precompiledData[key] = {
-                                    name: it.name,
-                                    high: p,
-                                    low: it.previous_price || p
-                                };
-                            } else {
-                                window.precompiledData[key].high = Math.max(window.precompiledData[key].high, p);
-                                if (it.previous_price) {
-                                    window.precompiledData[key].low = Math.min(window.precompiledData[key].low, it.previous_price);
-                                }
-                            }
-                        }
-                    }
-                });
 
                 applyClientFilters(true);
                 results.classList.remove('hidden');
