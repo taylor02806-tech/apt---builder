@@ -1546,14 +1546,11 @@
                 }
                 if (legend) legend.classList.remove('hidden');
 
-                // 개별 연립주택 및 건물이 선명하게 보이는 줌 레벨(5)로 부드럽게 이동
+                // 개별 건물이 선명하게 보이는 줌 레벨(5)로 부드럽게 이동
                 if (map && map.getLevel() > 6) {
                     map.setLevel(5, { animate: true });
                 }
-
-                renderBuildingAgeDots();
-                loadNeighborhoodRowhousesForAge();
-                searchViewportRowhouses();
+                showToast('🏢 건물 노후도 모드: 지도의 건물을 클릭하면 시세와 준공 정보를 확인하실 수 있습니다.');
             } else {
                 if (btn) {
                     btn.classList.remove('bg-pink-500', 'text-white', 'border-pink-600');
@@ -1654,286 +1651,28 @@
             buildingAgeOverlays.push(overlay);
         }
 
-        // 실제 단지 및 개별 연립주택 위치 기반 연식 점 렌더링
-        function renderBuildingAgeDots() {
-            clearBuildingAgeDots();
-            if (!isBuildingAgeActive || !map) return;
-
-            const bounds = map.getBounds();
-            if (!bounds) return;
-
-            // 지도 줌 레벨이 7 초과(광역 상태)일 때는 과도한 점 렌더링 방지
-            if (map.getLevel() > 7) return;
-
-            const targetDong = currentDongName || currentAddressName || '';
-
-            let sourceList = (rawDataStore.items || []).concat(
-                rawDataStore.soaring || [],
-                rawDataStore.plunging || []
-            );
-
-            // 해당 법정동의 연립주택 데이터가 캐시되어 있으면 병합하여 각각의 연립주택에 점 표시
-            if (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) {
-                sourceList = sourceList.concat(window.rowhouseAgeStore[targetDong]);
-            }
-
-            // 개별 연립주택/건물 지번(jibun) 단위 중복 제거
-            const uniqueMap = new Map();
-            sourceList.forEach(item => {
-                const dong = item.dong || targetDong || '';
-                const key = item.jibun ? `${dong}_${item.jibun}_${item.name}` : `${dong}_${item.name}`;
-                if (!uniqueMap.has(key)) {
-                    uniqueMap.set(key, item);
-                }
-            });
-
-            uniqueMap.forEach((item, key) => {
-                const ageInfo = getBuildingAgeInfo(item);
-                if (!ageInfo) return;
-
-                // 캐시된 좌표가 있으면 bounds 검사 후 즉시 점 생성
-                if (window.complexCoordCache && window.complexCoordCache[key]) {
-                    const pos = window.complexCoordCache[key];
-                    if (bounds.contain(pos)) {
-                        createAgeDotOverlay(pos, item, ageInfo);
-                    }
-                    return;
-                }
-
-                // 개별 연립주택의 정확한 지번 주소로 좌표 검색
-                const dong = item.dong || targetDong;
-                const searchQuery = item.jibun ? `${dong} ${item.jibun}` : `${dong} ${item.name}`;
-                geocoder.addressSearch(searchQuery, function(result, status) {
-                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                        const pos = new kakao.maps.LatLng(result[0].y, result[0].x);
-                        window.complexCoordCache[key] = pos;
-                        if (map.getBounds() && map.getBounds().contain(pos)) {
-                            createAgeDotOverlay(pos, item, ageInfo);
-                        }
-                    } else {
-                        places.keywordSearch(`${dong} ${item.name}`, function(pResult, pStatus) {
-                            if (pStatus === kakao.maps.services.Status.OK && pResult.length > 0) {
-                                const pos = new kakao.maps.LatLng(pResult[0].y, pResult[0].x);
-                                window.complexCoordCache[key] = pos;
-                                if (map.getBounds() && map.getBounds().contain(pos)) {
-                                    createAgeDotOverlay(pos, item, ageInfo);
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-        }
-
-        // 노후도 레이어 활성화 시 해당 동의 연립·다세대 및 단독·다가구 실거래 데이터 비동기 조회
-        async function loadNeighborhoodRowhousesForAge() {
-            if (!isBuildingAgeActive) return;
-            const targetDong = currentDongName || '';
-            const lawdCd = currentLawdCd;
-            if (!lawdCd || !targetDong) return;
-
-            window.rowhouseAgeStore = window.rowhouseAgeStore || {};
-            if (window.rowhouseAgeStore[targetDong]) {
-                renderBuildingAgeDots();
-                return;
-            }
-
-            try {
-                const startEl = document.getElementById('startMonth');
-                const endEl = document.getElementById('endMonth');
-                const startMonth = startEl ? startEl.value.replace('-', '') : '202201';
-                const endMonth = endEl ? endEl.value.replace('-', '') : '202412';
-                
-                const urlRowhouse = `/api/rankings?lawd_cd=${lawdCd}&prop_type=rowhouse&trade_type=sale&scope=dong&dong_name=${encodeURIComponent(targetDong)}&start_month=${startMonth}&end_month=${endMonth}`;
-                const urlSinglehouse = `/api/rankings?lawd_cd=${lawdCd}&prop_type=singlehouse&trade_type=sale&scope=dong&dong_name=${encodeURIComponent(targetDong)}&start_month=${startMonth}&end_month=${endMonth}`;
-
-                const [resRh, resSh] = await Promise.allSettled([fetch(urlRowhouse), fetch(urlSinglehouse)]);
-                let combined = [];
-
-                if (resRh.status === 'fulfilled' && resRh.value.ok) {
-                    const dataRh = await resRh.value.json();
-                    if (dataRh && dataRh.items) {
-                        dataRh.items.forEach(it => { it.prop_type = 'rowhouse'; });
-                        combined = combined.concat(dataRh.items);
-                    }
-                }
-
-                if (resSh.status === 'fulfilled' && resSh.value.ok) {
-                    const dataSh = await resSh.value.json();
-                    if (dataSh && dataSh.items) {
-                        dataSh.items.forEach(it => { it.prop_type = 'singlehouse'; });
-                        combined = combined.concat(dataSh.items);
-                    }
-                }
-
-                if (combined.length > 0) {
-                    registerBuildingYears(combined);
-                    window.rowhouseAgeStore[targetDong] = combined;
-                    if (isBuildingAgeActive) {
-                        renderBuildingAgeDots();
-                    }
-                }
-            } catch (e) {
-                console.warn('[loadNeighborhoodRowhousesForAge] Error:', e);
-            }
-        }
-
-        // 현재 화면 뷰포트 내의 개별 연립주택/빌라/주택 다중 페이지 탐색 및 점 표시
-        function searchViewportRowhouses() {
-            if (!isBuildingAgeActive || !map || map.getLevel() > 6) return;
-            const bounds = map.getBounds();
-            if (!bounds) return;
-
-            const keywords = ['빌라', '연립주택', '맨션', '다세대', '주택', '아파트'];
-            keywords.forEach(kw => {
-                let pageCount = 1;
-                function handlePlaces(results, status, pagination) {
-                    if (status === kakao.maps.services.Status.OK && results) {
-                        results.forEach(place => {
-                            const pos = new kakao.maps.LatLng(place.y, place.x);
-                            const dong = currentDongName || (place.address_name ? place.address_name.split(' ')[2] : '') || '';
-                            const jibunMatch = place.address_name ? place.address_name.match(/(\d+(-\d+)?)$/) : null;
-                            const jibun = jibunMatch ? jibunMatch[1] : '';
-                            const complexKey = jibun ? `${dong}_${jibun}_${place.place_name}` : `${dong}_${place.place_name}`;
-
-                            window.activeAgeDotKeys = window.activeAgeDotKeys || new Set();
-                            if (window.activeAgeDotKeys.has(complexKey)) return;
-
-                            const isApt = place.place_name.includes('아파트') || (place.category_name && place.category_name.includes('아파트'));
-                            const isOffi = place.place_name.includes('오피스텔');
-                            const isRow = place.place_name.includes('빌라') || place.place_name.includes('연립') || place.place_name.includes('다세대') || place.place_name.includes('맨션');
-                            const isSingle = !isApt && !isOffi && !isRow && (place.place_name.includes('단독') || place.place_name.includes('주택'));
-                            const detectedPropType = isApt ? 'apt' : (isOffi ? 'officetel' : (isRow ? 'rowhouse' : (isSingle ? 'singlehouse' : 'rowhouse')));
-
-                            const realYear = findRealBuildYear(dong, jibun, place.place_name);
-
-                            const allDeals = (rawDataStore.items || []).concat(
-                                rawDataStore.soaring || [],
-                                rawDataStore.plunging || [],
-                                (window.rowhouseAgeStore && window.rowhouseAgeStore[dong]) || []
-                            );
-                            const realMatch = allDeals.find(d => {
-                                const dDong = d.dong || dong;
-                                if (dong && dDong && dong !== dDong) return false;
-                                const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
-                                if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === jibun.split('-')[0])) return true;
-                                const cleanP = place.place_name.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
-                                const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
-                                return cleanP && cleanD && (cleanP === cleanD || cleanP.includes(cleanD) || cleanD.includes(cleanP));
-                            });
-
-                            const item = {
-                                name: (realMatch && realMatch.name) || place.place_name,
-                                dong: dong,
-                                jibun: jibun || (realMatch && realMatch.jibun) || '',
-                                prop_type: (realMatch && realMatch.prop_type) || detectedPropType,
-                                area: (realMatch && realMatch.area) || (isApt ? '84' : '60'),
-                                latest_price: (realMatch && realMatch.latest_price) || 0,
-                                previous_price: (realMatch && realMatch.previous_price) || 0,
-                                latest_date: (realMatch && realMatch.latest_date) || '',
-                                previous_date: (realMatch && realMatch.previous_date) || '',
-                                diff: (realMatch && realMatch.diff) || 0,
-                                build_year: (realMatch && realMatch.build_year) || realYear || null
-                            };
-
-                            const ageInfo = getBuildingAgeInfo(item);
-                            if (ageInfo) {
-                                createAgeDotOverlay(pos, item, ageInfo);
-                            }
-                        });
-
-                        // 최대 3페이지(최대 45개 POI)까지 연속 탐색하여 빈틈없이 건물 점 배치
-                        if (pagination && pagination.hasNextPage && pageCount < 3) {
-                            pageCount++;
-                            pagination.nextPage();
-                        }
-                    }
-                }
-                places.keywordSearch(kw, handlePlaces, { bounds: bounds, size: 15 });
-            });
-        }
+        // 🔥 [성능 최적화]: 브라우저 프리징과 API 호출 한도 초과를 유발하는 무거운 일괄 마커 렌더링 제거
+        function renderBuildingAgeDots() { return; }
+        function loadNeighborhoodRowhousesForAge() { return; }
+        function searchViewportRowhouses() { return; }
 
         let idleTimer = null;
         kakao.maps.event.addListener(map, 'idle', function() {
             if (idleTimer) clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
                 currentLatLng = map.getCenter();
-                applyClientFilters();
-                if (isBuildingAgeActive) {
-                    renderBuildingAgeDots();
-                    searchViewportRowhouses();
-                }
             }, 300);
         });
 
-        let lastFilterState = {
-            level: null,
-            centerLat: null,
-            centerLng: null,
-            threshold: null,
-            dataHash: ''
-        };
-
         function applyClientFilters(force = false) {
             if (!map) return;
-            const bounds = map.getBounds();
-            if (!bounds) return;
-
-            const sw = bounds.getSouthWest();
-            const ne = bounds.getNorthEast();
-            const span = Math.max(ne.getLng() - sw.getLng(), ne.getLat() - sw.getLat());
-            const currentLevel = map.getLevel();
-            const center = map.getCenter();
-            const currentLat = center.getLat();
-            const currentLng = center.getLng();
-            
             const badgeEl = document.getElementById('zoomFilterBadge');
-            let minPriceThreshold = 0;
-            let zoomText = '';
-
-            if (isBuildingAgeActive) {
-                minPriceThreshold = 0;
-                zoomText = `🏢 연립주택·빌라 및 단지별 노후도(연식) 점 표시 중 (클릭 시 상세 정보)`;
-            } else if (span >= 0.1) {
-                minPriceThreshold = 180000;
-                zoomText = `🔍 광역 축소 상태 (18억 이상 단지별 최고가 표시)`;
-            } else if (span >= 0.04) {
-                minPriceThreshold = 120000;
-                zoomText = `🔍 중간 줌 상태 (12억 이상 단지별 최고가 표시)`;
-            } else {
-                minPriceThreshold = 0;
-                zoomText = `🏢 아파트 단지별 최고가 표시 중`;
+            if (badgeEl) {
+                badgeEl.textContent = `🏢 지도의 건물을 클릭하면 최고·최저가 시세가 표시됩니다.`;
             }
 
-            if (badgeEl) badgeEl.textContent = zoomText;
-
-            const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}|${(rawDataStore.items || []).length}`;
-            const latDiff = lastFilterState.centerLat ? Math.abs(currentLat - lastFilterState.centerLat) : 999;
-            const lngDiff = lastFilterState.centerLng ? Math.abs(currentLng - lastFilterState.centerLng) : 999;
-            const isLevelChanged = lastFilterState.level !== currentLevel;
-            const isThresholdChanged = lastFilterState.threshold !== minPriceThreshold;
-            const isDataChanged = lastFilterState.dataHash !== currentDataHash;
-            const isCenterMoved = latDiff > 0.0002 || lngDiff > 0.0002;
-
-            if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved) {
-                return;
-            }
-
-            lastFilterState = {
-                level: currentLevel,
-                centerLat: currentLat,
-                centerLng: currentLng,
-                threshold: minPriceThreshold,
-                dataHash: currentDataHash
-            };
-
-            const filterList = (list) => {
-                if (!list) return [];
-                return list.filter(item => item.latest_price >= minPriceThreshold);
-            };
-
-            const soaringFiltered = filterList(rawDataStore.soaring || []);
-            const plungingFiltered = filterList(rawDataStore.plunging || []);
+            const soaringFiltered = rawDataStore.soaring || [];
+            const plungingFiltered = rawDataStore.plunging || [];
 
             renderChart('soaring', soaringFiltered.slice(0, 3));
             renderChart('plunging', plungingFiltered.slice(0, 3));
@@ -1941,123 +1680,15 @@
             clearMapBadges();
 
             const sourceList = rawDataStore.items || [...soaringFiltered, ...plungingFiltered];
-            const complexMap = new Map();
-            const dongMaxPriceMap = new Map();
-
-            sourceList.forEach(item => {
-                const targetDong = item.dong || currentDongName || '';
-                const complexKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
-
-                const currentDongMax = dongMaxPriceMap.get(targetDong) || 0;
-                if (item.latest_price > currentDongMax) {
-                    dongMaxPriceMap.set(targetDong, item.latest_price);
-                }
-
-                if (!complexMap.has(complexKey)) {
-                    if (!item.build_year) {
-                        item.build_year = findRealBuildYear(targetDong, item.jibun, item.name);
-                    }
-                    complexMap.set(complexKey, item);
-                } else {
-                    const existing = complexMap.get(complexKey);
-                    const resolvedBuildYear = item.build_year || existing.build_year || findRealBuildYear(targetDong, item.jibun, item.name);
-                    if (item.latest_price > existing.latest_price) {
-                        item.build_year = resolvedBuildYear;
-                        complexMap.set(complexKey, item);
-                    } else {
-                        existing.build_year = resolvedBuildYear;
-                    }
-                }
-            });
-
-            let complexList = Array.from(complexMap.values());
-            complexList.sort((a, b) => b.latest_price - a.latest_price);
-
-            complexList.forEach(item => {
-                const targetDong = item.dong || currentDongName || '';
-                item.isDongLeader = (item.latest_price >= (dongMaxPriceMap.get(targetDong) || 0));
-            });
-
-            const highestFiltered = filterList(complexList);
-            renderChart('highest', highestFiltered.length > 0 ? highestFiltered.slice(0, 3) : complexList.slice(0, 3));
-
-            let mapDisplayList = filterList(complexList);
-            if (mapDisplayList.length === 0) {
-                mapDisplayList = complexList;
-            }
-            const maxBadges = (span >= 0.04) ? 40 : 80;
-            createMapBadges(mapDisplayList.slice(0, maxBadges));
-
-            // 지도 클릭 또는 검색으로 단지 포커스가 예약된 경우 상세 정보 자동 활성화
-            if (window.pendingComplexFocus || window.pendingClickedItem) {
-                const searchItem = window.pendingClickedItem;
-                const targetDong = (searchItem && searchItem.dong) || currentDongName || '';
-                const searchJibun = (searchItem && searchItem.jibun ? searchItem.jibun.replace(/[*~]+/g, '').trim() : '');
-                const searchMainJibun = searchJibun ? searchJibun.split('-')[0] : '';
-                const rawSearchName = window.pendingComplexFocus || (searchItem && searchItem.name) || '';
-                const cleanTarget = rawSearchName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
-
-                const allItems = (rawDataStore.items || []).concat(
-                    rawDataStore.soaring || [],
-                    rawDataStore.plunging || [],
-                    (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
-                );
-
-                // 1순위: 법정동 + 지번 완전 일치 (동일 번지 실거래 데이터)
-                let matched = null;
-                if (searchJibun) {
-                    matched = allItems.find(c => {
-                        const cDong = c.dong || targetDong;
-                        if (targetDong && cDong && targetDong !== cDong) return false;
-                        const cJibun = (c.jibun || '').replace(/[*~]+/g, '').trim();
-                        return cJibun && cJibun === searchJibun;
-                    });
-                }
-
-                // 2순위: 법정동 + 본번 일치 (대단지 아파트 등 부번 차이 매칭)
-                if (!matched && searchMainJibun) {
-                    matched = allItems.find(c => {
-                        const cDong = c.dong || targetDong;
-                        if (targetDong && cDong && targetDong !== cDong) return false;
-                        const cJibun = (c.jibun || '').replace(/[*~]+/g, '').trim();
-                        return cJibun && cJibun.split('-')[0] === searchMainJibun;
-                    });
-                }
-
-                // 3순위: 단지명/건물명 정규화 일치
-                if (!matched && cleanTarget) {
-                    matched = complexList.find(c => {
-                        const cDong = c.dong || targetDong;
-                        if (targetDong && cDong && targetDong !== cDong) return false;
-                        const cName = (c.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
-                        return cName && (cName === cleanTarget || cName.includes(cleanTarget) || cleanTarget.includes(cName));
-                    }) || allItems.find(c => {
-                        const cDong = c.dong || targetDong;
-                        if (targetDong && cDong && targetDong !== cDong) return false;
-                        const cName = (c.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '').trim();
-                        return cName && (cName === cleanTarget || cName.includes(cleanTarget) || cleanTarget.includes(cName));
-                    });
-                }
-
-                if (matched) {
-                    if (window.pendingClickedItem) {
-                        if (window.pendingClickedItem.building_dong) {
-                            matched.building_dong = window.pendingClickedItem.building_dong;
-                        }
-                        if (window.pendingClickedItem.road_address) {
-                            matched.road_address = window.pendingClickedItem.road_address;
-                        }
-                    }
-                    showApartmentDetail(matched);
-                } else if (window.pendingClickedItem) {
-                    showApartmentDetail(window.pendingClickedItem);
-                }
-                window.pendingComplexFocus = null;
-                window.pendingClickedItem = null;
-            }
+            const sortedList = [...sourceList].sort((a, b) => (b.latest_price || 0) - (a.latest_price || 0));
+            renderChart('highest', sortedList.slice(0, 3));
         }
 
         function clearMapBadges() {
+            if (activeBuildingOverlay) {
+                activeBuildingOverlay.setMap(null);
+                activeBuildingOverlay = null;
+            }
             mapCustomOverlays.forEach(ov => ov.setMap(null));
             mapCustomOverlays = [];
             window.badgeItemStore = {};
@@ -2065,196 +1696,12 @@
         }
 
         function createMapBadges(dataList) {
-            if (!dataList || dataList.length === 0) return;
-
-            dataList.forEach((item, index) => {
-                const badgeKey = `complex_${index}`;
-                window.badgeItemStore[badgeKey] = item;
-
-                const targetDong = item.dong || currentDongName || currentAddressName;
-                const searchQuery = item.jibun ? `${targetDong} ${item.jibun}` : `${targetDong} ${item.name}`;
-
-                const tryRenderBadge = (position) => {
-                    if (!position) return;
-
-                    const pyeong = Math.round(parseFloat(item.area) / 3.3058) || '';
-                    const pyeongText = pyeong ? `${pyeong}평` : `${item.area}㎡`;
-                    
-                    const isUp = item.diff > 0;
-                    const isDown = item.diff < 0;
-                    const headerBg = isUp ? 'bg-[#ef4444]' : (isDown ? 'bg-[#2563eb]' : 'bg-[#475569]');
-                    const diffColor = isUp ? 'text-red-500' : (isDown ? 'text-blue-500' : 'text-slate-500');
-                    const diffText = isUp ? `+${formatPrice(item.diff)}` : (isDown ? `-${formatPrice(Math.abs(item.diff))}` : '보합');
-
-                    const ageInfo = getBuildingAgeInfo(item);
-                    const displayName = getBuildingDisplayName(item);
-
-                    const coordKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
-                    window.complexCoordCache = window.complexCoordCache || {};
-                    window.complexCoordCache[coordKey] = position;
-
-                    const leaderTagHtml = item.isDongLeader
-                        ? `<div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
-                               👑 ${item.dong ? item.dong + ' 1위' : '최고가'}
-                           </div>`
-                        : `<div class="bg-[#4f46e5] text-white text-[9px] font-bold px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
-                               🏢 최고가
-                           </div>`;
-
-                    const dongNameTag = item.isDongLeader
-                        ? `👑 ${item.dong ? item.dong + ' 1위' : '동 최고가'}`
-                        : `🏢 ${item.dong || ''} 최고가`;
-
-                    const markerHtml = `
-                        <div class="custom-overlay-group relative select-none"
-                             style="pointer-events: auto; touch-action: manipulation;"
-                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
-                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
-                            
-                            <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center"
-                                 style="touch-action: manipulation; pointer-events: auto;"
-                                 onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                                 ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                                 onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
-                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
-                                ${leaderTagHtml}
-                                <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[96px]">
-                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1">
-                                        <span class="truncate max-w-[70px]">${displayName}</span>
-                                        <span class="text-[9px] opacity-90">${pyeongText}</span>
-                                    </div>
-                                    <div class="px-2 py-1 bg-white flex flex-col items-center">
-                                        <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
-                                        <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
-                                    </div>
-                                </div>
-                                <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
-                            </div>
-                        </div>
-                    `;
-
-                    const panelHtml = `
-                        <div id="hoverCard_${badgeKey}" 
-                             class="hidden mobile-hide-hover relative select-none"
-                             style="pointer-events: auto; touch-action: manipulation;"
-                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
-                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
-                            
-                            <div class="absolute bottom-[48px] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] cursor-pointer"
-                                 style="pointer-events: auto;"
-                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
-                                
-                                <div class="absolute bottom-[-48px] left-1/2 transform -translate-x-1/2 w-[60px] h-[48px] bg-transparent" style="pointer-events: auto !important;"></div>
-
-                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
-                                    <div class="truncate pr-2">
-                                        <span class="text-[10px] font-bold ${item.isDongLeader ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'} px-1.5 py-0.5 rounded">${dongNameTag}</span>
-                                        <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${displayName}</h4>
-                                        <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (targetDong + ' ' + item.jibun) : targetDong}</p>
-                                    </div>
-                                    <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
-                                </div>
-                                <div class="flex items-center justify-between text-[11px] py-1 border-b border-slate-100 mb-1">
-                                    <span class="text-slate-500 font-medium">🗓️ 준공연도 / 연식</span>
-                                    <span class="font-extrabold" style="color: ${ageInfo ? ageInfo.color : '#64748b'};">
-                                        ${ageInfo ? `${ageInfo.buildYear}년 (${ageInfo.age}년차 · ${ageInfo.shortLabel})` : '건축년도 확인중'}
-                                    </span>
-                                </div>
-                                <div class="flex justify-between items-baseline text-xs mb-1">
-                                    <span class="text-slate-500 font-medium text-[11px]">단지 최고 실거래가</span>
-                                    <span class="font-black text-slate-900 text-sm">${formatPrice(item.latest_price)}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-[11px]">
-                                    <span class="text-slate-400">직전 거래 대비</span>
-                                    <span class="font-bold ${diffColor}">${diffText}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-
-                    const markerOverlay = new kakao.maps.CustomOverlay({
-                        position: position,
-                        content: markerHtml,
-                        xAnchor: 0.5,
-                        yAnchor: 1.0,
-                        zIndex: item.isDongLeader ? 40 : 35,
-                        clickable: true
-                    });
-
-                    const panelOverlay = new kakao.maps.CustomOverlay({
-                        position: position,
-                        content: panelHtml,
-                        xAnchor: 0.5,
-                        yAnchor: 1.0,
-                        zIndex: 1050,
-                        clickable: true
-                    });
-
-                    window.customOverlayStore = window.customOverlayStore || {};
-                    window.customOverlayStore[badgeKey] = {
-                        overlay: markerOverlay,
-                        originalZIndex: item.isDongLeader ? 40 : 35
-                    };
-
-                    markerOverlay.setMap(map);
-                    panelOverlay.setMap(map);
-                    mapCustomOverlays.push(markerOverlay);
-                    mapCustomOverlays.push(panelOverlay);
-
-                    if (isBuildingAgeActive && ageInfo) {
-                        createAgeDotOverlay(position, item, ageInfo);
-                    }
-                };
-
-                const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').replace(/-+$/, '').trim();
-                const cleanJibunQuery = cleanJibun ? `${targetDong} ${cleanJibun}번지` : null;
-
-                const validateAndRender = (pos, roadBldName = '', placeCat = '') => {
-                    // 단독·다가구 주택인 경우 아파트 단지 건물 위에 오배치되지 않도록 안전 검증
-                    if (item.prop_type === 'singlehouse') {
-                        const isAptName = /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|팰리스)/.test(roadBldName);
-                        const isAptCat = placeCat.includes('아파트');
-                        if (isAptName || isAptCat) {
-                            return; // 아파트 단지 부지 위에는 단독주택 핀을 꽂지 않음
-                        }
-                    }
-                    tryRenderBadge(pos);
-                };
-
-                geocoder.addressSearch(searchQuery, function(result, status) {
-                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                        const roadBld = result[0].road_address?.building_name || '';
-                        validateAndRender(new kakao.maps.LatLng(result[0].y, result[0].x), roadBld);
-                    } else if (cleanJibunQuery) {
-                        geocoder.addressSearch(cleanJibunQuery, function(cResult, cStatus) {
-                            if (cStatus === kakao.maps.services.Status.OK && cResult.length > 0) {
-                                const roadBld = cResult[0].road_address?.building_name || '';
-                                validateAndRender(new kakao.maps.LatLng(cResult[0].y, cResult[0].x), roadBld);
-                            }
-                        });
-                    } else {
-                        places.keywordSearch(`${targetDong} ${item.name}`, function(pResult, pStatus) {
-                            if (pStatus === kakao.maps.services.Status.OK && pResult.length > 0) {
-                                const place = pResult[0];
-                                validateAndRender(new kakao.maps.LatLng(place.y, place.x), place.place_name, place.category_name || '');
-                            }
-                            // 💡 정확한 위치 확인이 불가능한 단독주택의 경우 임의 좌표(Math.random)로 아파트 옥상에 잘못 배치되는 현상을 완벽 차단
-                        });
-                    }
-                });
-            });
+            // 브라우저 프리징과 API 한도 초과 방지를 위해 일괄 마커 렌더링 제거 (클릭 시 단일 팝업 방식)
+            return;
         }
 
-        window.onOverlayGroupMouseEnter = function(key) {
-            const hoverCard = document.getElementById(`hoverCard_${key}`);
-            if (hoverCard) hoverCard.classList.remove('hidden');
-        };
-
-        window.onOverlayGroupMouseLeave = function(key) {
-            const hoverCard = document.getElementById(`hoverCard_${key}`);
-            if (hoverCard) hoverCard.classList.add('hidden');
-        };
-
+        window.onOverlayGroupMouseEnter = function(key) {};
+        window.onOverlayGroupMouseLeave = function(key) {};
         window.onMapBadgeClick = function(key) {
             const item = window.badgeItemStore[key];
             if (item) showApartmentDetail(item);
@@ -3791,248 +3238,137 @@
             });
         }
 
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            const latlng = mouseEvent.latLng; 
-            currentLatLng = latlng;
-            marker.setPosition(latlng);
-            marker.setMap(map);
-            document.getElementById('floatingRoadviewBtn').classList.remove('hidden');
+        // 1. 파이썬 등으로 미리 계산해둘 건물별 최고/최저가 정적 데이터 (테스트용 목업)
+        window.precompiledData = {
+            "진관동_25": { name: "은평뉴타운꿈에그린", high: 120000, low: 85000 },
+            "아현동_777": { name: "마포래미안푸르지오", high: 180000, low: 140000 },
+            "대치동_316": { name: "은마아파트", high: 280000, low: 220000 }
+        };
 
-            handleMapClickLocation(latlng);
+        // 2. 현재 지도에 떠 있는 단일 팝업을 관리할 변수
+        let activeBuildingOverlay = null;
+
+        // 3. 지도 클릭 이벤트 (기존 click 이벤트 리스너를 이걸로 교체)
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            const latlng = mouseEvent.latLng;
+            currentLatLng = latlng;
+            const roadviewBtn = document.getElementById('floatingRoadviewBtn');
+            if (roadviewBtn) roadviewBtn.classList.remove('hidden');
+
+            // 다른 곳을 클릭하면 기존 팝업 제거 (과부하 완벽 방지)
+            if (activeBuildingOverlay) {
+                activeBuildingOverlay.setMap(null);
+                activeBuildingOverlay = null;
+            }
+
+            // 클릭한 위치의 법정동과 지번 추출
+            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(result, status) {
+                if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                    const address = result[0].address;
+                    const dong = address.region_3depth_name; // 예: 아현동
+                    const mainNo = address.main_address_no; // 본번
+                    const subNo = address.sub_address_no ? '-' + address.sub_address_no : ''; // 부번
+                    const jibun = mainNo + subNo;
+
+                    // 키 조합 (예: "아현동_777")
+                    const lookupKey = `${dong}_${jibun}`;
+                    const buildingInfo = window.precompiledData[lookupKey];
+
+                    if (buildingInfo) {
+                        showBuildingPopup(latlng, buildingInfo);
+                    } else {
+                        // 데이터가 없는 건물을 클릭했을 때 가벼운 토스트 알림
+                        showToast(`🏢 해당 지번(${lookupKey})의 실거래 정보가 없습니다.`);
+                    }
+                }
+            });
         });
 
-        function extractDongFromText(str) {
-            if (!str) return '';
-            // 1. 단지 동 범위 (예: (916~928동), (223~244동)BL2-7, 916-928동) 제거
-            let cleaned = str.replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, ' ');
-            cleaned = cleaned.replace(/\b\d+\s*[-~]\s*\d+동\b/g, ' ');
-            // 2. 단일 특정 동 번호 (예: 924동, 101동, 101-1동, 제101동, A동) 추출
-            const m = cleaned.match(/(?:제\s*)?(\b[A-Z0-9]+(?:-\d+)?동\b|\b\d+동\b)/);
-            if (m) {
-                return m[1];
-            }
-            // 3. 5개 동 이하 소규모 밀집 건물군 (예: (201~203동))인 경우 시작 동 번호 채택
-            const rangeMatch = str.match(/\(?(\d+)\s*[-~]\s*(\d+)동\)?/);
-            if (rangeMatch) {
-                const start = parseInt(rangeMatch[1], 10);
-                const end = parseInt(rangeMatch[2], 10);
-                if (end - start <= 5) {
-                    return `${start}동`;
-                }
-            }
-            return '';
+        // 4. 클릭한 위치에 단일 팝업을 띄우는 함수
+        function showBuildingPopup(latlng, info) {
+            const content = `
+                <div class="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-[200px] mb-4 pointer-events-auto">
+                    <div class="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
+                        <div>
+                            <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">단지/건물 시세</span>
+                            <h3 class="font-black text-slate-900 text-sm mt-1 truncate max-w-[150px] cursor-pointer hover:text-indigo-600" onclick="window.onBuildingPopupClick('${info.name}')" title="상세 정보 보기">${info.name}</h3>
+                        </div>
+                        <button onclick="event.stopPropagation(); closeBuildingPopup();" class="text-slate-400 hover:text-slate-600 bg-slate-50 rounded-lg p-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-red-500 font-extrabold flex items-center gap-1">🔴 최고가</span>
+                            <span class="font-black text-slate-800 text-sm">${formatPrice(info.high)}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-blue-500 font-extrabold flex items-center gap-1">🔵 최저가</span>
+                            <span class="font-black text-slate-800 text-sm">${formatPrice(info.low)}</span>
+                        </div>
+                    </div>
+                    <!-- 말풍선 꼬리 -->
+                    <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-200 rotate-45"></div>
+                </div>
+            `;
+
+            activeBuildingOverlay = new kakao.maps.CustomOverlay({
+                position: latlng,
+                content: content,
+                yAnchor: 1.0,
+                zIndex: 1500,
+                clickable: true
+            });
+
+            activeBuildingOverlay.setMap(map);
+            map.panTo(latlng); // 클릭한 마커 위치로 부드럽게 지도 이동
         }
 
-        function handleMapClickLocation(latlng, hintQuery = '') {
-            // 1. 역지오코딩으로 지번 및 건물명 추출
-            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
-                const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
-                const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
+        // 5. 팝업 닫기 전역 함수
+        window.closeBuildingPopup = function() {
+            if (activeBuildingOverlay) {
+                activeBuildingOverlay.setMap(null);
+                activeBuildingOverlay = null;
+            }
+        };
 
-                let clickLawdCd = '';
-                if (addr && addr.b_code) {
-                    clickLawdCd = addr.b_code.substring(0, 5);
-                    currentLawdCd = clickLawdCd;
-                }
-
-                const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
-                const mainNo = addr ? addr.main_address_no : '';
-                const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
-                const jibun = mainNo + subNo;
-                const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
-
-                // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 우선 검색
-                const allStoreDeals = (rawDataStore.items || []).concat(
-                    rawDataStore.soaring || [],
-                    rawDataStore.plunging || [],
-                    (window.rowhouseAgeStore && window.rowhouseAgeStore[targetDong]) || []
-                );
-
-                const matchedRealDeal = allStoreDeals.find(d => {
-                    const dDong = d.dong || targetDong;
-                    if (targetDong && dDong && targetDong !== dDong) return false;
-                    const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
-                    if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === mainNo)) return true;
-                    if (buildingName) {
-                        const cleanB = buildingName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
-                        const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
-                        if (cleanB && cleanD && (cleanB === cleanD || cleanB.includes(cleanD) || cleanD.includes(cleanB))) return true;
-                    }
-                    return false;
+        window.onBuildingPopupClick = function(name) {
+            const allItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
+            const matched = allItems.find(it => it.name === name || it.name.includes(name) || name.includes(it.name));
+            if (matched) {
+                showApartmentDetail(matched);
+            } else {
+                const info = Object.values(window.precompiledData || {}).find(v => v.name === name);
+                showApartmentDetail({
+                    name: name,
+                    complex_name: name,
+                    latest_price: (info && info.high) || 0,
+                    previous_price: (info && info.low) || 0,
+                    diff: (info && (info.high - info.low)) || 0
                 });
+            }
+        };
 
-                // 3. 지점 주변 건물 동 번호(예: 924동, 101동) 및 주거시설 POI 정밀 추출 (정규식 버그 방지 & 반경 95m 정밀 거리순)
-                let detectedDong = extractDongFromText(buildingName);
-                let nearbyApt = null;
-                const complexQuery = (matchedRealDeal && matchedRealDeal.name) || (buildingName ? buildingName.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
-
-                function proceedWithDetectedInfo(finalDetectedDong, foundNearbyApt) {
-                    const nearby = foundNearbyApt;
-                    let detectedD = finalDetectedDong;
-
-                    const isAptByName = buildingName && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|파크|팰리스|우성|현대|한신|삼호|주공)/.test(buildingName);
-                    const isAptByPlace = nearby && (nearby.place_name.includes('아파트') || (nearby.category_name && nearby.category_name.includes('아파트')));
-                    const isAptByHint = hintQuery && /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴)/.test(hintQuery);
-                    const isApartment = (matchedRealDeal && matchedRealDeal.prop_type === 'apt') || isAptByName || isAptByPlace || isAptByHint;
-
-                    let finalName = '';
-                    let finalPropType = (matchedRealDeal && matchedRealDeal.prop_type) || 'apt';
-
-                    if (matchedRealDeal) {
-                        finalName = matchedRealDeal.name;
-                    } else if (isApartment) {
-                        finalName = (nearby ? nearby.place_name : (buildingName || hintQuery)) || `${targetDong} 아파트`;
-                        if (!detectedD) {
-                            detectedD = extractDongFromText(finalName);
-                        }
-                        finalName = finalName.replace(/\s*\d+동.*$/, '').replace(/\([^\)]*?\d+\s*[-~]\s*\d+동[^\)]*?\)/g, '').trim();
-                        finalPropType = 'apt';
-                    } else if (buildingName && buildingName.includes('오피스텔')) {
-                        finalName = buildingName;
-                        finalPropType = 'officetel';
-                    } else if (buildingName && /(빌라|연립|다세대|맨션)/.test(buildingName)) {
-                        finalName = buildingName;
-                        finalPropType = 'rowhouse';
+        function handleMapClickLocation(latlng, hintQuery = '') {
+            if (activeBuildingOverlay) {
+                activeBuildingOverlay.setMap(null);
+                activeBuildingOverlay = null;
+            }
+            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(result, status) {
+                if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                    const address = result[0].address;
+                    const dong = address.region_3depth_name;
+                    const mainNo = address.main_address_no;
+                    const subNo = address.sub_address_no ? '-' + address.sub_address_no : '';
+                    const jibun = mainNo + subNo;
+                    const lookupKey = `${dong}_${jibun}`;
+                    const buildingInfo = window.precompiledData[lookupKey];
+                    if (buildingInfo) {
+                        showBuildingPopup(latlng, buildingInfo);
                     } else {
-                        finalName = buildingName || (jibun ? `${targetDong} ${jibun} 단독주택` : `${targetDong} 주택`);
-                        finalPropType = 'singlehouse';
+                        showToast(`🏢 해당 지번(${lookupKey})의 실거래 정보가 없습니다.`);
                     }
-
-                    // 4. 부동산 유형 라디오 버튼 지능형 자동 동기화
-                    const currentPropChecked = document.querySelector('input[name="prop_type"]:checked')?.value;
-                    if (finalPropType !== currentPropChecked) {
-                        const targetRadio = document.getElementById(`prop_${finalPropType}`);
-                        if (targetRadio) {
-                            targetRadio.checked = true;
-                            const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
-                            const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
-                            showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
-                        }
-                    } else if (detectedD) {
-                        showToast(`🏢 <strong>${finalName} ${detectedD}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedD} 정보와 단지 실거래가가 자동 연동되었습니다.</span>`);
-                    } else if (finalPropType === 'apt') {
-                        showToast(`🏢 <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">포털에 개별 동 미등록 단지 - 대표 평형 실거래가로 연동되었습니다.</span>`);
-                    }
-
-                    const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
-                    const clickedItem = {
-                        name: finalName,
-                        complex_name: finalName,
-                        building_dong: detectedD || '',
-                        road_address: roadAddr ? (roadAddr.address_name + (roadAddr.building_name ? ' ' + roadAddr.building_name : '')) : '',
-                        dong: targetDong,
-                        jibun: jibun || (matchedRealDeal && matchedRealDeal.jibun) || '',
-                        lawd_cd: clickLawdCd || currentLawdCd || '',
-                        prop_type: finalPropType,
-                        area: (matchedRealDeal && matchedRealDeal.area) || (finalPropType === 'apt' ? '84' : '60'),
-                        latest_price: (matchedRealDeal && matchedRealDeal.latest_price) || 0,
-                        previous_price: (matchedRealDeal && matchedRealDeal.previous_price) || 0,
-                        latest_date: (matchedRealDeal && matchedRealDeal.latest_date) || '',
-                        previous_date: (matchedRealDeal && matchedRealDeal.previous_date) || '',
-                        diff: (matchedRealDeal && matchedRealDeal.diff) || 0,
-                        build_year: realYear || null
-                    };
-
-                    // 5. 노후도 레이어 활성화 중이면 클릭 지점에 노후도 점 생성
-                    if (isBuildingAgeActive) {
-                        const ageInfo = getBuildingAgeInfo(clickedItem);
-                        if (ageInfo) {
-                            createAgeDotOverlay(latlng, clickedItem, ageInfo);
-                        }
-                    }
-
-                    // 6. 클릭한 건물 상세 패널 즉시 오픈 & 공공데이터 실거래 API 중계 호출
-                    window.pendingClickedItem = clickedItem;
-                    showApartmentDetail(clickedItem);
-
-                    // 7. 법정동 실거래가 데이터 갱신
-                    fetchRegionInfo(latlng, false);
                 }
-
-                // 3. 지점 주변 건물 동 번호(예: 105동, 924동) 정밀 탐색 3단계 파이프라인
-                // [1단계]: 카카오 세부 카테고리 '아파트 동' 키워드로 반경 85m 거리순(DISTANCE) 최우선 검색
-                places.keywordSearch('아파트 동', function(pResult, pStatus) {
-                    if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
-                        const sortedP = pResult.map(p => {
-                            const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
-                            return { ...p, dist };
-                        }).sort((a, b) => a.dist - b.dist);
-
-                        for (let i = 0; i < sortedP.length; i++) {
-                            const p = sortedP[i];
-                            if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
-                            if (p.dist <= 85) {
-                                const foundDong = extractDongFromText(p.place_name);
-                                if (foundDong) {
-                                    detectedDong = foundDong;
-                                    nearbyApt = p;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // 1단계에서 동을 찾았으면 즉시 상세 패널 오픈
-                    if (detectedDong) {
-                        proceedWithDetectedInfo(detectedDong, nearbyApt);
-                        return;
-                    }
-
-                    // [2단계]: '아파트 동' 키워드에 없는 경우, '아파트' 키워드로 반경 95m 거리순 탐색
-                    places.keywordSearch('아파트', function(aResult, aStatus) {
-                        if (aStatus === kakao.maps.services.Status.OK && aResult && aResult.length > 0) {
-                            const sortedA = aResult.map(p => {
-                                const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
-                                return { ...p, dist };
-                            }).sort((a, b) => a.dist - b.dist);
-
-                            for (let i = 0; i < sortedA.length; i++) {
-                                const p = sortedA[i];
-                                if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
-                                if (p.dist <= 85) {
-                                    const foundDong = extractDongFromText(p.place_name);
-                                    if (foundDong) {
-                                        detectedDong = foundDong;
-                                        nearbyApt = p;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        const targetComplexQuery = complexQuery || (nearbyApt ? nearbyApt.place_name.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
-
-                        // 2단계에서 동을 찾았거나 단지 검색어가 없으면 완료
-                        if (detectedDong || !targetComplexQuery || targetComplexQuery.length < 2) {
-                            proceedWithDetectedInfo(detectedDong, nearbyApt);
-                            return;
-                        }
-
-                        // [3단계]: 단지명이 파악된 경우 단지명으로 반경 95m 3차 정밀 거리순 검색
-                        places.keywordSearch(targetComplexQuery, function(cResult, cStatus) {
-                            if (cStatus === kakao.maps.services.Status.OK && cResult && cResult.length > 0) {
-                                const sortedC = cResult.map(p => {
-                                    const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
-                                    return { ...p, dist };
-                                }).sort((a, b) => a.dist - b.dist);
-
-                                for (let i = 0; i < sortedC.length; i++) {
-                                    const p = sortedC[i];
-                                    if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
-                                    if (p.dist <= 85) {
-                                        const foundDong = extractDongFromText(p.place_name);
-                                        if (foundDong) {
-                                            detectedDong = foundDong;
-                                            nearbyApt = p;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            proceedWithDetectedInfo(detectedDong, nearbyApt);
-                        }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
-                    }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
-                }, { location: latlng, radius: 85, sort: kakao.maps.services.SortBy.DISTANCE });
             });
         }
 
@@ -4098,6 +3434,32 @@
                 if (data.items) registerBuildingYears(data.items);
                 if (data.soaring) registerBuildingYears(data.soaring);
                 if (data.plunging) registerBuildingYears(data.plunging);
+
+                // 검색된 데이터를 가벼운 precompiledData 인메모리 객체에 동기화 (마커 렌더링 없이 클릭 조회 지원)
+                const allDeals = (data.items || []).concat(data.soaring || [], data.plunging || []);
+                allDeals.forEach(it => {
+                    const d = it.dong || dongName || '';
+                    const j = (it.jibun || '').replace(/[*~]+/g, '').trim();
+                    if (d && j) {
+                        const key = `${d}_${j}`;
+                        const p = it.latest_price || it.price || 0;
+                        if (p > 0) {
+                            if (!window.precompiledData[key]) {
+                                window.precompiledData[key] = {
+                                    name: it.name,
+                                    high: p,
+                                    low: it.previous_price || p
+                                };
+                            } else {
+                                window.precompiledData[key].high = Math.max(window.precompiledData[key].high, p);
+                                if (it.previous_price) {
+                                    window.precompiledData[key].low = Math.min(window.precompiledData[key].low, it.previous_price);
+                                }
+                            }
+                        }
+                    }
+                });
+
                 applyClientFilters(true);
                 results.classList.remove('hidden');
             } catch (err) {
