@@ -2383,49 +2383,73 @@
             let displayPrevDate = (pInfo && pInfo.previous_date) ? pInfo.previous_date : pItem.previous_date;
 
             if (tradeType === 'jeonse') {
-                if (!pInfo || !pInfo.has_data || tradeType !== (pInfo.trade_type || 'jeonse')) {
-                    displayLatestPrice = Math.round((displayLatestPrice * 0.58) / 100) * 100;
-                    displayPrevPrice = Math.round((displayPrevPrice * 0.58) / 100) * 100;
-                    displayDiff = displayLatestPrice - displayPrevPrice;
-                }
                 if (latestLabelEl) latestLabelEl.textContent = '최근 전세 실거래가';
                 if (prevLabelEl) prevLabelEl.textContent = '직전 전세 거래가';
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 전세 시세 분석`;
             } else if (tradeType === 'rent') {
-                const deposit = Math.round((displayLatestPrice * 0.15) / 100) * 100;
-                const monthly = Math.max(50, Math.round(((displayLatestPrice * 0.43) * 0.045) / 12));
                 if (latestLabelEl) latestLabelEl.textContent = '최근 월세 실거래가';
                 if (prevLabelEl) prevLabelEl.textContent = '직전 월세 거래가';
-                if (latestPriceEl) latestPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${monthly}만`;
-                if (prevPriceEl) prevPriceEl.textContent = `보증금 ${formatPrice(deposit)} / 월 ${Math.max(40, monthly - 10)}만`;
-                if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(displayLatestDate) || '-'}`;
-                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(displayPrevDate) || '-'}`;
-                if (diffEl) {
-                    diffEl.className = 'text-[11px] font-bold mt-2 text-slate-600';
-                    diffEl.textContent = `직전 대비 월세 약 +10만원 변동`;
-                }
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 월세 시세 분석`;
-                renderDetailTrendChart(item, tradeType, safePyeong);
-                return;
+                
+                // 실제 국토교통부 월세 체결 내역에서 보증금/월세 추출
+                const rentDeals = (pInfo && pInfo.deals && pInfo.deals.length > 0)
+                    ? pInfo.deals
+                    : ((item.official_transactions && item.official_transactions.length > 0) ? item.official_transactions : []);
+                const latestRent = rentDeals[0] || null;
+                const prevRent = rentDeals[1] || latestRent;
+
+                if (latestRent) {
+                    const latestDep = latestRent.deposit || 0;
+                    const latestMon = latestRent.monthly_rent || 0;
+                    if (latestPriceEl) latestPriceEl.textContent = latestDep > 0 ? `보증금 ${formatPrice(latestDep)} / 월 ${latestMon}만` : `월 ${latestMon}만`;
+                    if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(latestRent.date) || '-'}`;
+
+                    if (prevRent && rentDeals.length > 1) {
+                        const prevDep = prevRent.deposit || 0;
+                        const prevMon = prevRent.monthly_rent || 0;
+                        if (prevPriceEl) prevPriceEl.textContent = prevDep > 0 ? `보증금 ${formatPrice(prevDep)} / 월 ${prevMon}만` : `월 ${prevMon}만`;
+                        if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(prevRent.date) || '-'}`;
+                        const rentDiff = latestMon - prevMon;
+                        if (diffEl) {
+                            diffEl.className = 'text-[11px] font-bold mt-2 text-slate-600';
+                            diffEl.textContent = rentDiff === 0 ? '직전 대비 보합 (0%)' : `직전 대비 월세 ${rentDiff > 0 ? '+' : ''}${rentDiff}만원 변동`;
+                        }
+                    } else {
+                        if (prevPriceEl) prevPriceEl.textContent = '-';
+                        if (prevDateEl) prevDateEl.textContent = '-';
+                        if (diffEl) {
+                            diffEl.className = 'text-[11px] font-bold mt-2 text-slate-500';
+                            diffEl.textContent = '최근 1건 계약';
+                        }
+                    }
+                } else {
+                    if (latestPriceEl) latestPriceEl.textContent = '실거래 신고 없음';
+                    if (prevPriceEl) prevPriceEl.textContent = '-';
+                    if (latestDateEl) latestDateEl.textContent = '-';
+                    if (prevDateEl) prevDateEl.textContent = '-';
+                    if (diffEl) diffEl.textContent = '';
+                }
             } else {
                 if (latestLabelEl) latestLabelEl.textContent = '최근 실거래가';
                 if (prevLabelEl) prevLabelEl.textContent = '직전 거래가';
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 상세 분석`;
             }
 
-            if (latestPriceEl) latestPriceEl.textContent = formatPrice(displayLatestPrice);
-            if (prevPriceEl) prevPriceEl.textContent = formatPrice(displayPrevPrice);
-            if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(displayLatestDate) || '-'}`;
-            if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(displayPrevDate) || '-'}`;
+            if (tradeType !== 'rent') {
+                if (latestPriceEl) latestPriceEl.textContent = formatPrice(displayLatestPrice);
+                if (prevPriceEl) prevPriceEl.textContent = formatPrice(displayPrevPrice);
+                if (latestDateEl) latestDateEl.textContent = `계약일: ${formatDate(displayLatestDate) || '-'}`;
+                if (prevDateEl) prevDateEl.textContent = `계약일: ${formatDate(displayPrevDate) || '-'}`;
 
-            const diffSign = displayDiff > 0 ? '+' : '';
-            const diffPercent = displayPrevPrice ? ((displayDiff / displayPrevPrice) * 100).toFixed(1) : '0.0';
-            const diffColor = displayDiff > 0 ? 'text-red-500' : (displayDiff < 0 ? 'text-blue-500' : 'text-slate-500');
-            if (diffEl) {
-                diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
-                diffEl.textContent = displayDiff !== 0
-                    ? `직전 대비 ${diffSign}${formatPrice(displayDiff)} (${diffSign}${diffPercent}%)`
-                    : (displayLatestDate === displayPrevDate ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
+                const diffSign = displayDiff > 0 ? '+' : '';
+                const diffPercent = displayPrevPrice ? ((displayDiff / displayPrevPrice) * 100).toFixed(1) : '0.0';
+                const diffColor = displayDiff > 0 ? 'text-red-500' : (displayDiff < 0 ? 'text-blue-500' : 'text-slate-500');
+                if (diffEl) {
+                    diffEl.className = `text-[11px] font-bold mt-2 ${diffColor}`;
+                    diffEl.textContent = displayDiff !== 0
+                        ? `직전 대비 ${diffSign}${formatPrice(displayDiff)} (${diffSign}${diffPercent}%)`
+                        : (displayLatestDate === displayPrevDate ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
+                }
             }
 
             if (txListEl) {
@@ -2434,8 +2458,15 @@
                     : ((item.official_transactions && item.official_transactions.length > 0) ? item.official_transactions : []);
                 if (dealsToRender.length > 0) {
                     txListEl.innerHTML = dealsToRender.slice(0, 15).map(tx => {
-                        const areaText = tx.area || (effectiveArea + '㎡');
-                        const priceText = (typeof tx.price === 'number') ? formatPrice(tx.price) : tx.price;
+                        const areaText = tx.area ? (typeof tx.area === 'string' && tx.area.endsWith('㎡') ? tx.area : `${Math.round(parseFloat(tx.area))}㎡`) : (effectiveArea + '㎡');
+                        let priceText = '';
+                        if (tradeType === 'rent') {
+                            const dep = tx.deposit || 0;
+                            const mon = tx.monthly_rent || 0;
+                            priceText = dep > 0 ? `보증금 ${formatPrice(dep)} / 월 ${mon}만` : `월 ${mon}만`;
+                        } else {
+                            priceText = (typeof tx.price === 'number') ? formatPrice(tx.price) : tx.price;
+                        }
                         return `
                             <tr class="hover:bg-slate-50/80 transition-colors">
                                 <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${tx.date}</td>
@@ -3015,54 +3046,85 @@
         }
 
         function adaptTrendDataForTradeType(baseData, item, tradeType = 'sale', pyeong) {
-            if (!baseData || !baseData.history) return baseData;
+            if (!baseData) return { history: [], recent_transactions: [] };
 
-            // 🔥 수정됨: convertAreaToPyeong 공식을 사용하여 비율 왜곡 방지
-            const origPyeong = convertAreaToPyeong(item.area || 84, item.prop_type);
-            const safePyeong = pyeong || origPyeong;
-            const pyeongRatio = (safePyeong && origPyeong) ? (safePyeong / origPyeong) : 1.0;
+            const availablePyeongs = window.currentAvailablePyeongs || baseData.pyeongs || item.official_pyeongs || [];
+            const safePyeong = pyeong || window.currentSelectedPyeong || (availablePyeongs.length > 0 ? availablePyeongs[0].pyeong : 34);
+            const pInfo = availablePyeongs.find(p => p.pyeong === safePyeong) || (availablePyeongs.length > 0 ? availablePyeongs[0] : null);
 
-            const adaptedHistory = (baseData.history || []).map(h => {
-                let adjustedPrice = Math.round(h.avg_price * pyeongRatio);
-                if (tradeType === 'jeonse') {
-                    adjustedPrice = Math.round((adjustedPrice * 0.58) / 100) * 100;
-                } else if (tradeType === 'rent') {
-                    adjustedPrice = Math.max(50, Math.round(((adjustedPrice * 0.43) * 0.045) / 12));
-                }
-                return {
-                    month: h.month,
-                    avg_price: adjustedPrice,
-                    volume: h.volume
-                };
-            });
-
-            const adaptedTxs = (baseData.recent_transactions || []).map(t => {
-                let displayPrice = typeof t.price === 'number' ? Math.round(t.price * pyeongRatio) : t.price;
-                if (tradeType === 'jeonse') {
-                    if (typeof displayPrice === 'number') {
-                        displayPrice = Math.round((displayPrice * 0.58) / 100) * 100;
+            // 1. 선택한 평형의 실제 국토교통부 거래 내역 (deals) 직결
+            let finalTxs = [];
+            if (pInfo && pInfo.deals && pInfo.deals.length > 0) {
+                finalTxs = pInfo.deals.slice(0, 20).map(d => {
+                    let priceDisplay = '';
+                    if (tradeType === 'rent') {
+                        const dep = d.deposit || 0;
+                        const mon = d.monthly_rent || 0;
+                        priceDisplay = dep > 0 ? `보증금 ${formatPrice(dep)} / 월 ${mon}만` : `월 ${mon}만`;
+                    } else {
+                        priceDisplay = typeof d.price === 'number' ? formatPrice(d.price) : d.price;
                     }
-                } else if (tradeType === 'rent') {
-                    const baseP = typeof displayPrice === 'number' ? displayPrice : (item.latest_price || 100000);
-                    const dep = Math.round((baseP * 0.15) / 100) * 100;
-                    const mon = Math.max(50, Math.round(((baseP * 0.43) * 0.045) / 12));
-                    displayPrice = `보증금 ${formatPrice(dep)} / 월 ${mon}만`;
-                }
+                    const areaText = d.area ? (typeof d.area === 'string' && d.area.endsWith('㎡') ? d.area : `${d.area}㎡`) : (pInfo.area ? `${pInfo.area}㎡` : '84㎡');
+                    return {
+                        date: d.date,
+                        price: priceDisplay,
+                        floor: d.floor || '-',
+                        area: areaText
+                    };
+                });
+            } else if (baseData.recent_transactions && baseData.recent_transactions.length > 0) {
+                finalTxs = baseData.recent_transactions.slice(0, 20).map(t => {
+                    let priceDisplay = '';
+                    if (tradeType === 'rent') {
+                        const dep = t.deposit || 0;
+                        const mon = t.monthly_rent || 0;
+                        priceDisplay = dep > 0 ? `보증금 ${formatPrice(dep)} / 월 ${mon}만` : `월 ${mon}만`;
+                    } else {
+                        priceDisplay = typeof t.price === 'string' ? t.price : formatPrice(t.price);
+                    }
+                    const areaText = t.area ? (typeof t.area === 'string' && t.area.endsWith('㎡') ? t.area : `${t.area}㎡`) : (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡');
+                    return {
+                        date: t.date,
+                        price: priceDisplay,
+                        floor: t.floor || '-',
+                        area: areaText
+                    };
+                });
+            }
 
-                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === safePyeong);
-                const areaStr = pInfo ? `${pInfo.area}㎡` : (t.area || (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡'));
-
-                return {
-                    date: t.date,
-                    price: displayPrice,
-                    floor: t.floor,
-                    area: areaStr
-                };
-            });
+            // 2. 선택한 평형의 월별 시세 추이 (history) 직결
+            let finalHistory = [];
+            if (pInfo && pInfo.history && pInfo.history.length > 0) {
+                finalHistory = pInfo.history;
+            } else if (pInfo && pInfo.deals && pInfo.deals.length > 0) {
+                // 평형 deals에서 월별 집계
+                const baseMonths = (baseData.history || []).map(h => h.month);
+                const monthlyDeals = {};
+                pInfo.deals.forEach(d => {
+                    const ym = (d.date || '').substring(0, 7);
+                    if (!ym) return;
+                    if (!monthlyDeals[ym]) monthlyDeals[ym] = [];
+                    const val = tradeType === 'rent' ? (d.monthly_rent || 0) : d.price;
+                    if (val > 0) monthlyDeals[ym].push(val);
+                });
+                const timeline = baseMonths.length > 0 ? baseMonths : Object.keys(monthlyDeals).sort();
+                let lastP = (tradeType === 'rent' ? (pInfo.deals[0].monthly_rent || 0) : (pInfo.latest_price || pInfo.deals[0].price || 0));
+                finalHistory = timeline.map(ym => {
+                    if (monthlyDeals[ym] && monthlyDeals[ym].length > 0) {
+                        const avg = Math.round(monthlyDeals[ym].reduce((a, b) => a + b, 0) / monthlyDeals[ym].length);
+                        lastP = avg;
+                        return { month: ym, avg_price: avg, volume: monthlyDeals[ym].length };
+                    } else {
+                        return { month: ym, avg_price: lastP, volume: 0 };
+                    }
+                });
+            } else {
+                finalHistory = baseData.history || [];
+            }
 
             return {
-                history: adaptedHistory,
-                recent_transactions: adaptedTxs
+                history: finalHistory,
+                recent_transactions: finalTxs
             };
         }
 
@@ -3332,7 +3394,7 @@
             if (txListEl) {
                 const txs = fullData.recent_transactions || [];
                 if (txs.length > 0) {
-                    txListEl.innerHTML = txs.slice(0, 5).map(tx => {
+                    txListEl.innerHTML = txs.slice(0, 15).map(tx => {
                         const areaText = tx.area
                             ? (typeof tx.area === 'string' && tx.area.endsWith('㎡') ? tx.area : `${Math.round(parseFloat(tx.area))}㎡`)
                             : (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡');
@@ -3343,13 +3405,13 @@
                                 <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
                                 <td class="py-2.5 px-3 font-medium text-slate-600">${areaText}</td>
                                 <td class="py-2.5 px-3 text-right">
-                                    <span class="inline-block bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-700 transition-colors cursor-help" title="개인정보 보호법에 따라 동·호수를 제외한 층수만 공식 제공됩니다.">${tx.floor}</span>
+                                    <span class="inline-block bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-700 transition-colors cursor-help" title="개인정보 보호법에 따라 동·호수를 제외한 층수만 공식 제공됩니다.">${tx.floor || '-'}</span>
                                 </td>
                             </tr>
                         `;
                     }).join('');
                 } else {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-slate-400">최근 실거래 내역이 없습니다.</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">최근 신고된 실거래 내역이 없습니다.</td></tr>`;
                 }
             }
         }
@@ -3382,6 +3444,7 @@
                 } else {
                     const targetDong = item.dong || currentDongName || '';
                     const itemLawd = item.lawd_cd || currentLawdCd || '';
+                    const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').trim();
                     const queryParam = `dong=${encodeURIComponent(targetDong)}&name=${encodeURIComponent(item.name)}&jibun=${encodeURIComponent(cleanJibun)}&lawd_cd=${encodeURIComponent(itemLawd)}&prop_type=${item.prop_type || 'apt'}&trade_type=${tradeType}`;
                     
                     const candidateUrls = [

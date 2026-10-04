@@ -946,6 +946,8 @@ def get_building_info_from_gov(
             pyeong_groups[p] = []
         pyeong_groups[p].append(d)
 
+    timeline_months = sorted(list(set([f"{m[:4]}.{m[4:]}" for m in months])))
+
     pyeong_result_list = []
     for p, deals in pyeong_groups.items():
         deals_sorted = sorted(deals, key=lambda x: x['raw_date'], reverse=True)
@@ -955,6 +957,28 @@ def get_building_info_from_gov(
         latest_deal = deals_sorted[0]
         prev_deal = deals_sorted[1] if len(deals_sorted) > 1 else latest_deal
         diff = latest_deal['price'] - prev_deal['price']
+
+        # 🔥 평형별 고유 월별 시세 추이(history) 생성 (다른 평형과 섞이지 않음)
+        p_monthly_stats: Dict[str, List[int]] = {}
+        for d in deals:
+            ym = d['year_month']
+            if ym not in p_monthly_stats:
+                p_monthly_stats[ym] = []
+            target_val = d['monthly_rent'] if trade_type == 'rent' else d['price']
+            if target_val > 0:
+                p_monthly_stats[ym].append(target_val)
+
+        p_history = []
+        p_last_price = (deals_sorted[-1]['monthly_rent'] if trade_type == 'rent' else deals_sorted[-1]['price']) if deals_sorted else 0
+        for ym in timeline_months:
+            if ym in p_monthly_stats and p_monthly_stats[ym]:
+                prices = p_monthly_stats[ym]
+                avg_p = int(round(sum(prices) / len(prices)))
+                vol = len(prices)
+                p_last_price = avg_p
+                p_history.append({'month': ym, 'avg_price': avg_p, 'volume': vol})
+            else:
+                p_history.append({'month': ym, 'avg_price': p_last_price, 'volume': 0})
 
         pyeong_result_list.append({
             'pyeong': p,
@@ -967,6 +991,7 @@ def get_building_info_from_gov(
             'previous_price': prev_deal['price'],
             'previous_date': prev_deal['raw_date'],
             'diff': diff,
+            'history': p_history,
             'deals': [
                 {
                     'date': d['date'],
@@ -992,9 +1017,9 @@ def get_building_info_from_gov(
         ym = d['year_month']
         if ym not in monthly_stats:
             monthly_stats[ym] = []
-        monthly_stats[ym].append(d['price'])
-
-    timeline_months = sorted(list(set([f"{m[:4]}.{m[4:]}" for m in months])))
+        target_val = d['monthly_rent'] if trade_type == 'rent' else d['price']
+        if target_val > 0:
+            monthly_stats[ym].append(target_val)
     history = []
     last_known_price = matched_deals[-1]['price'] if matched_deals else 50000
 
