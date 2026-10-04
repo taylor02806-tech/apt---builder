@@ -1940,6 +1940,9 @@
                     if (isBuildingAgeActive && ageInfo) {
                         createAgeDotOverlay(position, item, ageInfo);
                     }
+
+                    // 🔥 배지가 지도 위에 렌더링된 바로 그 순간! 대기 중이던 클릭 위치와 일치하면 즉시 정보 연동!
+                    checkBadgeMatchPendingClick(item, position);
                 };
 
                 const coordKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
@@ -1999,6 +2002,79 @@
             if (item) showApartmentDetail(item);
         };
 
+        function checkBadgeMatchPendingClick(badgeItem, position) {
+            if (!badgeItem || !position) return;
+            const p = window.pendingMapClick;
+            const cur = currentSelectedItem;
+            // 대기 중인 클릭이 없거나 이미 정보가 정상 표시 중이면 패스
+            if (!p && (!cur || !cur.is_region_waiting)) return;
+
+            const clickLatlng = (p && p.latlng) || (cur && cur.latlng) || (cur && cur.position) || null;
+            const clickJibun = (p && p.jibun) || (cur && cur.jibun) || '';
+            const clickDong = (p && p.targetDong) || (cur && cur.dong) || currentDongName || '';
+            const clickName = (p && p.buildingName) || (cur && (cur.complex_name || cur.name)) || '';
+            const detectedDong = (p && p.detectedDong) || (cur && cur.building_dong) || '';
+
+            let dist = 99999;
+            if (clickLatlng) {
+                const cLat = typeof clickLatlng.getLat === 'function' ? clickLatlng.getLat() : clickLatlng.lat;
+                const cLng = typeof clickLatlng.getLng === 'function' ? clickLatlng.getLng() : clickLatlng.lng;
+                const bLat = typeof position.getLat === 'function' ? position.getLat() : position.lat;
+                const bLng = typeof position.getLng === 'function' ? position.getLng() : position.lng;
+                if (cLat && cLng && bLat && bLng) {
+                    const dLat = (bLat - cLat) * 111000;
+                    const dLng = (bLng - cLng) * 111000 * Math.cos(cLat * Math.PI / 180);
+                    dist = Math.sqrt(dLat * dLat + dLng * dLng);
+                }
+            }
+
+            // 1. 거리 판별: 배지가 클릭 지점 170m 이내에 뜬 경우 (단지 부지 영역)
+            const isNear = dist <= 170;
+
+            // 2. 지번 / 본번 일치
+            const cleanClickJibun = String(clickJibun || '').replace(/[*~]+/g, '').trim();
+            const cleanBadgeJibun = String(badgeItem.jibun || '').replace(/[*~]+/g, '').trim();
+            const isExactJibun = cleanClickJibun && cleanBadgeJibun && (cleanClickJibun === cleanBadgeJibun);
+            const isMainJibun = cleanClickJibun && cleanBadgeJibun && (cleanClickJibun.split('-')[0] === cleanBadgeJibun.split('-')[0]);
+
+            // 3. 단지명 토큰 일치 (핵심 명사 교차)
+            const clickTokens = extractCoreTokens(clickName);
+            const badgeTokens = extractCoreTokens(badgeItem.name || '');
+            let isNameMatch = false;
+            if (clickTokens.length > 0 && badgeTokens.length > 0) {
+                isNameMatch = clickTokens.some(ct => badgeTokens.some(bt => bt === ct || bt.includes(ct) || ct.includes(bt)));
+            }
+
+            // 4. 동 번호 일치 (예: 924동)
+            let isDongMatch = false;
+            if (detectedDong) {
+                const dMatch = detectedDong.match(/\d+/);
+                const dNum = dMatch ? parseInt(dMatch[0], 10) : null;
+                const rMatch = (badgeItem.name || '').match(/\(?(\d+)\s*[-~]\s*(\d+)동\)?/);
+                if (rMatch && dNum) {
+                    const s = parseInt(rMatch[1], 10);
+                    const e = parseInt(rMatch[2], 10);
+                    if (dNum >= s && dNum <= e) isDongMatch = true;
+                }
+            }
+
+            // 매칭 판정:
+            const isMatched = (dist <= 85)
+                           || (isNear && (isNameMatch || isMainJibun || isDongMatch || isExactJibun))
+                           || (isExactJibun && (dist <= 300 || dist === 99999))
+                           || (isMainJibun && (isNameMatch || isDongMatch || dist <= 250))
+                           || (isNameMatch && dist <= 250);
+
+            if (isMatched) {
+                window.pendingMapClick = null;
+                if (detectedDong && !badgeItem.building_dong) {
+                    badgeItem.building_dong = detectedDong;
+                }
+                showToast(`🏢 <strong>${badgeItem.name}</strong><br><span class="text-[11px] text-emerald-200">지도에 패널이 표시되어 최고가 및 실거래 정보가 연동되었습니다!</span>`);
+                showApartmentDetail(badgeItem);
+            }
+        }
+
         function checkAndResolvePendingClick(complexList) {
             if (!complexList || complexList.length === 0) return;
 
@@ -2021,12 +2097,11 @@
                         if (p.detectedDong && !matched.building_dong) {
                             matched.building_dong = p.detectedDong;
                         }
-                        showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 최고가 패널 로딩 완료! 메뉴창에 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
+                        showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 패널 로딩 완료! 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
                         showApartmentDetail(matched);
                         return;
                     }
                 }
-                window.pendingMapClick = null;
             }
 
             // 2. 현재 메뉴창이 열려있으나 단지 최고가 수신 대기 중(is_region_waiting)이거나 실거래가가 0인 경우
@@ -2038,10 +2113,13 @@
                 const matched = complexList.find(c => {
                     const cDong = c.dong || curDong;
                     if (curDong && cDong && curDong !== cDong) return false;
-                    if (curJibun && c.jibun && c.jibun === curJibun) return true;
+                    if (curJibun && c.jibun && curJibun.split('-')[0] === c.jibun.split('-')[0]) return true;
                     if (curName && c.name) {
                         const cleanC = c.name.replace(/\s*\d+동.*$/, '').trim();
                         if (cleanC === curName || cleanC.includes(curName) || curName.includes(cleanC)) return true;
+                        const cToks = extractCoreTokens(c.name);
+                        const curToks = extractCoreTokens(curName);
+                        if (cToks.some(t => curToks.includes(t))) return true;
                     }
                     return false;
                 });
@@ -2049,15 +2127,22 @@
                 if (matched) {
                     currentSelectedItem.is_region_waiting = false;
                     currentSelectedItem.is_loading = false;
-                    showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 최고가 패널 로딩 완료! 메뉴창에 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
+                    showToast(`🏢 <strong>${matched.name}</strong><br><span class="text-[11px] text-emerald-200">지도 패널 로딩 완료! 최고가 실거래 정보가 자동 연동되었습니다.</span>`);
                     showApartmentDetail(matched);
                     return;
-                } else if (currentSelectedItem.is_region_waiting) {
+                }
+            }
+
+            // 3. 배지들이 렌더링될 때까지 기다릴 수 있도록 타이머 후 마감 (1.5초)
+            if (window.pendingClickTimeout) clearTimeout(window.pendingClickTimeout);
+            window.pendingClickTimeout = setTimeout(() => {
+                if (currentSelectedItem && currentSelectedItem.is_region_waiting) {
                     currentSelectedItem.is_region_waiting = false;
                     currentSelectedItem.is_loading = false;
                     updateDetailView(currentSelectedItem, window.currentDetailTradeType || 'sale', window.currentSelectedPyeong || 34);
                 }
-            }
+                window.pendingMapClick = null;
+            }, 1500);
         }
 
         window.currentDetailTradeType = 'sale';
@@ -2433,25 +2518,25 @@
                 const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
                 if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
                 if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
-                if (latestPriceEl) latestPriceEl.innerHTML = `<span class="text-indigo-600 animate-pulse text-sm font-bold flex items-center gap-1.5"><div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block"></div>단지 최고가 수신 대기 중...</span>`;
+                if (latestPriceEl) latestPriceEl.innerHTML = `<span class="text-indigo-600 animate-pulse text-sm font-bold flex items-center gap-1.5"><div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block"></div>지도 패널 로딩 대기 중...</span>`;
                 if (prevPriceEl) prevPriceEl.textContent = '-';
                 if (latestDateEl) latestDateEl.textContent = '확인 중';
                 if (prevDateEl) prevDateEl.textContent = '확인 중';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-indigo-500 mt-2 animate-pulse';
-                    diffEl.textContent = `지도에 단지 최고가 패널이 로딩되는 즉시 실거래 정보가 자동 반영됩니다...`;
+                    diffEl.textContent = `지도에 해당 단지 패널이 뜨는 즉시 실거래 정보가 자동으로 연동됩니다...`;
                 }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 정보 로딩 중`;
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 패널 로딩 대기 중`;
 
                 if (noDataOverlay) noDataOverlay.classList.add('hidden');
 
                 if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-indigo-500 text-xs font-bold"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block mr-2 align-middle"></div>지도 단지 최고가 데이터 수신 중... 완료 시 실거래 내역이 자동 표시됩니다.</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-indigo-500 text-xs font-bold"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block mr-2 align-middle"></div>지도에 단지 패널이 표시되면 실거래 내역이 자동으로 연동됩니다.</td></tr>`;
                 }
 
-                document.getElementById('miniTaxAcq').textContent = '계산 중...';
-                document.getElementById('miniTaxHolding').textContent = '계산 중...';
-                document.getElementById('miniTaxTransfer').textContent = '계산 중...';
+                document.getElementById('miniTaxAcq').textContent = '계산 대기 중...';
+                document.getElementById('miniTaxHolding').textContent = '계산 대기 중...';
+                document.getElementById('miniTaxTransfer').textContent = '계산 대기 중...';
                 return;
             }
 
@@ -4219,6 +4304,7 @@
                     }
 
                     const clickedItem = {
+                        latlng: latlng,
                         name: finalName,
                         complex_name: finalName,
                         building_dong: detectedD || '',
