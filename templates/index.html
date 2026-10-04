@@ -1107,9 +1107,10 @@
             '반포리체': 2010, '반포힐스테이트': 2011,
 
             // 강남구
-            '압구정현대': 1976, '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983,
-            '현대1,2차': 1976, '현대3차': 1977, '현대4차': 1977, '현대5차': 1977, '현대6,7차': 1978,
-            '현대8차': 1980, '현대10차': 1982, '현대13차': 1982, '현대14차': 1987,
+            '압구정현대': 1976, '압구정현대1,2차': 1976, '압구정현대3차': 1977, '압구정현대4차': 1977, '압구정현대5차': 1977,
+            '압구정현대6,7차': 1978, '압구정현대8차': 1980, '압구정현대10차': 1982, '압구정현대13차': 1982, '압구정현대14차': 1987,
+            '압구정신현대': 1983, '압구정신현대9차': 1982, '압구정신현대11차': 1983, '압구정신현대12차': 1982,
+            '신현대11차': 1983, '신현대9차': 1982, '신현대12차': 1982, '신현대': 1983,
             '은마': 1979, '은마아파트': 1979, '한보미도맨션': 1983, '대치미도': 1983,
             '개포선경': 1983, '대치선경': 1983, '개포우성1차': 1983, '개포우성2차': 1984,
             '개포주공1단지': 1982, '개포주공5단지': 1983, '개포주공6단지': 1983, '개포주공7단지': 1983,
@@ -1118,15 +1119,15 @@
             '대치아이파크': 2007, '도곡렉슬': 2006, '타워팰리스1차': 2002, '타워팰리스2차': 2003,
             '타워팰리스3차': 2004, '대치동부센트레빌': 2005, '대치삼성': 2000, '역삼래미안': 2005,
             '역삼푸르지오': 2006, '개나리래미안': 2006, '삼성동아이파크': 2004, '래미안라클래시': 2021,
-            '청담자이': 2011, '청담삼익': 1980, '한양1차': 1977, '한양2차': 1978,
-            '한양3차': 1978, '한양4차': 1978, '한양5차': 1979, '한양6차': 1980,
+            '청담자이': 2011, '청담삼익': 1980,
+            '압구정한양1차': 1977, '압구정한양2차': 1978, '압구정한양3차': 1978, '압구정한양4차': 1978, '압구정한양5차': 1979, '압구정한양6차': 1980,
 
             // 송파구
             '잠실주공5단지': 1978, '잠실엘스': 2008, '리센츠': 2008, '트리지움': 2007,
             '레이크팰리스': 2006, '파크리오': 2008, '헬리오시티': 2018, '올림픽선수기자촌': 1988,
             '올림픽훼밀리타운': 1988, '아시아선수촌': 1986, '잠실진주': 1980, '잠실미성': 1980,
-            '잠실크로바': 1980, '장미1차': 1979, '장미2차': 1979, '송파시그니처롯데캐슬': 2022,
-            '파크하비오': 2016,
+            '잠실크로바': 1980, '잠실장미1차': 1979, '잠실장미2차': 1979, '신천장미1차': 1979, '신천장미2차': 1979,
+            '송파시그니처롯데캐슬': 2022, '파크하비오': 2016,
 
             // 용산구/성동구/마포구
             '한남더힐': 2011, '나인원한남': 2019, '한강맨션': 1971, '용산센트럴파크': 2020,
@@ -1175,26 +1176,21 @@
                     const yr = parseInt(it.build_year);
                     if (!isNaN(yr) && yr >= 1950) {
                         const dong = it.dong || currentDongName || '';
+                        if (!dong) return; // 법정동 정보가 없으면 크로스 지역 오염 방지를 위해 등록하지 않음
                         const cleanName = (it.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
                         const normName = normalizeBuildingName(it.name);
                         const rawJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
-                        const mainJibun = rawJibun.split('-')[0];
 
+                        // 🔥 중요: 법정동(dong)이 접두사로 붙은 고유 키로만 엄격히 격리 등록
+                        // 타 동과의 지번/단지명 충돌 및 오염 원천 차단
                         if (rawJibun) {
-                            if (dong) window.globalBuildingYearRegistry[`${dong}_${rawJibun}`] = yr;
-                            window.globalBuildingYearRegistry[rawJibun] = yr;
+                            window.globalBuildingYearRegistry[`${dong}_${rawJibun}`] = yr;
                         }
-                        if (mainJibun) {
-                            if (dong) window.globalBuildingYearRegistry[`${dong}_${mainJibun}`] = yr;
-                            window.globalBuildingYearRegistry[mainJibun] = yr;
+                        if (normName && normName.length >= 2) {
+                            window.globalBuildingYearRegistry[`${dong}_${normName}`] = yr;
                         }
-                        if (normName) {
-                            if (dong) window.globalBuildingYearRegistry[`${dong}_${normName}`] = yr;
-                            window.globalBuildingYearRegistry[normName] = yr;
-                        }
-                        if (cleanName) {
-                            if (dong) window.globalBuildingYearRegistry[`${dong}_${cleanName}`] = yr;
-                            window.globalBuildingYearRegistry[cleanName] = yr;
+                        if (cleanName && cleanName.length >= 2) {
+                            window.globalBuildingYearRegistry[`${dong}_${cleanName}`] = yr;
                         }
                     }
                 }
@@ -1206,52 +1202,42 @@
             const normName = normalizeBuildingName(name);
             const targetDong = dong || currentDongName || '';
             const rawJibun = (jibun || '').replace(/[*~]+/g, '').trim();
-            const mainJibun = rawJibun.split('-')[0];
 
-            // 1. 글로벌 캐시 레지스트리 확인 (지번 및 정규화 명칭 우선)
-            if (window.globalBuildingYearRegistry) {
-                if (targetDong && rawJibun && window.globalBuildingYearRegistry[`${targetDong}_${rawJibun}`]) {
+            // 1. 글로벌 캐시 레지스트리 확인 (해당 법정동에 엄격히 격리된 키만 조회)
+            if (window.globalBuildingYearRegistry && targetDong) {
+                if (rawJibun && window.globalBuildingYearRegistry[`${targetDong}_${rawJibun}`]) {
                     return window.globalBuildingYearRegistry[`${targetDong}_${rawJibun}`];
                 }
-                if (rawJibun && window.globalBuildingYearRegistry[rawJibun]) {
-                    return window.globalBuildingYearRegistry[rawJibun];
-                }
-                if (targetDong && mainJibun && window.globalBuildingYearRegistry[`${targetDong}_${mainJibun}`]) {
-                    return window.globalBuildingYearRegistry[`${targetDong}_${mainJibun}`];
-                }
-                if (mainJibun && window.globalBuildingYearRegistry[mainJibun]) {
-                    return window.globalBuildingYearRegistry[mainJibun];
-                }
-                if (targetDong && normName && window.globalBuildingYearRegistry[`${targetDong}_${normName}`]) {
+                if (normName && window.globalBuildingYearRegistry[`${targetDong}_${normName}`]) {
                     return window.globalBuildingYearRegistry[`${targetDong}_${normName}`];
                 }
-                if (normName && window.globalBuildingYearRegistry[normName]) {
-                    return window.globalBuildingYearRegistry[normName];
-                }
-                if (targetDong && cleanName && window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`]) {
+                if (cleanName && window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`]) {
                     return window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`];
-                }
-                if (cleanName && window.globalBuildingYearRegistry[cleanName]) {
-                    return window.globalBuildingYearRegistry[cleanName];
                 }
             }
 
             // 2. rawDataStore (국토부 아파트/오피스텔/주택 등 현재 로드된 실거래 데이터) 전수 검색
+            //    반드시 동일 법정동(targetDong) 내에서만 검색하며, 지번 또는 정규화 단지명이 일치해야 함
             const sourceItems = (rawDataStore.items || []).concat(rawDataStore.soaring || [], rawDataStore.plunging || []);
             for (let i = 0; i < sourceItems.length; i++) {
                 const it = sourceItems[i];
                 if (!it.build_year) continue;
                 const itDong = it.dong || currentDongName || '';
-                if (targetDong && itDong && targetDong !== itDong) continue;
+                if (!targetDong || !itDong || targetDong !== itDong) continue;
 
                 const itJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
-                const itMainJibun = itJibun.split('-')[0];
 
-                if (rawJibun && itJibun && (itJibun === rawJibun || (mainJibun && itMainJibun === mainJibun))) {
+                // 같은 동 내에서 지번이 정확히 일치하는 경우
+                if (rawJibun && itJibun && itJibun === rawJibun) {
                     return parseInt(it.build_year);
                 }
+                // 같은 동 내에서 단지명이 일치하는 경우 (부분문자열 오매칭 방지: 정확히 일치하거나 정규화명이 같을 때만)
                 const itNorm = normalizeBuildingName(it.name);
-                if (normName && itNorm && (normName === itNorm || normName.includes(itNorm) || itNorm.includes(normName))) {
+                const itClean = (it.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
+                if (normName && itNorm && normName === itNorm) {
+                    return parseInt(it.build_year);
+                }
+                if (cleanName && itClean && cleanName === itClean) {
                     return parseInt(it.build_year);
                 }
             }
@@ -1263,34 +1249,46 @@
                     const it = rhList[i];
                     if (!it.build_year) continue;
                     const itJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
-                    const itMainJibun = itJibun.split('-')[0];
-                    if (rawJibun && itJibun && (itJibun === rawJibun || (mainJibun && itMainJibun === mainJibun))) {
+                    // 연립/다세대는 지번이 정확히 일치할 때만 채택 (mainJibun 오염 방지)
+                    if (rawJibun && itJibun && itJibun === rawJibun) {
                         return parseInt(it.build_year);
                     }
                     const itNorm = normalizeBuildingName(it.name);
-                    if (normName && itNorm && (normName === itNorm || normName.includes(itNorm) || itNorm.includes(normName))) {
+                    if (normName && itNorm && normName === itNorm) {
                         return parseInt(it.build_year);
                     }
                 }
             }
 
-            // 4. 확장 주요 아파트 단지 표준 DB 검색 (구체적인 긴 단지명부터 우선 매칭)
+            // 4. 확장 주요 아파트 단지 표준 DB 검색
+            //    주의: 부분일치(includes)로 인한 잘못된 단지 매칭을 방지하기 위해 완전 일치 또는 안전한 접두사 매칭만 적용
             if (normName || cleanName) {
-                const sortedKeys = Object.keys(KNOWN_COMPLEX_BUILD_YEARS).sort((a, b) => b.length - a.length);
-                for (let k of sortedKeys) {
+                for (let [k, yr] of Object.entries(KNOWN_COMPLEX_BUILD_YEARS)) {
                     const kNorm = normalizeBuildingName(k);
-                    if (normName && kNorm && (normName === kNorm || normName.includes(kNorm) || kNorm.includes(normName))) {
-                        return KNOWN_COMPLEX_BUILD_YEARS[k];
+                    // 1. 단지명 완전 일치
+                    if (cleanName === k || normName === kNorm) {
+                        return yr;
                     }
-                    if (cleanName && cleanName.includes(k)) {
-                        return KNOWN_COMPLEX_BUILD_YEARS[k];
+                    // 2. [법정동 + 단지명] 일치 (예: targetDong이 "압구정동"이고 cleanName이 "현대3차" -> "압구정현대3차" 매칭)
+                    if (targetDong) {
+                        const dongShort = targetDong.replace(/동$/, '');
+                        if (k.startsWith(dongShort) && (k.slice(dongShort.length) === cleanName || normalizeBuildingName(k.slice(dongShort.length)) === normName)) {
+                            return yr;
+                        }
+                    }
+                    // 3. 고유한 긴 단지명(4글자 이상)의 접두사 일치 (예: "마포래미안푸르지오" -> "마포래미안푸르지오 2단지")
+                    if (cleanName.startsWith(k) && k.length >= 4) {
+                        const remain = cleanName.slice(k.length).trim();
+                        if (!remain || /^\d+단지$|^\d+차$/.test(remain)) {
+                            return yr;
+                        }
                     }
                 }
             }
 
-            // 5. 단지명 내 연도 패턴 (예: "신동아1차(1986)") 추출
+            // 5. 단지명 내 명시적 연도 패턴 (예: "신동아1차(1986)") 추출
             if (name) {
-                const yearMatch = name.match(/\b(19\d\d|20\d\d)\b/);
+                const yearMatch = name.match(/[\(\[\s](19\d\d|20\d\d)[\)\]\s]?/);
                 if (yearMatch) {
                     const candidate = parseInt(yearMatch[1]);
                     if (candidate >= 1970 && candidate <= new Date().getFullYear()) {
@@ -2204,10 +2202,15 @@
                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
                        <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
                    </span>`
-                : `<span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-xs animate-pulse">
-                       <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
-                       <span>국토교통부 실시간 준공년도 확인 중...</span>
-                   </span>`;
+                : (item.is_loading
+                    ? `<span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-xs animate-pulse">
+                           <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+                           <span>국토교통부 실시간 준공년도 확인 중...</span>
+                       </span>`
+                    : `<span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shadow-xs">
+                           <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                           <span>준공년도 신고 내역 없음</span>
+                       </span>`);
 
             const isOfficialLinked = !!(item.official_pyeongs && item.official_pyeongs.length > 0);
             const govBadgeHtml = isOfficialLinked
@@ -3640,7 +3643,7 @@
                     const jibun = mainNo + subNo;
                     const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
 
-                // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 우선 검색
+                // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 정밀 검색
                 const allStoreDeals = (rawDataStore.items || []).concat(
                     rawDataStore.soaring || [],
                     rawDataStore.plunging || [],
@@ -3651,11 +3654,16 @@
                     const dDong = d.dong || targetDong;
                     if (targetDong && dDong && targetDong !== dDong) return false;
                     const dJibun = (d.jibun || '').replace(/[*~]+/g, '').trim();
-                    if (jibun && dJibun && (dJibun === jibun || dJibun.split('-')[0] === mainNo)) return true;
-                    if (buildingName) {
+                    // 1. 지번이 정확히 일치하는 경우
+                    if (jibun && dJibun && dJibun === jibun) return true;
+                    // 2. 건물/단지명이 일치하는 경우 (loose한 부분문자열 오매칭 방지)
+                    if (buildingName && d.name) {
                         const cleanB = buildingName.replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
                         const cleanD = (d.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').replace(/\s+/g, '');
-                        if (cleanB && cleanD && (cleanB === cleanD || cleanB.includes(cleanD) || cleanD.includes(cleanB))) return true;
+                        if (cleanB && cleanD) {
+                            if (cleanB === cleanD) return true;
+                            if (cleanB.length >= 4 && cleanD.length >= 4 && (cleanB.startsWith(cleanD) || cleanD.startsWith(cleanB))) return true;
+                        }
                     }
                     return false;
                 });
