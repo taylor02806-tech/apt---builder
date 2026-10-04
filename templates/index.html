@@ -449,16 +449,16 @@
                     </div>
 
                     <div class="relative">
-                        <button type="button" onclick="togglePyeongDropdown(event)" id="detailPyeongBtn" class="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
-                            <span id="detailPyeong">34평 ▾</span>
+                        <button type="button" onclick="togglePyeongDropdown(event)" id="detailPyeongBtn" class="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm shrink-0">
+                            <span id="detailPyeong">34평형 (전용 84㎡) ▾</span>
                         </button>
                         
-                        <div id="pyeongDropdownMenu" class="hidden absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-2xl py-1.5 z-[1100] text-xs divide-y divide-slate-100">
-                            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 bg-slate-50/80 rounded-t-xl flex justify-between items-center">
-                                <span>평형 선택 (전용면적)</span>
-                                <span class="text-[9px] text-blue-600 font-bold">단지 내 평형</span>
+                        <div id="pyeongDropdownMenu" class="hidden absolute right-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-1.5 z-[1100] text-xs divide-y divide-slate-100">
+                            <div class="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 bg-slate-50/80 rounded-t-xl flex justify-between items-center">
+                                <span>평형 선택 (공급 / 전용)</span>
+                                <span class="text-[9px] text-blue-600 font-bold">국토부 실거래</span>
                             </div>
-                            <div id="pyeongDropdownList" class="max-h-56 overflow-y-auto divide-y divide-slate-50 py-1"></div>
+                            <div id="pyeongDropdownList" class="max-h-60 overflow-y-auto divide-y divide-slate-50 py-1"></div>
                         </div>
                     </div>
                 </div>
@@ -591,7 +591,7 @@
                                     <tr>
                                         <th class="py-2 px-3 font-semibold">날짜</th>
                                         <th class="py-2 px-3 font-semibold" id="thDetailTxPrice">실거래가</th>
-                                        <th class="py-2 px-3 font-semibold">전용면적</th>
+                                        <th class="py-2 px-3 font-semibold">전용 / 공급면적</th>
                                         <th class="py-2 px-3 font-semibold text-right">층수</th>
                                     </tr>
                                 </thead>
@@ -2016,9 +2016,6 @@
             const menu = document.getElementById('pyeongDropdownMenu');
             if (menu) menu.classList.add('hidden');
 
-            const pTextEl = document.getElementById('detailPyeong');
-            if (pTextEl) pTextEl.textContent = `${pyeong}평 ▾`;
-
             if (currentSelectedItem) {
                 setupPyeongDropdown(currentSelectedItem);
                 updateDetailView(currentSelectedItem, window.currentDetailTradeType || 'sale', pyeong);
@@ -2108,8 +2105,19 @@
                     const areaVal = parseFloat(m.area);
                     const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
                     if (p > 0) {
+                        const ratio = (item.prop_type === 'apt' ? 0.75 : (item.prop_type === 'officetel' ? 0.50 : 1.0));
+                        const suppSqm = Math.round(areaVal / ratio);
+                        const exclP = (areaVal / 3.3058).toFixed(1);
                         if (!pyeongMap.has(p) || (m.latest_price > pyeongMap.get(p).item.latest_price)) {
-                            pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, deal_count: 1, item: m });
+                            pyeongMap.set(p, { 
+                                pyeong: p, 
+                                area: areaVal, 
+                                supply_area: suppSqm,
+                                exclusive_pyeong: exclP,
+                                hasData: true, 
+                                deal_count: 1, 
+                                item: m 
+                            });
                         }
                     }
                 }
@@ -2120,7 +2128,16 @@
                 const areaVal = parseFloat(item.area);
                 const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
                 if (!pyeongMap.has(p)) {
-                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: true, deal_count: 1, item: item });
+                    const ratio = (item.prop_type === 'apt' ? 0.75 : (item.prop_type === 'officetel' ? 0.50 : 1.0));
+                    pyeongMap.set(p, { 
+                        pyeong: p, 
+                        area: areaVal, 
+                        supply_area: Math.round(areaVal / ratio),
+                        exclusive_pyeong: (areaVal / 3.3058).toFixed(1),
+                        hasData: true, 
+                        deal_count: 1, 
+                        item: item 
+                    });
                 }
             }
 
@@ -2128,7 +2145,16 @@
                 const areaVal = parseFloat(item.area);
                 if (!isNaN(areaVal) && areaVal > 0) {
                     const p = convertAreaToPyeong(areaVal, item.prop_type || 'apt');
-                    pyeongMap.set(p, { pyeong: p, area: areaVal, hasData: false, deal_count: 0, item: item });
+                    const ratio = (item.prop_type === 'apt' ? 0.75 : (item.prop_type === 'officetel' ? 0.50 : 1.0));
+                    pyeongMap.set(p, { 
+                        pyeong: p, 
+                        area: areaVal, 
+                        supply_area: Math.round(areaVal / ratio),
+                        exclusive_pyeong: (areaVal / 3.3058).toFixed(1),
+                        hasData: false, 
+                        deal_count: 0, 
+                        item: item 
+                    });
                 }
             }
 
@@ -2157,13 +2183,27 @@
                     ? `<span class="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">${dealCountText}</span>`
                     : `<span class="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">신고 없음</span>`;
 
+                const areaVal = parseFloat(pInfo.area) || 0;
+                const exclP = pInfo.exclusive_pyeong || (areaVal ? (areaVal / 3.3058).toFixed(1) : 0);
+                const propType = (item && item.prop_type) || 'apt';
+                const ratio = propType === 'apt' ? 0.75 : (propType === 'officetel' ? 0.50 : 1.0);
+                const suppSqm = pInfo.supply_area || (areaVal ? Math.round(areaVal / ratio) : 0);
+
                 return `
-                    <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
-                        <div class="flex flex-col">
-                            <span class="text-xs ${isCurrent ? 'text-blue-600' : 'text-slate-800'} font-bold">
-                                ${pInfo.pyeong}평형 ${currentMark}
+                    <button type="button" onclick="selectDetailPyeong(${pInfo.pyeong})" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors ${isCurrent ? 'bg-blue-50/60 font-bold' : ''}">
+                        <div class="flex flex-col gap-0.5">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs ${isCurrent ? 'text-blue-600 font-extrabold' : 'text-slate-800 font-bold'}">
+                                    ${pInfo.pyeong}평형
+                                </span>
+                                <span class="text-[10px] text-slate-400 font-medium">
+                                    (공급 약 ${suppSqm}㎡)
+                                </span>
+                                ${currentMark}
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">
+                                전용 <span class="font-bold text-slate-700">${pInfo.area}㎡</span> (${exclP}평)
                             </span>
-                            <span class="text-[10px] text-slate-400 font-mono">전용 ${pInfo.area}㎡</span>
                         </div>
                         ${statusBadge}
                     </button>
@@ -2236,8 +2276,15 @@
                 </div>
             `;
             
-            // 🔥 수정됨: 버튼 텍스트를 항상 안전하게 계산된 평형으로 업데이트
-            document.getElementById('detailPyeong').textContent = `${safePyeong}평 ▾`;
+            // 🔥 수정됨: 버튼 텍스트를 공급평형과 법정 전용면적(㎡) 병기 형태로 업데이트
+            const pBtnText = (effectiveArea && !isNaN(parseFloat(effectiveArea)) && parseFloat(effectiveArea) > 0)
+                ? `${safePyeong}평형 (전용 ${Math.round(parseFloat(effectiveArea))}㎡) ▾`
+                : `${safePyeong}평형 ▾`;
+            const pBtnEl = document.getElementById('detailPyeong');
+            if (pBtnEl) pBtnEl.textContent = pBtnText;
+
+            const mBadge = document.getElementById('marketPyeongBadge');
+            if (mBadge) mBadge.textContent = pBtnText;
 
             // (이하 updateDetailView 기존 로직 그대로 유지...)
             const dongCard = document.getElementById('detailBuildingDongCard');
@@ -2354,18 +2401,18 @@
                 if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                    diffEl.textContent = `해당 평형(${safePyeong}평형)의 ${typeName} 실거래 신고 내역이 없습니다.`;
+                    diffEl.textContent = `해당 평형(${safePyeong}평형 / 전용 ${effectiveArea}㎡)의 ${typeName} 실거래 신고 내역이 없습니다.`;
                 }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${safePyeong}평형 신고 없음)`;
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${safePyeong}평형 · 전용 ${effectiveArea}㎡ 신고 없음)`;
 
                 if (noDataOverlay) {
                     noDataOverlay.classList.remove('hidden');
-                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${safePyeong}평형 ${typeName} 신고 없음`;
-                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${safePyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${safePyeong}평형 (전용 ${effectiveArea}㎡) ${typeName} 신고 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${safePyeong}평형(전용 ${effectiveArea}㎡) ${typeName} 실거래 내역이 존재하지 않습니다.`;
                 }
 
                 if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${safePyeong}평형(${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${safePyeong}평형(전용 ${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
                 }
 
                 document.getElementById('miniTaxAcq').textContent = '정보 없음';
@@ -2458,7 +2505,13 @@
                     : ((item.official_transactions && item.official_transactions.length > 0) ? item.official_transactions : []);
                 if (dealsToRender.length > 0) {
                     txListEl.innerHTML = dealsToRender.slice(0, 15).map(tx => {
-                        const areaText = tx.area ? (typeof tx.area === 'string' && tx.area.endsWith('㎡') ? tx.area : `${Math.round(parseFloat(tx.area))}㎡`) : (effectiveArea + '㎡');
+                        const rawAreaNum = parseFloat(tx.area) || parseFloat(effectiveArea) || 84;
+                        const areaDisplay = (typeof tx.area === 'string' && tx.area.includes('㎡')) 
+                            ? tx.area 
+                            : `${rawAreaNum.toFixed(2).replace(/\.?0+$/, '')}㎡`;
+                        const exclPyeong = tx.exclusive_pyeong || (rawAreaNum / 3.3058).toFixed(1);
+                        const suppPyeong = tx.pyeong || convertAreaToPyeong(rawAreaNum, item.prop_type || 'apt');
+
                         let priceText = '';
                         if (tradeType === 'rent') {
                             const dep = tx.deposit || 0;
@@ -2469,10 +2522,17 @@
                         }
                         return `
                             <tr class="hover:bg-slate-50/80 transition-colors">
-                                <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${tx.date}</td>
-                                <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
-                                <td class="py-2.5 px-3 font-medium text-slate-600">${areaText}</td>
-                                <td class="py-2.5 px-3 text-right">
+                                <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">${tx.date}</td>
+                                <td class="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">${priceText}</td>
+                                <td class="py-2.5 px-3">
+                                    <div class="text-[11px] font-bold text-slate-800">
+                                        전용 ${areaDisplay} <span class="text-[10px] font-normal text-slate-500">(${exclPyeong}평)</span>
+                                    </div>
+                                    <div class="text-[10px] font-semibold text-indigo-600">
+                                        공급 ${suppPyeong}평형
+                                    </div>
+                                </td>
+                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                     <span class="inline-block bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-700 transition-colors cursor-help" title="개인정보 보호법에 따라 동·호수를 제외한 층수만 공식 제공됩니다.">${tx.floor || '-'}</span>
                                 </td>
                             </tr>
@@ -2574,8 +2634,16 @@
                 }
 
                 // 직전 거래가 바로 위 [평형 선택 버튼] 자동 변경
+                const pInfoForBtn = (item.official_pyeongs || []).find(p => p.pyeong === window.currentSelectedPyeong);
+                const btnArea = pInfoForBtn ? pInfoForBtn.area : item.area;
                 const pBtn = document.getElementById('detailPyeong');
-                if (pBtn) pBtn.textContent = `${window.currentSelectedPyeong}평 ▾`;
+                if (pBtn) {
+                    pBtn.textContent = (btnArea && !isNaN(parseFloat(btnArea)) && parseFloat(btnArea) > 0)
+                        ? `${window.currentSelectedPyeong}평형 (전용 ${Math.round(parseFloat(btnArea))}㎡) ▾`
+                        : `${window.currentSelectedPyeong}평형 ▾`;
+                }
+                const mBadge = document.getElementById('marketPyeongBadge');
+                if (mBadge && pBtn) mBadge.textContent = pBtn.textContent;
 
                 if ((!item.latest_price || item.latest_price === 0) && item.official_pyeongs && item.official_pyeongs.length > 0) {
                     const matchedPInfo = item.official_pyeongs.find(p => p.pyeong === window.currentSelectedPyeong) || item.official_pyeongs.find(p => p.has_data && p.latest_price > 0) || item.official_pyeongs[0];

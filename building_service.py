@@ -980,10 +980,14 @@ def get_building_info_from_gov(
             else:
                 p_history.append({'month': ym, 'avg_price': p_last_price, 'volume': 0})
 
+        ratio = 0.75 if detected_prop_type == 'apt' else (0.50 if detected_prop_type == 'officetel' else 1.0)
+        supply_sqm = round(best_area / ratio, 1)
+
         pyeong_result_list.append({
             'pyeong': p,
             'area': best_area,
             'exclusive_pyeong': round(best_area / 3.3058, 1),
+            'supply_area': supply_sqm,
             'has_data': True,
             'deal_count': len(deals_sorted),
             'latest_price': latest_deal['price'],
@@ -1000,6 +1004,8 @@ def get_building_info_from_gov(
                     'monthly_rent': d.get('monthly_rent', 0),
                     'floor': d['floor'],
                     'area': f"{d['area']}㎡",
+                    'exclusive_pyeong': round(d['area'] / 3.3058, 1),
+                    'pyeong': p,
                     'deal_type': d['deal_type']
                 }
                 for d in deals_sorted
@@ -1051,6 +1057,8 @@ def get_building_info_from_gov(
             'monthly_rent': d.get('monthly_rent', 0),
             'floor': d['floor'],
             'area': f"{d['area']}㎡",
+            'exclusive_pyeong': round(d['area'] / 3.3058, 1),
+            'pyeong': calculate_pyeong(detected_prop_type, d['area']),
             'deal_type': d['deal_type']
         }
         for d in all_sorted_deals
