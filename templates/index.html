@@ -1661,18 +1661,78 @@
             if (idleTimer) clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
                 currentLatLng = map.getCenter();
+                applyClientFilters();
             }, 300);
         });
 
+        let lastFilterState = {
+            level: null,
+            centerLat: null,
+            centerLng: null,
+            threshold: null,
+            dataHash: ''
+        };
+
         function applyClientFilters(force = false) {
             if (!map) return;
+            const bounds = map.getBounds();
+            if (!bounds) return;
+
+            const sw = bounds.getSouthWest();
+            const ne = bounds.getNorthEast();
+            const span = Math.max(ne.getLng() - sw.getLng(), ne.getLat() - sw.getLat());
+            const currentLevel = map.getLevel();
+            const center = map.getCenter();
+            const currentLat = center.getLat();
+            const currentLng = center.getLng();
+            
             const badgeEl = document.getElementById('zoomFilterBadge');
-            if (badgeEl) {
-                badgeEl.textContent = `🏢 지도의 아파트나 건물을 클릭하면 상세 시세와 실거래 정보가 표시됩니다.`;
+            let minPriceThreshold = 0;
+            let zoomText = '';
+
+            if (isBuildingAgeActive) {
+                minPriceThreshold = 0;
+                zoomText = `🏢 연립주택·빌라 및 단지별 노후도(연식) 점 표시 중 (클릭 시 상세 정보)`;
+            } else if (span >= 0.1) {
+                minPriceThreshold = 180000;
+                zoomText = `🔍 광역 축소 상태 (18억 이상 단지별 최고가 표시)`;
+            } else if (span >= 0.04) {
+                minPriceThreshold = 120000;
+                zoomText = `🔍 중간 줌 상태 (12억 이상 단지별 최고가 표시)`;
+            } else {
+                minPriceThreshold = 0;
+                zoomText = `🏢 아파트 단지별 최고가 표시 중`;
             }
 
-            const soaringFiltered = rawDataStore.soaring || [];
-            const plungingFiltered = rawDataStore.plunging || [];
+            if (badgeEl) badgeEl.textContent = zoomText;
+
+            const currentDataHash = `${(rawDataStore.soaring || []).map(s => s.name + s.latest_price).join(',')}|${(rawDataStore.plunging || []).map(p => p.name + p.latest_price).join(',')}|${(rawDataStore.items || []).length}`;
+            const latDiff = lastFilterState.centerLat ? Math.abs(currentLat - lastFilterState.centerLat) : 999;
+            const lngDiff = lastFilterState.centerLng ? Math.abs(currentLng - lastFilterState.centerLng) : 999;
+            const isLevelChanged = lastFilterState.level !== currentLevel;
+            const isThresholdChanged = lastFilterState.threshold !== minPriceThreshold;
+            const isDataChanged = lastFilterState.dataHash !== currentDataHash;
+            const isCenterMoved = latDiff > 0.0002 || lngDiff > 0.0002;
+
+            if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved) {
+                return;
+            }
+
+            lastFilterState = {
+                level: currentLevel,
+                centerLat: currentLat,
+                centerLng: currentLng,
+                threshold: minPriceThreshold,
+                dataHash: currentDataHash
+            };
+
+            const filterList = (list) => {
+                if (!list) return [];
+                return list.filter(item => item.latest_price >= minPriceThreshold);
+            };
+
+            const soaringFiltered = filterList(rawDataStore.soaring || []);
+            const plungingFiltered = filterList(rawDataStore.plunging || []);
 
             renderChart('soaring', soaringFiltered.slice(0, 3));
             renderChart('plunging', plungingFiltered.slice(0, 3));
@@ -1680,8 +1740,52 @@
             clearMapBadges();
 
             const sourceList = rawDataStore.items || [...soaringFiltered, ...plungingFiltered];
-            const sortedList = [...sourceList].sort((a, b) => (b.latest_price || 0) - (a.latest_price || 0));
-            renderChart('highest', sortedList.slice(0, 3));
+            const complexMap = new Map();
+            const dongMaxPriceMap = new Map();
+
+            sourceList.forEach(item => {
+                const targetDong = item.dong || currentDongName || '';
+                const complexKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
+
+                const currentDongMax = dongMaxPriceMap.get(targetDong) || 0;
+                if (item.latest_price > currentDongMax) {
+                    dongMaxPriceMap.set(targetDong, item.latest_price);
+                }
+
+                if (!complexMap.has(complexKey)) {
+                    if (!item.build_year) {
+                        item.build_year = findRealBuildYear(targetDong, item.jibun, item.name);
+                    }
+                    complexMap.set(complexKey, item);
+                } else {
+                    const existing = complexMap.get(complexKey);
+                    const resolvedBuildYear = item.build_year || existing.build_year || findRealBuildYear(targetDong, item.jibun, item.name);
+                    if (item.latest_price > existing.latest_price) {
+                        item.build_year = resolvedBuildYear;
+                        complexMap.set(complexKey, item);
+                    } else {
+                        existing.build_year = resolvedBuildYear;
+                    }
+                }
+            });
+
+            let complexList = Array.from(complexMap.values());
+            complexList.sort((a, b) => b.latest_price - a.latest_price);
+
+            complexList.forEach(item => {
+                const targetDong = item.dong || currentDongName || '';
+                item.isDongLeader = (item.latest_price >= (dongMaxPriceMap.get(targetDong) || 0));
+            });
+
+            const highestFiltered = filterList(complexList);
+            renderChart('highest', highestFiltered.length > 0 ? highestFiltered.slice(0, 3) : complexList.slice(0, 3));
+
+            let mapDisplayList = filterList(complexList);
+            if (mapDisplayList.length === 0) {
+                mapDisplayList = complexList;
+            }
+            const maxBadges = (span >= 0.04) ? 25 : 50;
+            createMapBadges(mapDisplayList.slice(0, maxBadges));
         }
 
         function clearMapBadges() {
@@ -1692,12 +1796,198 @@
         }
 
         function createMapBadges(dataList) {
-            // 브라우저 프리징과 API 한도 초과 방지를 위해 일괄 마커 렌더링 제거 (클릭 시 단일 팝업 방식)
-            return;
+            if (!dataList || dataList.length === 0) return;
+
+            dataList.forEach((item, index) => {
+                const badgeKey = `complex_${index}`;
+                window.badgeItemStore[badgeKey] = item;
+
+                const targetDong = item.dong || currentDongName || currentAddressName || '';
+                const searchQuery = item.jibun ? `${targetDong} ${item.jibun}` : `${targetDong} ${item.name}`;
+
+                const tryRenderBadge = (position) => {
+                    if (!position) return;
+
+                    const pyeong = convertAreaToPyeong(item.area || 84, item.prop_type || 'apt');
+                    const pyeongText = `${pyeong}평`;
+                    
+                    const isUp = item.diff > 0;
+                    const isDown = item.diff < 0;
+                    const headerBg = isUp ? 'bg-[#ef4444]' : (isDown ? 'bg-[#2563eb]' : 'bg-[#475569]');
+                    const diffColor = isUp ? 'text-red-500' : (isDown ? 'text-blue-500' : 'text-slate-500');
+                    const diffText = isUp ? `+${formatPrice(item.diff)}` : (isDown ? `-${formatPrice(Math.abs(item.diff))}` : '보합');
+
+                    const ageInfo = getBuildingAgeInfo(item);
+                    const displayName = getBuildingDisplayName(item);
+
+                    const coordKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
+                    window.complexCoordCache = window.complexCoordCache || {};
+                    window.complexCoordCache[coordKey] = position;
+
+                    const leaderTagHtml = item.isDongLeader
+                        ? `<div class="bg-[#ea580c] text-white text-[9px] font-black px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                               👑 ${item.dong ? item.dong + ' 1위' : '최고가'}
+                           </div>`
+                        : `<div class="bg-[#4f46e5] text-white text-[9px] font-bold px-2 py-0.5 rounded-t-lg tracking-tight shadow-md inline-block mx-auto mb-[-2px]">
+                               🏢 최고가
+                           </div>`;
+
+                    const dongNameTag = item.isDongLeader
+                        ? `👑 ${item.dong ? item.dong + ' 1위' : '동 최고가'}`
+                        : `🏢 ${item.dong || ''} 최고가`;
+
+                    const markerHtml = `
+                        <div class="custom-overlay-group relative select-none"
+                             style="pointer-events: auto; touch-action: manipulation;"
+                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
+                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
+                            
+                            <div class="map-badge cursor-pointer select-none transition-transform flex flex-col items-center"
+                                 style="touch-action: manipulation; pointer-events: auto;"
+                                 onmousedown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 ontouchstart="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 onpointerdown="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();"
+                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
+                                ${leaderTagHtml}
+                                <div class="shadow-xl rounded-xl overflow-hidden border border-slate-700/25 bg-white text-center min-w-[96px]">
+                                    <div class="${headerBg} text-white px-2 py-0.5 text-[10px] font-extrabold flex items-center justify-between gap-1">
+                                        <span class="truncate max-w-[70px]">${displayName}</span>
+                                        <span class="text-[9px] opacity-90">${pyeongText}</span>
+                                    </div>
+                                    <div class="px-2 py-1 bg-white flex flex-col items-center">
+                                        <span class="text-xs font-black text-slate-900 leading-tight">${formatPrice(item.latest_price)}</span>
+                                        <span class="text-[9px] font-bold ${diffColor} mt-0.5 leading-none">${diffText}</span>
+                                    </div>
+                                </div>
+                                <div class="w-2 h-2 bg-white transform rotate-45 -mt-1 border-r border-b border-slate-700/20"></div>
+                            </div>
+                        </div>
+                    `;
+
+                    const panelHtml = `
+                        <div id="hoverCard_${badgeKey}" 
+                             class="hidden mobile-hide-hover relative select-none"
+                             style="pointer-events: auto; touch-action: manipulation;"
+                             onmouseenter="window.onOverlayGroupMouseEnter('${badgeKey}')"
+                             onmouseleave="window.onOverlayGroupMouseLeave('${badgeKey}')">
+                            
+                            <div class="absolute bottom-[48px] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-300/80 p-3.5 z-[1050] cursor-pointer"
+                                 style="pointer-events: auto;"
+                                 onclick="if(window.kakao&&kakao.maps&&kakao.maps.event)kakao.maps.event.preventMap();event.stopPropagation();window.onMapBadgeClick('${badgeKey}')">
+                                
+                                <div class="absolute bottom-[-48px] left-1/2 transform -translate-x-1/2 w-[60px] h-[48px] bg-transparent" style="pointer-events: auto !important;"></div>
+
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+                                    <div class="truncate pr-2">
+                                        <span class="text-[10px] font-bold ${item.isDongLeader ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'} px-1.5 py-0.5 rounded">${dongNameTag}</span>
+                                        <h4 class="text-xs font-black text-slate-900 truncate mt-0.5">${displayName}</h4>
+                                        <p class="text-[9px] text-slate-500 truncate mt-0.5">${item.jibun ? (targetDong + ' ' + item.jibun) : targetDong}</p>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-indigo-600 flex-shrink-0">상세 분석 →</span>
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] py-1 border-b border-slate-100 mb-1">
+                                    <span class="text-slate-500 font-medium">🗓️ 준공연도 / 연식</span>
+                                    <span class="font-extrabold" style="color: ${ageInfo ? ageInfo.color : '#64748b'};">
+                                        ${ageInfo ? `${ageInfo.buildYear}년 (${ageInfo.age}년차 · ${ageInfo.shortLabel})` : '건축년도 확인중'}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-baseline text-xs mb-1">
+                                    <span class="text-slate-500 font-medium text-[11px]">단지 최고 실거래가</span>
+                                    <span class="font-black text-slate-900 text-sm">${formatPrice(item.latest_price)}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[11px]">
+                                    <span class="text-slate-400">직전 거래 대비</span>
+                                    <span class="font-bold ${diffColor}">${diffText}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    const markerOverlay = new kakao.maps.CustomOverlay({
+                        position: position,
+                        content: markerHtml,
+                        xAnchor: 0.5,
+                        yAnchor: 1.0,
+                        zIndex: item.isDongLeader ? 40 : 35,
+                        clickable: true
+                    });
+
+                    const panelOverlay = new kakao.maps.CustomOverlay({
+                        position: position,
+                        content: panelHtml,
+                        xAnchor: 0.5,
+                        yAnchor: 1.0,
+                        zIndex: 1050,
+                        clickable: true
+                    });
+
+                    window.customOverlayStore = window.customOverlayStore || {};
+                    window.customOverlayStore[badgeKey] = {
+                        overlay: markerOverlay,
+                        originalZIndex: item.isDongLeader ? 40 : 35
+                    };
+
+                    markerOverlay.setMap(map);
+                    panelOverlay.setMap(map);
+                    mapCustomOverlays.push(markerOverlay);
+                    mapCustomOverlays.push(panelOverlay);
+
+                    if (isBuildingAgeActive && ageInfo) {
+                        createAgeDotOverlay(position, item, ageInfo);
+                    }
+                };
+
+                const coordKey = item.jibun ? `${targetDong}_${item.jibun}_${item.name}` : `${targetDong}_${item.name}`;
+                if (window.complexCoordCache && window.complexCoordCache[coordKey]) {
+                    tryRenderBadge(window.complexCoordCache[coordKey]);
+                    return;
+                }
+
+                const cleanJibun = (item.jibun || '').replace(/[*~]+/g, '').replace(/-+$/, '').trim();
+                const cleanJibunQuery = cleanJibun ? `${targetDong} ${cleanJibun}번지` : null;
+
+                const validateAndRender = (pos, roadBldName = '', placeCat = '') => {
+                    if (item.prop_type === 'singlehouse') {
+                        const isAptName = /(아파트|자이|래미안|힐스테이트|푸르지오|아이파크|롯데캐슬|더샵|e편한세상|센트럴|팰리스)/.test(roadBldName);
+                        const isAptCat = placeCat.includes('아파트');
+                        if (isAptName || isAptCat) return;
+                    }
+                    tryRenderBadge(pos);
+                };
+
+                geocoder.addressSearch(searchQuery, function(result, status) {
+                    if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                        const roadBld = result[0].road_address?.building_name || '';
+                        validateAndRender(new kakao.maps.LatLng(result[0].y, result[0].x), roadBld);
+                    } else if (cleanJibunQuery) {
+                        geocoder.addressSearch(cleanJibunQuery, function(cResult, cStatus) {
+                            if (cStatus === kakao.maps.services.Status.OK && cResult.length > 0) {
+                                const roadBld = cResult[0].road_address?.building_name || '';
+                                validateAndRender(new kakao.maps.LatLng(cResult[0].y, cResult[0].x), roadBld);
+                            }
+                        });
+                    } else {
+                        places.keywordSearch(`${targetDong} ${item.name}`, function(pResult, pStatus) {
+                            if (pStatus === kakao.maps.services.Status.OK && pResult.length > 0) {
+                                const place = pResult[0];
+                                validateAndRender(new kakao.maps.LatLng(place.y, place.x), place.place_name, place.category_name || '');
+                            }
+                        });
+                    }
+                });
+            });
         }
 
-        window.onOverlayGroupMouseEnter = function(key) {};
-        window.onOverlayGroupMouseLeave = function(key) {};
+        window.onOverlayGroupMouseEnter = function(key) {
+            const hoverCard = document.getElementById(`hoverCard_${key}`);
+            if (hoverCard) hoverCard.classList.remove('hidden');
+        };
+
+        window.onOverlayGroupMouseLeave = function(key) {
+            const hoverCard = document.getElementById(`hoverCard_${key}`);
+            if (hoverCard) hoverCard.classList.add('hidden');
+        };
+
         window.onMapBadgeClick = function(key) {
             const item = window.badgeItemStore[key];
             if (item) showApartmentDetail(item);
@@ -2025,6 +2315,32 @@
             const hasPData = pInfo && (pInfo.hasData || pInfo.has_data);
             const pItem = (pInfo && pInfo.item) ? pInfo.item : item;
 
+            if (item.is_loading) {
+                const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
+                if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
+                if (prevLabelEl) prevLabelEl.textContent = `직전 ${typeName} 거래가`;
+                if (latestPriceEl) latestPriceEl.innerHTML = `<span class="text-indigo-600 animate-pulse text-sm font-bold">국토부 실시간 조회 중...</span>`;
+                if (prevPriceEl) prevPriceEl.textContent = '-';
+                if (latestDateEl) latestDateEl.textContent = '확인 중';
+                if (prevDateEl) prevDateEl.textContent = '확인 중';
+                if (diffEl) {
+                    diffEl.className = 'text-[11px] font-medium text-indigo-500 mt-2 animate-pulse';
+                    diffEl.textContent = `국토교통부 공공데이터 실거래 내역을 확인하고 있습니다...`;
+                }
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} 실거래 내역 조회 중`;
+
+                if (noDataOverlay) noDataOverlay.classList.add('hidden');
+
+                if (txListEl) {
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-indigo-500 text-xs font-bold"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block mr-2 align-middle"></div>국토교통부 실시간 실거래 정보 조회 중...</td></tr>`;
+                }
+
+                document.getElementById('miniTaxAcq').textContent = '계산 중...';
+                document.getElementById('miniTaxHolding').textContent = '계산 중...';
+                document.getElementById('miniTaxTransfer').textContent = '계산 중...';
+                return;
+            }
+
             if (!hasPData && (!item.latest_price || item.latest_price === 0)) {
                 const typeName = tradeType === 'sale' ? '매매' : (tradeType === 'jeonse' ? '전세' : '월세');
                 if (latestLabelEl) latestLabelEl.textContent = `최근 ${typeName} 실거래가`;
@@ -2226,6 +2542,16 @@
                 // 직전 거래가 바로 위 [평형 선택 버튼] 자동 변경
                 const pBtn = document.getElementById('detailPyeong');
                 if (pBtn) pBtn.textContent = `${window.currentSelectedPyeong}평 ▾`;
+
+                if ((!item.latest_price || item.latest_price === 0) && item.official_pyeongs && item.official_pyeongs.length > 0) {
+                    const matchedPInfo = item.official_pyeongs.find(p => p.pyeong === window.currentSelectedPyeong) || item.official_pyeongs.find(p => p.has_data && p.latest_price > 0) || item.official_pyeongs[0];
+                    if (matchedPInfo && matchedPInfo.latest_price > 0) {
+                        item.latest_price = matchedPInfo.latest_price;
+                        item.previous_price = matchedPInfo.previous_price || matchedPInfo.latest_price;
+                        item.diff = matchedPInfo.diff || 0;
+                        item.area = matchedPInfo.area || item.area;
+                    }
+                }
 
                 setupPyeongDropdown(item);
                 updateDetailView(item, tradeType, window.currentSelectedPyeong);
@@ -2511,10 +2837,18 @@
 
             setupPyeongDropdown(item);
             updateDetailTradeTypeButtons(window.currentDetailTradeType);
+
+            if (!item.latest_price || item.latest_price === 0) {
+                item.is_loading = true;
+            }
             updateDetailView(item, window.currentDetailTradeType, initialPyeong);
 
             // 국토교통부 공공데이터 실거래 API 중계 비동기 조회 및 UI 동기화
-            await fetchOfficialBuildingData(item, window.currentDetailTradeType);
+            try {
+                await fetchOfficialBuildingData(item, window.currentDetailTradeType);
+            } finally {
+                item.is_loading = false;
+            }
         }
 
         function closeApartmentDetail() {
@@ -3279,22 +3613,32 @@
         }
 
         function handleMapClickLocation(latlng, hintQuery = '') {
-            // 1. 역지오코딩으로 지번 및 건물명 추출
-            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
-                const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
-                const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
-
+            // 1. 역지오코딩으로 법정동 코드 및 지번 추출 (coord2RegionCode + coord2Address 병행)
+            geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(regionResult, regionStatus) {
                 let clickLawdCd = '';
-                if (addr && addr.b_code) {
-                    clickLawdCd = addr.b_code.substring(0, 5);
-                    currentLawdCd = clickLawdCd;
+                let regionDong = '';
+                if (regionStatus === kakao.maps.services.Status.OK && regionResult) {
+                    for (let i = 0; i < regionResult.length; i++) {
+                        if (regionResult[i].region_type === 'B') {
+                            const bCode = regionResult[i].code;
+                            clickLawdCd = bCode.substring(0, 5);
+                            currentLawdCd = clickLawdCd;
+                            regionDong = regionResult[i].region_3depth_name;
+                            currentDongName = regionDong;
+                            break;
+                        }
+                    }
                 }
 
-                const targetDong = addr ? addr.region_3depth_name : (currentDongName || '');
-                const mainNo = addr ? addr.main_address_no : '';
-                const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
-                const jibun = mainNo + subNo;
-                const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
+                geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function(addrResult, addrStatus) {
+                    const addr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].address : null;
+                    const roadAddr = (addrStatus === kakao.maps.services.Status.OK && addrResult.length > 0) ? addrResult[0].road_address : null;
+
+                    const targetDong = (addr && addr.region_3depth_name) || regionDong || currentDongName || '';
+                    const mainNo = addr ? addr.main_address_no : '';
+                    const subNo = (addr && addr.sub_address_no) ? '-' + addr.sub_address_no : '';
+                    const jibun = mainNo + subNo;
+                    const buildingName = (roadAddr && roadAddr.building_name) ? roadAddr.building_name.trim() : '';
 
                 // 2. 현재 메모리에 로드된 실거래 데이터 중 동일 지번/단지 우선 검색
                 const allStoreDeals = (rawDataStore.items || []).concat(
@@ -3489,7 +3833,8 @@
                     }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
                 }, { location: latlng, radius: 85, sort: kakao.maps.services.SortBy.DISTANCE });
             });
-        }
+        });
+    }
 
         function fetchRegionInfo(latlng, shouldCloseDetail = true) {
             geocoder.coord2RegionCode(latlng.getLng(), latlng.getLat(), function(result, status) {

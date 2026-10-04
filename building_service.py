@@ -163,13 +163,8 @@ def resolve_lawd_cd(lawd_cd: Optional[str], dong: Optional[str]) -> str:
     clean_lawd = str(lawd_cd).strip() if lawd_cd else ""
     clean_dong = str(dong).strip() if dong else ""
 
-    # 1. 카카오 역지오코딩 공식 b_code 최우선 신뢰: 5자리 숫자가 전달되었고 기본값(11650)이 아닌 경우
-    if clean_lawd and len(clean_lawd) == 5 and clean_lawd.isdigit() and clean_lawd != '11650':
-        return clean_lawd
-
-    # 2. 법정동 명칭 매핑 확인 (기본값이거나 누락된 경우 자동 교정)
+    # 1. 법정동 명칭 매핑 최우선 확인 (역지오코딩된 법정동 명칭은 100% 신뢰 가능)
     if clean_dong:
-        # 은평구 구파발/진관동 특수 처리
         if '진관' in clean_dong or '구파발' in clean_dong:
             return '11380'
         if clean_dong in DONG_TO_LAWD_CD:
@@ -178,7 +173,11 @@ def resolve_lawd_cd(lawd_cd: Optional[str], dong: Optional[str]) -> str:
             if k.rstrip('동') == clean_dong.rstrip('동'):
                 return v
 
-    # 3. 기본값(11650) 또는 전달된 유효 코드 반환
+    # 2. 카카오 역지오코딩 공식 b_code가 전달된 경우 (5자리 숫자)
+    if clean_lawd and len(clean_lawd) == 5 and clean_lawd.isdigit() and clean_lawd not in ('11650', '11140'):
+        return clean_lawd
+
+    # 3. 전달된 유효 코드 또는 기본값(11650) 반환
     if clean_lawd and len(clean_lawd) == 5 and clean_lawd.isdigit():
         return clean_lawd
 
@@ -774,7 +773,8 @@ def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_j
     clean_target_jibun = (target_jibun or "").replace("*", "").replace("~", "").strip()
     main_jibun = clean_target_jibun.split("-")[0] if clean_target_jibun else ""
     target_clean = (target_name or "").strip()
-    is_generic_name = not target_clean or any(g in target_clean for g in ["단독", "다가구", "주택", "아파트", "빌라", "토지", "부동산"])
+    clean_without_type = re.sub(r'(단독|다가구|연립|다세대|아파트|빌라|오피스텔|주택|상가|토지|부동산)', '', target_clean).strip()
+    is_generic_name = not clean_without_type or bool(target_dong and target_clean in [f"{target_dong} 아파트", f"{target_dong} 주택", f"{target_dong} 단독주택", f"{target_dong} 빌라"])
 
     # 0순위: building_dong (예: 924동)이 특정 단지의 동 범위(예: 916~928동)에 완벽히 포함되는 경우 최우선 매칭
     if building_dong:
