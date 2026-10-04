@@ -3807,6 +3807,8 @@
                         }
                     } else if (detectedD) {
                         showToast(`🏢 <strong>${finalName} ${detectedD}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">선택한 ${detectedD} 정보와 단지 실거래가가 자동 연동되었습니다.</span>`);
+                    } else if (finalPropType === 'apt') {
+                        showToast(`🏢 <strong>${finalName}</strong> 선택됨<br><span class="text-[11px] text-indigo-200">포털에 개별 동 미등록 단지 - 대표 평형 실거래가로 연동되었습니다.</span>`);
                     }
 
                     const realYear = (matchedRealDeal && matchedRealDeal.build_year) || findRealBuildYear(targetDong, jibun, finalName);
@@ -3844,8 +3846,9 @@
                     fetchRegionInfo(latlng, false);
                 }
 
-                // 1단계: '아파트' 키워드로 반경 95m 정밀 거리순 검색
-                places.keywordSearch('아파트', function(pResult, pStatus) {
+                // 3. 지점 주변 건물 동 번호(예: 105동, 924동) 정밀 탐색 3단계 파이프라인
+                // [1단계]: 카카오 세부 카테고리 '아파트 동' 키워드로 반경 85m 거리순(DISTANCE) 최우선 검색
+                places.keywordSearch('아파트 동', function(pResult, pStatus) {
                     if (pStatus === kakao.maps.services.Status.OK && pResult && pResult.length > 0) {
                         const sortedP = pResult.map(p => {
                             const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
@@ -3866,9 +3869,44 @@
                         }
                     }
 
-                    // 2단계: '아파트' 검색으로 동을 특정하지 못했고 단지명이 있는 경우, 단지명으로 2차 정밀 검색
-                    if (!detectedDong && complexQuery && complexQuery.length >= 2) {
-                        places.keywordSearch(complexQuery, function(cResult, cStatus) {
+                    // 1단계에서 동을 찾았으면 즉시 상세 패널 오픈
+                    if (detectedDong) {
+                        proceedWithDetectedInfo(detectedDong, nearbyApt);
+                        return;
+                    }
+
+                    // [2단계]: '아파트 동' 키워드에 없는 경우, '아파트' 키워드로 반경 95m 거리순 탐색
+                    places.keywordSearch('아파트', function(aResult, aStatus) {
+                        if (aStatus === kakao.maps.services.Status.OK && aResult && aResult.length > 0) {
+                            const sortedA = aResult.map(p => {
+                                const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
+                                return { ...p, dist };
+                            }).sort((a, b) => a.dist - b.dist);
+
+                            for (let i = 0; i < sortedA.length; i++) {
+                                const p = sortedA[i];
+                                if (p.dist <= 95 && !nearbyApt) nearbyApt = p;
+                                if (p.dist <= 85) {
+                                    const foundDong = extractDongFromText(p.place_name);
+                                    if (foundDong) {
+                                        detectedDong = foundDong;
+                                        nearbyApt = p;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        const targetComplexQuery = complexQuery || (nearbyApt ? nearbyApt.place_name.replace(/\([^\)]*\)/g, '').replace(/아파트$/, '').trim() : '');
+
+                        // 2단계에서 동을 찾았거나 단지 검색어가 없으면 완료
+                        if (detectedDong || !targetComplexQuery || targetComplexQuery.length < 2) {
+                            proceedWithDetectedInfo(detectedDong, nearbyApt);
+                            return;
+                        }
+
+                        // [3단계]: 단지명이 파악된 경우 단지명으로 반경 95m 3차 정밀 거리순 검색
+                        places.keywordSearch(targetComplexQuery, function(cResult, cStatus) {
                             if (cStatus === kakao.maps.services.Status.OK && cResult && cResult.length > 0) {
                                 const sortedC = cResult.map(p => {
                                     const dist = Math.sqrt(Math.pow(p.y - latlng.getLat(), 2) + Math.pow(p.x - latlng.getLng(), 2)) * 111000;
@@ -3889,11 +3927,9 @@
                                 }
                             }
                             proceedWithDetectedInfo(detectedDong, nearbyApt);
-                        }, { location: latlng, radius: 95 });
-                    } else {
-                        proceedWithDetectedInfo(detectedDong, nearbyApt);
-                    }
-                }, { location: latlng, radius: 95 });
+                        }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
+                    }, { location: latlng, radius: 95, sort: kakao.maps.services.SortBy.DISTANCE });
+                }, { location: latlng, radius: 85, sort: kakao.maps.services.SortBy.DISTANCE });
             });
         }
 
