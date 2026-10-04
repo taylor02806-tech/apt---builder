@@ -169,9 +169,9 @@ def get_complex_history(
 
     # 실거래 내역이 없는 경우: 절대로 가짜 랜덤/목업 데이터를 생성하지 않고, 투명하게 빈 내역을 반환
     return ComplexHistoryResponse(
-        dong=dong,
-        name=name,
-        build_year=None,
+        dong=real_data.get("dong") or dong,
+        name=real_data.get("name") or name,
+        build_year=real_data.get("build_year"),
         history=[],
         recent_transactions=[],
         pyeongs=[],

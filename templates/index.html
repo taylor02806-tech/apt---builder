@@ -1070,6 +1070,20 @@
 
         // 🔥 [주요 아파트 단지 준공년도 표준 데이터베이스 및 연식 분석 로직]
         const KNOWN_COMPLEX_BUILD_YEARS = {
+            // 은평구 (은평뉴타운 및 주요 대단지)
+            '우물골': 2010, '우물골2단지': 2010, '우물골두산위브': 2010,
+            '구파발9단지': 2010, '구파발래미안': 2010, '구파발10단지': 2010, '구파발어울림': 2010,
+            '박석고개': 2009, '박석고개1단지': 2009, '박석고개힐스테이트': 2009,
+            '마고정': 2009, '마고정3단지': 2009, '마고정센트레빌': 2009,
+            '폭포동': 2010, '폭포동4단지': 2010, '폭포동힐스테이트': 2010,
+            '제각말': 2010, '제각말푸르지오': 2010, '제각말5단지': 2010,
+            '상림마을': 2008, '상림마을푸르지오': 2008, '상림마을아이파크': 2008, '상림마을롯데캐슬': 2008,
+            '은평스카이뷰자이': 2019, '은평뉴타운꿈에그린': 2018, '은평뉴타운엘크루': 2017, '은평뉴타운솔하임': 2017, '은평뉴타운기자촌': 2015,
+            '기자촌11단지': 2015, '힐데스하임': 2017,
+            '녹번역e편한세상캐슬': 2020, '힐스테이트녹번': 2018, '래미안베라체즈': 2014, '백련산힐스테이트': 2011,
+            '백련산SK뷰아이파크': 2019, '북한산푸르지오': 2015, '북한산힐스테이트': 2010, 'DMC롯데캐슬더퍼스트': 2020,
+            'DMC센트럴자이': 2022, 'DMC파인캐시': 2023, 'DMC아트포레자이': 2023, '백련산해모로': 2020,
+
             // 서초구
             '아크로리버파크': 2016, '래미안원베일리': 2023, '반포자이': 2009, '반포래미안퍼스티지': 2009,
             '반포센트럴자이': 2020, '반포써밋': 2018, '래미안신반포원펜타스': 2024, '디에이치반포라클라스': 2021,
@@ -1137,6 +1151,19 @@
 
         window.globalBuildingYearRegistry = window.globalBuildingYearRegistry || {};
 
+        function normalizeBuildingName(name) {
+            if (!name) return '';
+            return name
+                .replace(/[(（].*?[)）]/g, '')
+                .replace(/BL\s*\d+[-~]\d+/gi, '')
+                .replace(/\bBL\b.*$/gi, '')
+                .replace(/은평뉴타운|판교|동탄|미사강변|위례/g, '')
+                .replace(/\s*\d+동.*$/, '')
+                .replace(/아파트$/, '')
+                .replace(/[^\w가-힣0-9]/g, '')
+                .trim();
+        }
+
         function registerBuildingYears(items) {
             if (!items || !Array.isArray(items)) return;
             window.globalBuildingYearRegistry = window.globalBuildingYearRegistry || {};
@@ -1146,12 +1173,24 @@
                     if (!isNaN(yr) && yr >= 1950) {
                         const dong = it.dong || currentDongName || '';
                         const cleanName = (it.name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
-                        if (it.jibun) {
-                            window.globalBuildingYearRegistry[`${dong}_${it.jibun}`] = yr;
-                            window.globalBuildingYearRegistry[it.jibun] = yr;
+                        const normName = normalizeBuildingName(it.name);
+                        const rawJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
+                        const mainJibun = rawJibun.split('-')[0];
+
+                        if (rawJibun) {
+                            if (dong) window.globalBuildingYearRegistry[`${dong}_${rawJibun}`] = yr;
+                            window.globalBuildingYearRegistry[rawJibun] = yr;
+                        }
+                        if (mainJibun) {
+                            if (dong) window.globalBuildingYearRegistry[`${dong}_${mainJibun}`] = yr;
+                            window.globalBuildingYearRegistry[mainJibun] = yr;
+                        }
+                        if (normName) {
+                            if (dong) window.globalBuildingYearRegistry[`${dong}_${normName}`] = yr;
+                            window.globalBuildingYearRegistry[normName] = yr;
                         }
                         if (cleanName) {
-                            window.globalBuildingYearRegistry[`${dong}_${cleanName}`] = yr;
+                            if (dong) window.globalBuildingYearRegistry[`${dong}_${cleanName}`] = yr;
                             window.globalBuildingYearRegistry[cleanName] = yr;
                         }
                     }
@@ -1161,21 +1200,36 @@
 
         function findRealBuildYear(dong, jibun, name) {
             const cleanName = (name || '').replace(/\s*\d+동.*$/, '').replace(/아파트$/, '').trim();
+            const normName = normalizeBuildingName(name);
             const targetDong = dong || currentDongName || '';
+            const rawJibun = (jibun || '').replace(/[*~]+/g, '').trim();
+            const mainJibun = rawJibun.split('-')[0];
 
-            // 1. 글로벌 캐시 레지스트리 확인
+            // 1. 글로벌 캐시 레지스트리 확인 (지번 및 정규화 명칭 우선)
             if (window.globalBuildingYearRegistry) {
-                if (targetDong && jibun && window.globalBuildingYearRegistry[`${targetDong}_${jibun}`]) {
-                    return window.globalBuildingYearRegistry[`${targetDong}_${jibun}`];
+                if (targetDong && rawJibun && window.globalBuildingYearRegistry[`${targetDong}_${rawJibun}`]) {
+                    return window.globalBuildingYearRegistry[`${targetDong}_${rawJibun}`];
+                }
+                if (rawJibun && window.globalBuildingYearRegistry[rawJibun]) {
+                    return window.globalBuildingYearRegistry[rawJibun];
+                }
+                if (targetDong && mainJibun && window.globalBuildingYearRegistry[`${targetDong}_${mainJibun}`]) {
+                    return window.globalBuildingYearRegistry[`${targetDong}_${mainJibun}`];
+                }
+                if (mainJibun && window.globalBuildingYearRegistry[mainJibun]) {
+                    return window.globalBuildingYearRegistry[mainJibun];
+                }
+                if (targetDong && normName && window.globalBuildingYearRegistry[`${targetDong}_${normName}`]) {
+                    return window.globalBuildingYearRegistry[`${targetDong}_${normName}`];
+                }
+                if (normName && window.globalBuildingYearRegistry[normName]) {
+                    return window.globalBuildingYearRegistry[normName];
                 }
                 if (targetDong && cleanName && window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`]) {
                     return window.globalBuildingYearRegistry[`${targetDong}_${cleanName}`];
                 }
                 if (cleanName && window.globalBuildingYearRegistry[cleanName]) {
                     return window.globalBuildingYearRegistry[cleanName];
-                }
-                if (jibun && window.globalBuildingYearRegistry[jibun]) {
-                    return window.globalBuildingYearRegistry[jibun];
                 }
             }
 
@@ -1187,11 +1241,14 @@
                 const itDong = it.dong || currentDongName || '';
                 if (targetDong && itDong && targetDong !== itDong) continue;
 
-                if (jibun && it.jibun && it.jibun === jibun) {
+                const itJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
+                const itMainJibun = itJibun.split('-')[0];
+
+                if (rawJibun && itJibun && (itJibun === rawJibun || (mainJibun && itMainJibun === mainJibun))) {
                     return parseInt(it.build_year);
                 }
-                const itClean = (it.name || '').replace(/아파트$/, '').trim();
-                if (cleanName && itClean && (cleanName === itClean || cleanName.includes(itClean) || itClean.includes(cleanName))) {
+                const itNorm = normalizeBuildingName(it.name);
+                if (normName && itNorm && (normName === itNorm || normName.includes(itNorm) || itNorm.includes(normName))) {
                     return parseInt(it.build_year);
                 }
             }
@@ -1202,22 +1259,27 @@
                 for (let i = 0; i < rhList.length; i++) {
                     const it = rhList[i];
                     if (!it.build_year) continue;
-                    if (jibun && it.jibun && it.jibun === jibun) {
+                    const itJibun = (it.jibun || '').replace(/[*~]+/g, '').trim();
+                    const itMainJibun = itJibun.split('-')[0];
+                    if (rawJibun && itJibun && (itJibun === rawJibun || (mainJibun && itMainJibun === mainJibun))) {
                         return parseInt(it.build_year);
                     }
-                    if (cleanName && it.name && it.name.includes(cleanName)) {
+                    const itNorm = normalizeBuildingName(it.name);
+                    if (normName && itNorm && (normName === itNorm || normName.includes(itNorm) || itNorm.includes(normName))) {
                         return parseInt(it.build_year);
                     }
                 }
             }
 
-            // 4. 확장 주요 아파트 단지 표준 DB 검색 (구체적인 긴 단지명부터 우선 매칭하여 '현대', '목동' 등 오매칭 방지)
-            if (cleanName) {
-                const dongPrefix = targetDong ? targetDong.replace(/동$/, '') : '';
-                const combinedName = dongPrefix ? (dongPrefix + cleanName) : cleanName;
+            // 4. 확장 주요 아파트 단지 표준 DB 검색 (구체적인 긴 단지명부터 우선 매칭)
+            if (normName || cleanName) {
                 const sortedKeys = Object.keys(KNOWN_COMPLEX_BUILD_YEARS).sort((a, b) => b.length - a.length);
                 for (let k of sortedKeys) {
-                    if (cleanName.includes(k) || combinedName.includes(k) || (cleanName.length >= 3 && k.includes(cleanName))) {
+                    const kNorm = normalizeBuildingName(k);
+                    if (normName && kNorm && (normName === kNorm || normName.includes(kNorm) || kNorm.includes(normName))) {
+                        return KNOWN_COMPLEX_BUILD_YEARS[k];
+                    }
+                    if (cleanName && cleanName.includes(k)) {
                         return KNOWN_COMPLEX_BUILD_YEARS[k];
                     }
                 }
@@ -1257,42 +1319,8 @@
                 }
             }
 
-            if (!buildYear && (item.name || item.jibun)) {
-                // 실거래가 및 표준DB에 없는 경우 한국 아파트 브랜드/시기별 사실적 준공연도 추정
-                const seedStr = `${item.dong || ''}_${item.jibun || ''}_${item.name || ''}`;
-                let hash = 0;
-                for (let i = 0; i < seedStr.length; i++) {
-                    hash = ((hash << 5) - hash) + seedStr.charCodeAt(i);
-                }
-                const seed = Math.abs(hash);
-                const name = (item.name || '').trim();
-                const isRowhouse = (item.prop_type === 'rowhouse' || (name && (name.includes('빌라') || name.includes('연립'))));
-                const isOldBrand = /(주공|시영|삼호|한양|맨션|시민|공영)/.test(name);
-                const isModernBrand = /(자이|푸르지오|래미안|힐스테이트|아이파크|더샵|롯데캐슬|e편한세상|디에이치|아크로|르엘|포레나|센트럴|파크|클래시|베일리|써밋)/.test(name);
-                const isClassicBrand = /(현대|우성|동아|대우|대림|극동|삼풍|미도|선경|벽산|건영|청구|신동아|한신)/.test(name);
-
-                if (isOldBrand) {
-                    buildYear = 1975 + (seed % 13); // 1975 ~ 1987 (재건축 대상, 37~49년차)
-                } else if (isModernBrand) {
-                    buildYear = 2009 + (seed % 15); // 2009 ~ 2023 (신축 / 준신축, 1~15년차)
-                } else if (isClassicBrand) {
-                    buildYear = 1988 + (seed % 13); // 1988 ~ 2000 (기축 / 노후 진행, 24~36년차)
-                } else if (isRowhouse) {
-                    const mod = seed % 100;
-                    if (mod < 48) {
-                        buildYear = 1980 + (seed % 15); // 1980 ~ 1994 (30년 이상)
-                    } else if (mod < 75) {
-                        buildYear = 1995 + (seed % 10); // 1995 ~ 2004 (20~29년)
-                    } else if (mod < 90) {
-                        buildYear = 2005 + (seed % 15); // 2005 ~ 2019 (준신축)
-                    } else {
-                        buildYear = 2020 + (seed % 5);  // 2020 ~ 2024 (신축)
-                    }
-                } else {
-                    buildYear = 1995 + (seed % 25);
-                }
-            }
-
+            // 🔥 가짜 난수(seed % 15 등) 계산 로직 완전 영구 제거!
+            // 국토교통부 실거래 원본 또는 공인 데이터베이스에서 확인된 실제 연도만 엄격히 반환합니다.
             if (!buildYear) return null;
 
             const age = Math.max(0, currentYear - buildYear);
@@ -1353,28 +1381,50 @@
         }
 
         function updateDetailAgeCardUI(item, ageInfo) {
-            if (!ageInfo) return;
             const ageCard = document.getElementById('detailBuildingAgeCard');
             if (ageCard) {
-                ageCard.classList.remove('hidden');
-                const iconEl = document.getElementById('detailAgeBadgeIcon');
-                if (iconEl) {
-                    iconEl.textContent = ageInfo.shortLabel;
-                    iconEl.style.backgroundColor = ageInfo.color;
-                }
-                const yrEl = document.getElementById('detailAgeBuildYear');
-                if (yrEl) yrEl.textContent = `${ageInfo.buildYear}년 준공`;
-                const elEl = document.getElementById('detailAgeElapsed');
-                if (elEl) {
-                    elEl.textContent = `${ageInfo.age}년차`;
-                    elEl.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor}`;
-                }
-                const descEl = document.getElementById('detailAgeDescription');
-                if (descEl) descEl.textContent = ageInfo.desc;
-                const catEl = document.getElementById('detailAgeCategoryTag');
-                if (catEl) {
-                    catEl.textContent = ageInfo.label;
-                    catEl.style.color = ageInfo.color;
+                if (ageInfo) {
+                    ageCard.classList.remove('hidden');
+                    const iconEl = document.getElementById('detailAgeBadgeIcon');
+                    if (iconEl) {
+                        iconEl.textContent = ageInfo.shortLabel;
+                        iconEl.style.backgroundColor = ageInfo.color;
+                    }
+                    const yrEl = document.getElementById('detailAgeBuildYear');
+                    if (yrEl) yrEl.textContent = `${ageInfo.buildYear}년 준공`;
+                    const elEl = document.getElementById('detailAgeElapsed');
+                    if (elEl) {
+                        elEl.textContent = `${ageInfo.age}년차`;
+                        elEl.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor}`;
+                    }
+                    const descEl = document.getElementById('detailAgeDescription');
+                    if (descEl) descEl.textContent = ageInfo.desc;
+                    const catEl = document.getElementById('detailAgeCategoryTag');
+                    if (catEl) {
+                        catEl.textContent = ageInfo.label;
+                        catEl.style.color = ageInfo.color;
+                    }
+                } else {
+                    ageCard.classList.remove('hidden');
+                    const iconEl = document.getElementById('detailAgeBadgeIcon');
+                    if (iconEl) {
+                        iconEl.textContent = '확인불가';
+                        iconEl.style.backgroundColor = '#94a3b8';
+                    }
+                    const yrEl = document.getElementById('detailAgeBuildYear');
+                    if (yrEl) yrEl.textContent = '준공년도 신고 내역 없음';
+                    const elEl = document.getElementById('detailAgeElapsed');
+                    if (elEl) {
+                        elEl.textContent = '정보없음';
+                        elEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500';
+                    }
+                    const descEl = document.getElementById('detailAgeDescription');
+                    if (descEl) descEl.textContent = '국토교통부 실거래 원본에 준공년도가 기록되지 않은 단지/건물입니다.';
+                    const catEl = document.getElementById('detailAgeCategoryTag');
+                    if (catEl) {
+                        catEl.textContent = '정보 없음';
+                        catEl.style.color = '#94a3b8';
+                    }
                 }
             }
 
@@ -1383,22 +1433,44 @@
                 const targetDong = item.dong || currentDongName || currentAddressName || '';
                 const addressText = item.jibun ? `${targetDong} ${item.jibun}` : targetDong;
                 const pyeong = window.currentSelectedPyeong || (Math.round(parseFloat(item.area) / 3.3058) || 34);
-                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
-                const effectiveArea = pInfo ? pInfo.area : (item.area || 84);
+                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong) ||
+                              (item.official_pyeongs || []).find(p => p.pyeong === pyeong);
+                const rawArea = (pInfo && pInfo.area) ? pInfo.area : (item.area || 84);
+                const effectiveArea = (typeof rawArea === 'number') ? rawArea.toFixed(2).replace(/\.?0+$/, '') : rawArea;
                 const isSingle = item.prop_type === 'singlehouse' || (item.name && (item.name.includes('단독') || item.name.includes('다가구')));
                 const isRowhouse = !isSingle && (item.prop_type === 'rowhouse' || (item.name && (item.name.includes('빌라') || item.name.includes('연립'))));
                 const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
                 const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
-                const ageBadgeHtml = `
-                    <span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor} border ${ageInfo.borderColor}/50 shadow-xs">
-                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
-                        <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
-                    </span>
-                `;
+                const dongBadgeHtml = item.building_dong 
+                    ? `<span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                           <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>${item.building_dong}
+                       </span>`
+                    : '';
+
+                const isOfficialLinked = !!(item.official_pyeongs && item.official_pyeongs.length > 0);
+                const govBadgeHtml = isOfficialLinked
+                    ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>국토교통부 실거래 연동
+                       </span>`
+                    : '';
+
+                const ageBadgeHtml = ageInfo
+                    ? `<span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${ageInfo.bgLight} ${ageInfo.textColor} border ${ageInfo.borderColor}/50 shadow-xs">
+                           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
+                           <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
+                       </span>`
+                    : `<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                           <span>준공년도 정보 없음</span>
+                       </span>`;
+
                 subEl.innerHTML = `
                     <div class="flex flex-col gap-1">
-                        <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span>${addressText} · 전용 ${effectiveArea}㎡ (${pyeong}평형) · <span class="font-bold text-indigo-600">${typeTag}</span></span>
+                            ${dongBadgeHtml}
+                            ${govBadgeHtml}
+                        </div>
                         <div>${ageBadgeHtml}</div>
                     </div>
                 `;
@@ -2391,7 +2463,10 @@
                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${ageInfo.color}"></span>
                        <span>${ageInfo.buildYear}년 준공 · ${ageInfo.age}년차 (${ageInfo.label})</span>
                    </span>`
-                : '';
+                : `<span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-xs animate-pulse">
+                       <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+                       <span>국토교통부 실시간 준공년도 확인 중...</span>
+                   </span>`;
 
             const isOfficialLinked = !!(item.official_pyeongs && item.official_pyeongs.length > 0);
             const govBadgeHtml = isOfficialLinked
@@ -2438,8 +2513,8 @@
             // 단지 준공 및 노후도 정보 카드 업데이트
             const ageCard = document.getElementById('detailBuildingAgeCard');
             if (ageCard) {
+                ageCard.classList.remove('hidden');
                 if (ageInfo) {
-                    ageCard.classList.remove('hidden');
                     const iconEl = document.getElementById('detailAgeBadgeIcon');
                     if (iconEl) {
                         iconEl.textContent = ageInfo.shortLabel;
@@ -2460,7 +2535,25 @@
                         catEl.style.color = ageInfo.color;
                     }
                 } else {
-                    ageCard.classList.add('hidden');
+                    const iconEl = document.getElementById('detailAgeBadgeIcon');
+                    if (iconEl) {
+                        iconEl.textContent = '조회중';
+                        iconEl.style.backgroundColor = '#6366f1';
+                    }
+                    const yrEl = document.getElementById('detailAgeBuildYear');
+                    if (yrEl) yrEl.textContent = '국토교통부 실시간 조회 중...';
+                    const elEl = document.getElementById('detailAgeElapsed');
+                    if (elEl) {
+                        elEl.textContent = '실시간 확인';
+                        elEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 animate-pulse';
+                    }
+                    const descEl = document.getElementById('detailAgeDescription');
+                    if (descEl) descEl.textContent = '국토교통부 실거래 원본에서 지번 및 단지 사용승인년도를 실시간으로 확인하고 있습니다.';
+                    const catEl = document.getElementById('detailAgeCategoryTag');
+                    if (catEl) {
+                        catEl.textContent = '실시간 조회 중';
+                        catEl.style.color = '#6366f1';
+                    }
                 }
             }
 
@@ -2633,7 +2726,7 @@
                 } catch (e) {}
             }
 
-            if (officialData && officialData.has_real_deals) {
+            if (officialData && (officialData.has_real_deals || officialData.build_year)) {
                 if (officialData.name) item.name = officialData.name;
                 if (officialData.dong) item.dong = officialData.dong;
                 if (officialData.jibun) item.jibun = officialData.jibun;
@@ -2686,6 +2779,13 @@
                 renderDetailTrendChart(item, tradeType, window.currentSelectedPyeong);
             } else {
                 // 국토교통부에 신고된 실거래 내역이 없는 경우: 정직하게 신고 내역 없음 상태로 동기화
+                if (officialData && officialData.build_year) {
+                    item.build_year = officialData.build_year;
+                    registerBuildingYears([item]);
+                }
+                const updatedAgeInfo = getBuildingAgeInfo(item);
+                updateDetailAgeCardUI(item, updatedAgeInfo);
+
                 item.official_pyeongs = [];
                 item.official_history = [];
                 item.official_transactions = [];

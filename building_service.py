@@ -755,12 +755,36 @@ def fetch_single_month(lawd_cd: str, prop_type: str, api_category: str, ymd: str
 
     return deals
 
-def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_jibun: str, target_name: str) -> List[Dict[str, Any]]:
+def is_dong_in_range(deal_name: str, building_dong: str) -> bool:
+    """단지명에 포함된 동 번호 범위(예: 916~928동)에 선택한 동(예: 924동)이 포함되는지 검사"""
+    if not building_dong or not deal_name:
+        return False
+    m_bd = re.search(r'(\d+)', building_dong)
+    if not m_bd:
+        return False
+    bd_num = int(m_bd.group(1))
+    for m in re.finditer(r'\((\d+)\s*[-~]\s*(\d+)(?:동)?\)', deal_name):
+        s, e = int(m.group(1)), int(m.group(2))
+        if s <= bd_num <= e:
+            return True
+    return False
+
+def filter_matched_deals(deals: List[Dict[str, Any]], target_dong: str, target_jibun: str, target_name: str, building_dong: Optional[str] = None) -> List[Dict[str, Any]]:
     """지번과 단지명을 다단계(Tier)로 비교하여 정확한 대상 건물의 거래만 추출"""
     clean_target_jibun = (target_jibun or "").replace("*", "").replace("~", "").strip()
     main_jibun = clean_target_jibun.split("-")[0] if clean_target_jibun else ""
     target_clean = (target_name or "").strip()
     is_generic_name = not target_clean or any(g in target_clean for g in ["단독", "다가구", "주택", "아파트", "빌라", "토지", "부동산"])
+
+    # 0순위: building_dong (예: 924동)이 특정 단지의 동 범위(예: 916~928동)에 완벽히 포함되는 경우 최우선 매칭
+    if building_dong:
+        dong_range_deals = [
+            d for d in deals
+            if is_dong_match(target_dong, d.get("dong", ""))
+            and is_dong_in_range(d.get("name", ""), building_dong)
+        ]
+        if dong_range_deals:
+            return dong_range_deals
 
     # 1순위: 지번 완전 일치 (동일 번지 실거래)
     if clean_target_jibun:
@@ -847,7 +871,43 @@ def get_building_info_from_gov(
             all_fetched_deals = [d for d in all_fetched_deals if d.get('monthly_rent', 0) > 0]
 
     # 3. 대상 단지/건물 정밀 매칭
-    matched_deals = filter_matched_deals(all_fetched_deals, dong, jibun, name)
+    matched_deals = filter_matched_deals(all_fetched_deals, dong, jibun, name, building_dong)
+
+    # 준공년도 1차 확인
+    build_years = [d['build_year'] for d in matched_deals if d.get('build_year')]
+    best_build_year = max(set(build_years), key=build_years.count) if build_years else None
+
+    # 만약 매매 거래에서 준공년도를 찾지 못했거나 실거래가 없는 경우,
+    # 국토교통부 전월세(Rent) 원본 데이터에서 해당 지번/단지의 정식 준공년도를 실시간 심층 탐색
+    if not best_build_year:
+        rent_months = months[:12]
+        rent_deals: List[Dict[str, Any]] = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            r_tasks = [executor.submit(fetch_single_month, actual_lawd_cd, pt, 'rent', ymd)
+                       for pt in fetch_prop_types for ymd in rent_months]
+            for t in r_tasks:
+                rent_deals.extend(t.result())
+        matched_rent = filter_matched_deals(rent_deals, dong, jibun, name, building_dong)
+        rent_years = [d['build_year'] for d in matched_rent if d.get('build_year')]
+        if rent_years:
+            best_build_year = max(set(rent_years), key=rent_years.count)
+
+        if not matched_deals and matched_rent:
+            official_name = max(set([d['name'] for d in matched_rent if d.get('name')]), key=[d['name'] for d in matched_rent].count)
+            official_jibun = matched_rent[0].get('jibun') or jibun
+            return {
+                "has_real_deals": False,
+                "dong": dong,
+                "jibun": official_jibun,
+                "name": official_name or name,
+                "prop_type": prop_type,
+                "build_year": best_build_year,
+                "total_deals": 0,
+                "matched_dong_pyeong": None,
+                "pyeongs": [],
+                "history": [],
+                "recent_transactions": []
+            }
 
     # 매칭된 실거래가 없는 경우
     if not matched_deals:
@@ -857,7 +917,7 @@ def get_building_info_from_gov(
             "jibun": jibun,
             "name": name,
             "prop_type": prop_type,
-            "build_year": None,
+            "build_year": best_build_year,
             "total_deals": 0,
             "matched_dong_pyeong": None,
             "pyeongs": [],
