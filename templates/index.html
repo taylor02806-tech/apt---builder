@@ -719,20 +719,6 @@
             </div>
         </div>
 
-        <!-- 데스크톱 패널 토글 버튼 (시인성 극대화 플로팅 탭) -->
-        <button onclick="togglePanel()" id="desktopToggleBtn" 
-            class="desktop-toggle-btn absolute top-1/2 left-full -translate-y-1/2 bg-white hover:bg-slate-900 text-slate-800 hover:text-white border-y border-r border-slate-200/90 hover:border-slate-900 rounded-r-2xl shadow-2xl flex items-center gap-2.5 px-4 py-3.5 z-[1001] cursor-pointer group transition-all duration-300 select-none whitespace-nowrap"
-            title="실거래 랭킹 메뉴 열기/닫기">
-            <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-md group-hover:bg-indigo-500 transition-colors shrink-0">
-                📊
-            </span>
-            <span id="toggleText" class="text-xs font-extrabold tracking-tight transition-colors">
-                실거래가 메뉴
-            </span>
-            <svg id="toggleIcon" class="w-4 h-4 text-slate-400 group-hover:text-white transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-            </svg>
-        </button>
     </aside>
 
     <!-- 지도 영역 -->
@@ -745,12 +731,12 @@
             <span>실거래 랭킹 메뉴</span>
         </button>
         
-        <!-- 좌측 상단 플로팅 바 (상단 메뉴 열기 버튼 포함) -->
+        <!-- 좌측 상단 플로팅 바 (상단 메뉴 열기 버튼) -->
         <div class="absolute top-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
-            <button id="topMenuOpenBtn" type="button" onclick="togglePanel(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl hover:shadow-2xl px-3.5 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 pointer-events-auto transition-all transform hover:scale-105 active:scale-95 border border-indigo-500">
-                <span class="text-sm">📊</span>
-                <span>메뉴 열기</span>
-                <svg class="w-3.5 h-3.5 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+            <button id="topMenuOpenBtn" type="button" onclick="togglePanel()" class="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl hover:shadow-2xl px-3.5 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 pointer-events-auto transition-all transform hover:scale-105 active:scale-95 border border-indigo-500">
+                <span id="topMenuIcon" class="text-sm">📊</span>
+                <span id="topMenuText">메뉴 열기</span>
+                <svg id="topMenuArrow" class="w-3.5 h-3.5 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
             </button>
             <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 pointer-events-auto">
                 <span class="relative flex h-2.5 w-2.5">
@@ -911,9 +897,10 @@
     <script>
         function togglePanel(forceOpen = null) {
             const panel = document.getElementById('sidePanel');
-            const icon = document.getElementById('toggleIcon');
-            const toggleText = document.getElementById('toggleText');
             const topBtn = document.getElementById('topMenuOpenBtn');
+            const topMenuIcon = document.getElementById('topMenuIcon');
+            const topMenuText = document.getElementById('topMenuText');
+            const topMenuArrow = document.getElementById('topMenuArrow');
             const fab = document.getElementById('mobileFab');
             const isCurrentlyOpen = !panel.classList.contains('panel-closed');
             const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
@@ -923,30 +910,26 @@
                     panel.classList.add('panel-closed');
                     panel.classList.remove('panel-full');
                 }
-                if (icon && icon.parentElement) {
-                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
-                }
-                if (toggleText) {
-                    toggleText.textContent = '실거래가 메뉴';
-                }
                 if (topBtn) {
-                    topBtn.classList.remove('hidden');
+                    topBtn.classList.remove('bg-slate-800', 'hover:bg-slate-900', 'border-slate-700');
+                    topBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700', 'border-indigo-500');
                 }
+                if (topMenuIcon) topMenuIcon.textContent = '📊';
+                if (topMenuText) topMenuText.textContent = '메뉴 열기';
+                if (topMenuArrow) topMenuArrow.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>`;
                 if (fab) fab.classList.remove('translate-y-32');
             } else {
                 if (panel) {
                     panel.classList.remove('panel-closed');
                     panel.classList.remove('panel-full');
                 }
-                if (icon && icon.parentElement) {
-                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
-                }
-                if (toggleText) {
-                    toggleText.textContent = '메뉴 접기';
-                }
                 if (topBtn) {
-                    topBtn.classList.add('hidden');
+                    topBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'border-indigo-500');
+                    topBtn.classList.add('bg-slate-800', 'hover:bg-slate-900', 'border-slate-700');
                 }
+                if (topMenuIcon) topMenuIcon.textContent = '◀';
+                if (topMenuText) topMenuText.textContent = '메뉴 닫기';
+                if (topMenuArrow) topMenuArrow.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>`;
                 if (fab) fab.classList.add('translate-y-32');
             }
 
