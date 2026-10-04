@@ -4913,6 +4913,7 @@
             sRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
             sRenderer.setSize(w, h);
             sRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            if (THREE.sRGBEncoding) sRenderer.outputEncoding = THREE.sRGBEncoding;
 
             // [B] 별빛 배경 파티클
             const starGeo = new THREE.BufferGeometry();
@@ -4932,20 +4933,38 @@
             sunLight.position.set(3500, 1500, 2500);
             sScene.add(sunLight);
 
-            // [D] 3D 지구본 (반경 350, 자연스러운 원본 색상)
+            // [D] 3D 지구본 (4K 초고화질 텍스처 매핑)
             const earthRadius = 350;
             const textureLoader = new THREE.TextureLoader();
+            
+            // 고해상도 NASA 위성 텍스처 로드
+            const highResEarthUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg';
+            
             const earthTexture = textureLoader.load(
-                'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-                () => { sRenderer.render(sScene, sCamera); }
+                highResEarthUrl,
+                (tex) => {
+                    if (THREE.SRGBColorSpace) {
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                    } else if (THREE.sRGBEncoding) {
+                        tex.encoding = THREE.sRGBEncoding;
+                    }
+                    if (sRenderer && sRenderer.capabilities) {
+                        tex.anisotropy = sRenderer.capabilities.getMaxAnisotropy();
+                    }
+                    tex.generateMipmaps = true;
+                    tex.minFilter = THREE.LinearMipmapLinearFilter;
+                    tex.magFilter = THREE.LinearFilter;
+                    tex.needsUpdate = true;
+                    sRenderer.render(sScene, sCamera);
+                }
             );
 
-            const earthGeo = new THREE.SphereGeometry(earthRadius, 64, 64);
+            const earthGeo = new THREE.SphereGeometry(earthRadius, 128, 128);
             const earthMat = new THREE.MeshPhongMaterial({
                 map: earthTexture,
                 color: 0xffffff,
                 specular: 0x1e293b,
-                shininess: 10
+                shininess: 14
             });
             sEarth = new THREE.Mesh(earthGeo, earthMat);
             sScene.add(sEarth);
