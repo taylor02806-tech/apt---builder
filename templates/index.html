@@ -155,14 +155,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body class="bg-slate-100 w-screen h-screen flex text-slate-800 antialiased overflow-hidden" style="touch-action: pan-x pan-y;">
-    <div id="spaceIntroOverlay" class="fixed inset-0 z-[9999] bg-[#020617] overflow-hidden transition-opacity duration-1000 ease-out select-none">
+    <div id="spaceIntroOverlay" class="fixed inset-0 z-[9999] bg-[#020617] overflow-hidden select-none">
         <canvas id="spaceIntroCanvas" class="w-full h-full block"></canvas>
-        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2.5 z-10 pointer-events-auto">
+        
+        <!-- 대기권 구름 돌파 이펙트 레이어 -->
+        <div id="cloudLayer" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-500 ease-in flex items-center justify-center bg-gradient-to-b from-white/95 via-sky-100/90 to-white/95 backdrop-blur-xl">
+            <div class="w-[140vw] h-[140vh] rounded-full bg-white/60 blur-3xl animate-pulse"></div>
+        </div>
+
+        <!-- 하단 상태 및 건너뛰기 컨트롤 -->
+        <div id="introControls" class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2.5 z-10 pointer-events-auto transition-opacity duration-300">
             <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950/80 border border-slate-700/80 backdrop-blur-md shadow-2xl">
                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
                 <span id="spaceStageText" class="text-xs font-bold text-slate-200 tracking-wider">1. 심우주 궤도에서 관측 중...</span>
             </div>
-            <button type="button" onclick="endSpaceIntro()" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-slate-300 hover:text-white border border-white/10 backdrop-blur-md transition-all">
+            <button type="button" onclick="endSpaceIntro(true)" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-slate-300 hover:text-white border border-white/10 backdrop-blur-md transition-all">
                 건너뛰기 ✕
             </button>
         </div>
@@ -4904,9 +4911,9 @@
             const w = window.innerWidth;
             const h = window.innerHeight;
 
-            // [1] 씬 & 렌더러 (쨍한 발색을 위한 ACES 톤매핑 세팅)
+            // [1] 씬 & 카메라 초기화
             sScene = new THREE.Scene();
-            sCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 14000);
+            sCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 14000);
             sCamera.position.set(0, 700, 5200);
             sCamera.lookAt(0, 0, 0);
 
@@ -4914,7 +4921,6 @@
             sRenderer.setSize(w, h);
             sRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // 물 빠진 색감을 없애고 쨍한 명암비를 만들어주는 필수 세팅
             if (THREE.SRGBColorSpace) {
                 sRenderer.outputColorSpace = THREE.SRGBColorSpace;
             } else if (THREE.sRGBEncoding) {
@@ -4923,7 +4929,7 @@
             sRenderer.toneMapping = THREE.ACESFilmicToneMapping;
             sRenderer.toneMappingExposure = 1.25;
 
-            // [2] 우주 별빛 배경
+            // [2] 별빛 파티클
             const starGeo = new THREE.BufferGeometry();
             const starCount = 3000;
             const starCoords = new Float32Array(starCount * 3);
@@ -4935,30 +4941,24 @@
             sStars = new THREE.Points(starGeo, starMat);
             sScene.add(sStars);
 
-            // [3] 조명 재설정 (우주 암부 대비 극대화)
-            sScene.add(new THREE.AmbientLight(0x0f172a, 0.4)); // 뿌연 빛을 걷어내고 깊은 암부 형성
-            const sunLight = new THREE.DirectionalLight(0xffffff, 3.2); // 강렬한 직사 태양광
+            // [3] 조명 (대비 극대화)
+            sScene.add(new THREE.AmbientLight(0x0f172a, 0.5));
+            const sunLight = new THREE.DirectionalLight(0xffffff, 3.2);
             sunLight.position.set(3800, 1600, 2600);
             sScene.add(sunLight);
 
-            // [4] 3D 지구본 (선명한 발색 튜닝)
+            // [4] 3D 지구본 (선명한 텍스처)
             const earthRadius = 350;
             const textureLoader = new THREE.TextureLoader();
-            
-            // 선명한 NASA 블루마블 원본 소스
-            const highResEarthUrl = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
-
             const earthTexture = textureLoader.load(
-                highResEarthUrl,
+                'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
                 (tex) => {
                     if (THREE.SRGBColorSpace) {
                         tex.colorSpace = THREE.SRGBColorSpace;
                     } else if (THREE.sRGBEncoding) {
                         tex.encoding = THREE.sRGBEncoding;
                     }
-                    if (sRenderer && sRenderer.capabilities) {
-                        tex.anisotropy = sRenderer.capabilities.getMaxAnisotropy();
-                    }
+                    tex.anisotropy = sRenderer.capabilities.getMaxAnisotropy();
                     tex.generateMipmaps = true;
                     tex.minFilter = THREE.LinearMipmapLinearFilter;
                     tex.magFilter = THREE.LinearFilter;
@@ -4976,7 +4976,7 @@
             sEarth = new THREE.Mesh(earthGeo, earthMat);
             sScene.add(sEarth);
 
-            // [5] 인터스텔라 스타일 프레넬 대기광
+            // [5] 인터스텔라 대기광
             const atmoVertexShader = `
                 varying vec3 vNormal;
                 void main() {
@@ -5002,7 +5002,7 @@
             sAtmosphere = new THREE.Mesh(atmoGeo, atmoMat);
             sScene.add(sAtmosphere);
 
-            // [6] 서울 정밀 좌표 (위도 37.5665°, 경도 126.9780°) 매핑
+            // [6] 서울 정밀 타깃
             const u = 0.5 + (126.9780 / 360.0);
             const v = (90.0 - 37.5665) / 180.0;
             const sX = -earthRadius * Math.cos(u * 2 * Math.PI) * Math.sin(v * Math.PI);
@@ -5013,7 +5013,6 @@
             seoulTarget.position.set(sX, sY, sZ);
             sEarth.add(seoulTarget);
 
-            // 렌더 루프
             function loop() {
                 if (isSpaceIntroOver) return;
                 sAnimId = requestAnimationFrame(loop);
@@ -5022,57 +5021,122 @@
             }
             loop();
 
-            // 서울 진입 시퀀스 시작
-            startSeoulFlightSequence(sX, sY, sZ, earthRadius);
+            startCloudDiveSequence(sX, sY, sZ, earthRadius);
             window.addEventListener('resize', onSpaceResize);
         }
 
-        function startSeoulFlightSequence(sX, sY, sZ, earthRadius) {
+        function startCloudDiveSequence(sX, sY, sZ, earthRadius) {
             const stageText = document.getElementById('spaceStageText');
+            const cloudLayer = document.getElementById('cloudLayer');
+            const introControls = document.getElementById('introControls');
             const tl = gsap.timeline();
             const targetRotationY = -Math.atan2(sX, sZ);
 
-            // 1단계: 우주 깊은 곳에서 지구 궤도로 부드럽게 접근 (3.2초)
+            // 1단계: 우주 궤도 접근 (3.0초)
             tl.to(sCamera.position, {
                 x: 0,
                 y: 350,
                 z: 1600,
-                duration: 3.2,
+                duration: 3.0,
                 ease: 'power2.out',
                 onStart: () => {
                     if (stageText) stageText.textContent = '1. 우주 궤도에서 지구로 접근 중...';
                 }
             });
 
-            // 2단계: 서울 좌표가 정면 중앙에 오도록 자전축 정렬 (2.8초)
+            // 2단계: 서울 상공 정렬 (2.6초)
             tl.to(sEarth.rotation, {
                 y: targetRotationY,
                 x: -0.15,
-                duration: 2.8,
+                duration: 2.6,
                 ease: 'power2.inOut',
                 onStart: () => {
-                    if (stageText) stageText.textContent = '2. 대한민국 서울 궤도 정렬 중...';
+                    if (stageText) stageText.textContent = '2. 대한민국 서울 상공 정렬 중...';
                 }
-            }, "-=1.2");
+            }, "-=1.0");
 
-            // 3단계: 서울 상공 대기권으로 급강하 다이빙 (2.8초)
+            // 3단계: 서울로 급강하 및 구름 속으로 다이빙 (3.0초)
             const targetWorldPos = new THREE.Vector3();
+
+            // FOV 압축 줌
+            tl.to(sCamera, {
+                fov: 16,
+                duration: 3.0,
+                ease: 'power3.in',
+                onUpdate: () => {
+                    sCamera.updateProjectionMatrix();
+                }
+            }, "-=0.2");
+
+            // 서울 상공으로 직격 하강
             tl.to(sCamera.position, {
                 x: 0,
-                y: sY * 0.95 + 28,
-                z: 550, // 서울과 한반도가 가장 선명한 대기권 고도
-                duration: 2.8,
-                ease: 'power3.inOut',
+                y: sY * 1.01,
+                z: Math.sqrt(earthRadius * earthRadius - sY * sY) + 6.0,
+                duration: 3.0,
+                ease: 'power3.in',
                 onStart: () => {
-                    if (stageText) stageText.textContent = '3. 서울 상공 대기권 진입 중...';
+                    if (stageText) stageText.textContent = '3. 서울 상공 대기권 구름 진입 중...';
                 },
                 onUpdate: () => {
                     seoulTarget.getWorldPosition(targetWorldPos);
                     sCamera.lookAt(targetWorldPos);
+                }
+            }, "<");
+
+            // [핵심] 서울 상공에 닿는 순간 구름이 화면을 집어삼킴 (Cloud In)
+            tl.to(cloudLayer, {
+                opacity: 1,
+                duration: 0.7,
+                ease: 'power2.in',
+                onStart: () => {
+                    if (introControls) introControls.style.opacity = '0';
                 },
                 onComplete: () => {
-                    if (stageText) stageText.textContent = '4. 서울 도심 지도 연결 중...';
-                    endSpaceIntro();
+                    // 구름 속에 완전히 갇힌 순간 카카오 맵으로 전환 트리거
+                    revealKakaoMap();
+                }
+            }, "-=0.7");
+        }
+
+        // [구름이 걷히며 카카오 맵 공개]
+        function revealKakaoMap() {
+            if (isSpaceIntroOver) return;
+            isSpaceIntroOver = true;
+
+            const overlay = document.getElementById('spaceIntroOverlay');
+            const cloudLayer = document.getElementById('cloudLayer');
+
+            // 카카오맵 뷰포트 및 센터 세팅
+            if (typeof map !== 'undefined' && map) {
+                map.relayout();
+                const seoulCoord = (typeof mapOption !== 'undefined' && mapOption.center)
+                    ? mapOption.center
+                    : (typeof kakao !== 'undefined' && kakao.maps ? new kakao.maps.LatLng(37.5665, 126.9780) : null);
+
+                if (seoulCoord) {
+                    map.setCenter(seoulCoord);
+                    map.setLevel(3, { animate: false }); // 도심 뷰로 대기
+                }
+            }
+
+            // 3D 렌더러 즉시 중지 (구름 뒤에서 가려진 상태로 조용히 해제)
+            if (sAnimId) cancelAnimationFrame(sAnimId);
+            if (sRenderer) {
+                sRenderer.dispose();
+                sRenderer.forceContextLoss();
+            }
+            window.removeEventListener('resize', onSpaceResize);
+
+            // 구름이 양옆/바깥으로 확산되며 투명해짐 (Cloud Reveal)
+            gsap.to(cloudLayer, {
+                opacity: 0,
+                scale: 1.25,
+                duration: 0.9,
+                ease: 'power2.out',
+                delay: 0.2, // 구름 속에 잠시 머무는 호흡
+                onComplete: () => {
+                    if (overlay) overlay.remove();
                 }
             });
         }
@@ -5084,34 +5148,14 @@
             sRenderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // [바톤 터치] 3D 인트로 종료 및 카카오맵 연속 줌인 실행
-        window.endSpaceIntro = function() {
+        // 건너뛰기 버튼 클릭 시
+        window.endSpaceIntro = function(instant = false) {
             if (isSpaceIntroOver) return;
             isSpaceIntroOver = true;
-
             const overlay = document.getElementById('spaceIntroOverlay');
             if (overlay) {
-                overlay.classList.add('opacity-0', 'pointer-events-none');
-
-                // 카카오맵 연속 줌인 바톤 터치 연출
-                if (typeof map !== 'undefined' && map) {
-                    map.relayout();
-                    const seoulCoord = (typeof mapOption !== 'undefined' && mapOption.center)
-                        ? mapOption.center
-                        : (typeof kakao !== 'undefined' && kakao.maps ? new kakao.maps.LatLng(37.5665, 126.9780) : null);
-
-                    if (seoulCoord) {
-                        map.setCenter(seoulCoord);
-                        // 1. 서울 광역 뷰(레벨 8)로 먼저 대기
-                        map.setLevel(8, { animate: false });
-                        // 2. 오버레이가 투명해지는 순간 도심 상세 뷰(레벨 3)로 빨려 들어가듯 줌인
-                        setTimeout(() => {
-                            map.setLevel(3, { animate: true });
-                        }, 250);
-                    }
-                }
-
-                // WebGL 자원 해제
+                overlay.style.transition = 'opacity 0.6s ease-out';
+                overlay.style.opacity = '0';
                 setTimeout(() => {
                     overlay.remove();
                     if (sAnimId) cancelAnimationFrame(sAnimId);
@@ -5120,7 +5164,13 @@
                         sRenderer.forceContextLoss();
                     }
                     window.removeEventListener('resize', onSpaceResize);
-                }, 1200);
+                    if (typeof map !== 'undefined' && map) {
+                        map.relayout();
+                        if (typeof mapOption !== 'undefined' && mapOption.center) {
+                            map.setCenter(mapOption.center);
+                        }
+                    }
+                }, 600);
             }
         };
 
