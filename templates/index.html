@@ -1900,8 +1900,13 @@
             const isOffi = item.prop_type === 'officetel' || (item.name && item.name.includes('오피스텔'));
             const typeTag = isSingle ? '단독·다가구' : (isRowhouse ? '연립·다세대' : (isOffi ? '오피스텔' : '아파트'));
 
-            const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong) ||
-                          (item.official_pyeongs || []).find(p => p.pyeong === pyeong);
+            // 🔥 수정됨: 평형 계산 시 하드코딩(3.3058 || 34) 제거하고 convertAreaToPyeong 로직으로 통일
+            const fallbackPyeong = convertAreaToPyeong(item.area || 84, item.prop_type);
+            const safePyeong = pyeong || window.currentSelectedPyeong || fallbackPyeong;
+
+            const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === safePyeong) ||
+                          (item.official_pyeongs || []).find(p => p.pyeong === safePyeong);
+                          
             const rawArea = (pInfo && pInfo.area) 
                 ? pInfo.area 
                 : ((pInfo && pInfo.item && pInfo.item.area) ? pInfo.item.area : (item.area || 84));
@@ -1941,9 +1946,11 @@
                     ${ageBadgeHtml ? `<div>${ageBadgeHtml}</div>` : ''}
                 </div>
             `;
-            document.getElementById('detailPyeong').textContent = `${pyeong}평 ▾`;
+            
+            // 🔥 수정됨: 버튼 텍스트를 항상 안전하게 계산된 평형으로 업데이트
+            document.getElementById('detailPyeong').textContent = `${safePyeong}평 ▾`;
 
-            // 클릭한 동 전용 카드 업데이트 (기존 깔끔한 디자인 유지)
+            // (이하 updateDetailView 기존 로직 그대로 유지...)
             const dongCard = document.getElementById('detailBuildingDongCard');
             if (dongCard) {
                 if (item.building_dong) {
@@ -1960,7 +1967,6 @@
                 }
             }
 
-            // 단지 준공 및 노후도 정보 카드 업데이트
             const ageCard = document.getElementById('detailBuildingAgeCard');
             if (ageCard) {
                 ageCard.classList.remove('hidden');
@@ -2033,18 +2039,18 @@
                 if (prevDateEl) prevDateEl.textContent = '계약 정보 없음';
                 if (diffEl) {
                     diffEl.className = 'text-[11px] font-medium text-slate-400 mt-2';
-                    diffEl.textContent = `해당 평형(${pyeong}평형)의 ${typeName} 실거래 신고 내역이 없습니다.`;
+                    diffEl.textContent = `해당 평형(${safePyeong}평형)의 ${typeName} 실거래 신고 내역이 없습니다.`;
                 }
-                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${pyeong}평형 신고 없음)`;
+                if (flameBannerEl) flameBannerEl.textContent = `${item.name} (${safePyeong}평형 신고 없음)`;
 
                 if (noDataOverlay) {
                     noDataOverlay.classList.remove('hidden');
-                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${pyeong}평형 ${typeName} 신고 없음`;
-                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${pyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
+                    if (noDataTitle) noDataTitle.textContent = `${item.name} ${safePyeong}평형 ${typeName} 신고 없음`;
+                    if (noDataDesc) noDataDesc.textContent = `국토교통부에 신고된 ${safePyeong}평형 ${typeName} 실거래 내역이 존재하지 않습니다.`;
                 }
 
                 if (txListEl) {
-                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${pyeong}평형(${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
+                    txListEl.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs">국토교통부에 신고된 ${safePyeong}평형(${effectiveArea}㎡) 실거래 내역이 없습니다.</td></tr>`;
                 }
 
                 document.getElementById('miniTaxAcq').textContent = '정보 없음';
@@ -2084,7 +2090,7 @@
                     diffEl.textContent = `직전 대비 월세 약 +10만원 변동`;
                 }
                 if (flameBannerEl) flameBannerEl.textContent = `${item.name} 월세 시세 분석`;
-                renderDetailTrendChart(item, tradeType, pyeong);
+                renderDetailTrendChart(item, tradeType, safePyeong);
                 return;
             } else {
                 if (latestLabelEl) latestLabelEl.textContent = '최근 실거래가';
@@ -2107,7 +2113,6 @@
                     : (displayLatestDate === displayPrevDate ? '단지 최고 실거래가 (기간 내 1건)' : '직전 대비 보합 (0%)');
             }
 
-            // 실거래 내역 테이블 렌더링
             if (txListEl) {
                 const dealsToRender = (pInfo && pInfo.deals && pInfo.deals.length > 0)
                     ? pInfo.deals
@@ -2118,10 +2123,12 @@
                         const priceText = (typeof tx.price === 'number') ? formatPrice(tx.price) : tx.price;
                         return `
                             <tr class="hover:bg-slate-50/80 transition-colors">
-                                <td class="py-2.5 px-3 font-mono text-slate-500">${tx.date}</td>
+                                <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${tx.date}</td>
                                 <td class="py-2.5 px-3 font-bold text-slate-900">${priceText}</td>
-                                <td class="py-2.5 px-3 font-mono text-slate-500">${areaText}</td>
-                                <td class="py-2.5 px-3 text-right font-medium text-slate-600">${tx.floor || '-'}</td>
+                                <td class="py-2.5 px-3 font-medium text-slate-600">${areaText}</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <span class="inline-block bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-700 transition-colors cursor-help" title="개인정보 보호법에 따라 동·호수를 제외한 층수만 공식 제공됩니다.">${tx.floor || '-'}</span>
+                                </td>
                             </tr>
                         `;
                     }).join('');
@@ -2140,7 +2147,7 @@
                 document.getElementById('taxAcqRateDetail').textContent = `총 실효세율 ${taxes.acq.rate}%`;
             }
 
-            renderDetailTrendChart(item, tradeType, pyeong);
+            renderDetailTrendChart(item, tradeType, safePyeong);
         }
 
         async function fetchOfficialBuildingData(item, tradeType = 'sale') {
@@ -2485,24 +2492,26 @@
             const checkedTrade = document.querySelector('input[name="trade_type"]:checked');
             window.currentDetailTradeType = checkedTrade ? checkedTrade.value : 'sale';
 
-            // 초기 캐시 기반 화면 렌더링
+            // 🔥 수정됨: 드롭다운 가능한 평형 목록을 먼저 가져오고, 그 안에서 안전하게 초기 평형 세팅
             const availablePyeongs = getAvailablePyeongsForComplex(item);
             window.currentAvailablePyeongs = availablePyeongs;
             const hasDataPyeongs = availablePyeongs.filter(p => (p.hasData || p.has_data));
 
             const quickP = (item.matched_dong_pyeong && item.matched_dong_pyeong.pyeong) || getQuickMatchedPyeong(item);
-            let initialPyeong = quickP || 34;
-            if (!quickP) {
-                if (hasDataPyeongs.length > 0) {
-                    const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
-                    initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
-                } else if (item.area) {
-                    initialPyeong = convertAreaToPyeong(item.area, item.prop_type || 'apt');
-                }
+            let initialPyeong;
+            
+            if (quickP && availablePyeongs.some(p => p.pyeong === quickP)) {
+                initialPyeong = quickP;
+            } else if (hasDataPyeongs.length > 0) {
+                const default34 = hasDataPyeongs.find(p => p.pyeong === 34);
+                initialPyeong = default34 ? 34 : hasDataPyeongs[0].pyeong;
+            } else if (availablePyeongs.length > 0) {
+                initialPyeong = availablePyeongs[0].pyeong;
+            } else {
+                initialPyeong = convertAreaToPyeong(item.area || 84, item.prop_type);
             }
+            
             window.currentSelectedPyeong = initialPyeong;
-            const pBtn = document.getElementById('detailPyeong');
-            if (pBtn) pBtn.textContent = `${initialPyeong}평 ▾`;
 
             setupPyeongDropdown(item);
             updateDetailTradeTypeButtons(window.currentDetailTradeType);
@@ -2672,11 +2681,13 @@
             return fullData;
         }
 
-        function adaptTrendDataForTradeType(baseData, item, tradeType = 'sale', pyeong = 34) {
+        function adaptTrendDataForTradeType(baseData, item, tradeType = 'sale', pyeong) {
             if (!baseData || !baseData.history) return baseData;
 
-            const origPyeong = Math.round(parseFloat(item.area) / 3.3058) || 34;
-            const pyeongRatio = (pyeong && origPyeong) ? (pyeong / origPyeong) : 1.0;
+            // 🔥 수정됨: convertAreaToPyeong 공식을 사용하여 비율 왜곡 방지
+            const origPyeong = convertAreaToPyeong(item.area || 84, item.prop_type);
+            const safePyeong = pyeong || origPyeong;
+            const pyeongRatio = (safePyeong && origPyeong) ? (safePyeong / origPyeong) : 1.0;
 
             const adaptedHistory = (baseData.history || []).map(h => {
                 let adjustedPrice = Math.round(h.avg_price * pyeongRatio);
@@ -2705,7 +2716,7 @@
                     displayPrice = `보증금 ${formatPrice(dep)} / 월 ${mon}만`;
                 }
 
-                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === pyeong);
+                const pInfo = (window.currentAvailablePyeongs || []).find(p => p.pyeong === safePyeong);
                 const areaStr = pInfo ? `${pInfo.area}㎡` : (t.area || (item.area ? `${Math.round(parseFloat(item.area))}㎡` : '84㎡'));
 
                 return {
