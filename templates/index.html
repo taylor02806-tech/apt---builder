@@ -169,12 +169,10 @@
     </div>
     
     <!-- 좌측 대시보드 및 상세 패널 (데스크톱 기본: 좌측 사이드바) -->
-    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out" style="pointer-events: auto; z-index: 1000;">
+    <aside id="sidePanel" class="w-[480px] max-w-full h-full flex flex-col bg-white border-r border-slate-200/80 z-[1000] shadow-xl flex-shrink-0 relative transition-[margin-left] duration-300 ease-in-out panel-closed" style="pointer-events: auto; z-index: 1000;">
         <script>
-            // 오직 모바일 스마트폰 터치 환경에서만 초기 패널 닫힘 적용
-            if (window.matchMedia('(max-width: 639px) and (pointer: coarse)').matches) {
-                document.getElementById('sidePanel').classList.add('panel-closed');
-            }
+            // 사이트 첫 진입 시 메뉴창 기본 닫힘 적용 (데스크톱/모바일 공통)
+            document.getElementById('sidePanel').classList.add('panel-closed');
         </script>
         
         <!-- 모바일 전용 드래그 핸들 -->
@@ -721,10 +719,18 @@
             </div>
         </div>
 
-        <!-- 데스크톱 패널 토글 버튼 -->
-        <button onclick="togglePanel()" id="desktopToggleBtn" class="desktop-toggle-btn absolute top-1/2 -right-8 w-8 h-16 bg-white border-y border-r border-slate-200 rounded-r-xl shadow-md flex items-center justify-center z-[1001] transform -translate-y-1/2 cursor-pointer group hover:bg-slate-50 transition-colors">
-            <svg id="toggleIcon" class="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+        <!-- 데스크톱 패널 토글 버튼 (시인성 극대화 플로팅 탭) -->
+        <button onclick="togglePanel()" id="desktopToggleBtn" 
+            class="desktop-toggle-btn absolute top-1/2 left-full -translate-y-1/2 bg-white hover:bg-slate-900 text-slate-800 hover:text-white border-y border-r border-slate-200/90 hover:border-slate-900 rounded-r-2xl shadow-2xl flex items-center gap-2.5 px-4 py-3.5 z-[1001] cursor-pointer group transition-all duration-300 select-none whitespace-nowrap"
+            title="실거래 랭킹 메뉴 열기/닫기">
+            <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-md group-hover:bg-indigo-500 transition-colors shrink-0">
+                📊
+            </span>
+            <span id="toggleText" class="text-xs font-extrabold tracking-tight transition-colors">
+                실거래가 메뉴
+            </span>
+            <svg id="toggleIcon" class="w-4 h-4 text-slate-400 group-hover:text-white transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
             </svg>
         </button>
     </aside>
@@ -733,14 +739,19 @@
     <main class="flex-1 h-full min-w-0 relative pointer-events-auto">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- 모바일 전용 FAB -->
-        <button id="mobileFab" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl font-bold flex items-center gap-2 transition-transform duration-500 pointer-events-auto" onclick="togglePanel(true)">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-            목록 보기
+        <!-- 모바일 전용 FAB (시인성 강화) -->
+        <button id="mobileFab" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] bg-slate-900/95 hover:bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl font-extrabold flex items-center gap-2.5 transition-all duration-300 pointer-events-auto border border-slate-700/80 active:scale-95" onclick="togglePanel(true)">
+            <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">📊</span>
+            <span>실거래 랭킹 메뉴</span>
         </button>
         
-        <!-- 좌측 상단 플로팅 바 -->
+        <!-- 좌측 상단 플로팅 바 (상단 메뉴 열기 버튼 포함) -->
         <div class="absolute top-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
+            <button id="topMenuOpenBtn" type="button" onclick="togglePanel(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl hover:shadow-2xl px-3.5 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 pointer-events-auto transition-all transform hover:scale-105 active:scale-95 border border-indigo-500">
+                <span class="text-sm">📊</span>
+                <span>메뉴 열기</span>
+                <svg class="w-3.5 h-3.5 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+            </button>
             <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 pointer-events-auto">
                 <span class="relative flex h-2.5 w-2.5">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -901,6 +912,8 @@
         function togglePanel(forceOpen = null) {
             const panel = document.getElementById('sidePanel');
             const icon = document.getElementById('toggleIcon');
+            const toggleText = document.getElementById('toggleText');
+            const topBtn = document.getElementById('topMenuOpenBtn');
             const fab = document.getElementById('mobileFab');
             const isCurrentlyOpen = !panel.classList.contains('panel-closed');
             const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
@@ -913,6 +926,12 @@
                 if (icon && icon.parentElement) {
                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />`;
                 }
+                if (toggleText) {
+                    toggleText.textContent = '실거래가 메뉴';
+                }
+                if (topBtn) {
+                    topBtn.classList.remove('hidden');
+                }
                 if (fab) fab.classList.remove('translate-y-32');
             } else {
                 if (panel) {
@@ -921,6 +940,12 @@
                 }
                 if (icon && icon.parentElement) {
                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />`;
+                }
+                if (toggleText) {
+                    toggleText.textContent = '메뉴 접기';
+                }
+                if (topBtn) {
+                    topBtn.classList.add('hidden');
                 }
                 if (fab) fab.classList.add('translate-y-32');
             }
