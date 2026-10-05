@@ -81,7 +81,7 @@
                 visibility: hidden !important;
                 pointer-events: none !important;
             }
-            #sidePanel.panel-full {
+            #sidePanel.panel-full:not(.is-dragging) {
                 height: 90vh !important;
             }
             .desktop-toggle-btn {
@@ -4899,6 +4899,8 @@
         let isDraggingPanel = false;
         let hasMovedDrag = false;
         let touchStartTime = 0;
+        let wasFullAtStart = false;
+        let lastDeltaY = 0;
         let rAFId = null;
 
         if (dragHandle && sidePanelEl) {
@@ -4907,9 +4909,11 @@
 
                 isDraggingPanel = true;
                 hasMovedDrag = false;
+                lastDeltaY = 0;
                 touchStartTime = Date.now();
                 dragStartY = e.touches[0].clientY;
                 dragStartHeight = sidePanelEl.getBoundingClientRect().height;
+                wasFullAtStart = sidePanelEl.classList.contains('panel-full');
 
                 sidePanelEl.classList.add('is-dragging');
             }, {passive: true});
@@ -4917,9 +4921,9 @@
             dragHandle.addEventListener('touchmove', (e) => {
                 if (!isDraggingPanel) return;
                 const currentY = e.touches[0].clientY;
-                const deltaY = dragStartY - currentY; 
+                lastDeltaY = dragStartY - currentY; 
                 
-                if (Math.abs(deltaY) > 5) {
+                if (Math.abs(lastDeltaY) > 5) {
                     hasMovedDrag = true;
                 }
 
@@ -4927,11 +4931,11 @@
 
                 if (rAFId) cancelAnimationFrame(rAFId);
                 rAFId = requestAnimationFrame(() => {
-                    let newHeight = dragStartHeight + deltaY;
+                    let newHeight = dragStartHeight + lastDeltaY;
                     const windowHeight = window.innerHeight;
                     
                     if (newHeight > windowHeight * 0.92) newHeight = windowHeight * 0.92;
-                    if (newHeight < windowHeight * 0.18) newHeight = windowHeight * 0.18;
+                    if (newHeight < windowHeight * 0.15) newHeight = windowHeight * 0.15;
 
                     sidePanelEl.style.height = `${newHeight}px`;
                 });
@@ -4943,30 +4947,44 @@
                 if (rAFId) cancelAnimationFrame(rAFId);
 
                 sidePanelEl.classList.remove('is-dragging');
+                sidePanelEl.style.height = '';
 
                 const touchDuration = Date.now() - touchStartTime;
 
-                // 탭(Tap) 감지: 드래그하지 않았거나, 터치 시간이 250ms 미만이고 이동 거리가 8px 이하인 경우
-                if (!hasMovedDrag || (touchDuration < 250 && Math.abs(dragStartY - (e.changedTouches ? e.changedTouches[0].clientY : dragStartY)) < 8)) {
+                // 1. 단순 탭(Tap): 드래그 이동이 없거나 250ms 미만 짧은 터치로 거의 안 움직인 경우
+                if (!hasMovedDrag || (touchDuration < 250 && Math.abs(lastDeltaY) < 8)) {
                     if (e.cancelable && e.type === 'touchend') e.preventDefault();
-                    sidePanelEl.style.height = '';
                     sidePanelEl.classList.toggle('panel-full');
                     return;
                 }
 
-                // 드래그 완료 후 스냅(Snap)
-                const currentHeight = sidePanelEl.getBoundingClientRect().height;
+                // 2. 방향(Gesture Momentum) 및 최종 높이 비율 기반 스냅
                 const windowHeight = window.innerHeight;
-                const ratio = currentHeight / windowHeight;
+                const finalHeight = dragStartHeight + lastDeltaY;
+                const ratio = finalHeight / windowHeight;
 
-                sidePanelEl.style.height = '';
-                if (ratio < 0.22) {
-                    sidePanelEl.classList.remove('panel-full');
-                    togglePanel(false);
-                } else if (ratio > 0.55) {
-                    sidePanelEl.classList.add('panel-full');
+                if (wasFullAtStart) {
+                    // 전체화면(90vh) 상태에서 아래로 35px 이상 끌어내렸거나 높이가 78% 이하로 내려간 경우
+                    if (lastDeltaY < -35 || ratio < 0.78) {
+                        sidePanelEl.classList.remove('panel-full');
+                        // 만약 바닥 근처까지 세게 내린 경우 메뉴창 완전 닫기
+                        if (ratio < 0.22 || lastDeltaY < -windowHeight * 0.5) {
+                            togglePanel(false);
+                        }
+                    } else {
+                        sidePanelEl.classList.add('panel-full');
+                    }
                 } else {
-                    sidePanelEl.classList.remove('panel-full');
+                    // 기본(35vh) 상태에서 위로 35px 이상 올렸거나 높이가 50% 이상 올라간 경우
+                    if (lastDeltaY > 35 || ratio > 0.50) {
+                        sidePanelEl.classList.add('panel-full');
+                    } else if (lastDeltaY < -35 || ratio < 0.22) {
+                        // 아래로 내린 경우 메뉴창 닫기
+                        sidePanelEl.classList.remove('panel-full');
+                        togglePanel(false);
+                    } else {
+                        sidePanelEl.classList.remove('panel-full');
+                    }
                 }
             };
 
