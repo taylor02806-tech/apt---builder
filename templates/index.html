@@ -150,6 +150,57 @@
             pointer-events: auto !important;
             z-index: 150 !important;
         }
+
+        /* 거래 유형 (Segmented Control) 활성 탭: 최고 대비 다크 스타일 */
+        .segmented-item label {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            color: #64748b;
+        }
+        .segmented-item label:hover {
+            color: #0f172a;
+        }
+        .segmented-item input[type="radio"]:checked + label {
+            background-color: #0f172a !important; /* 최고 대비 딥 슬레이트 블랙 */
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28) !important;
+        }
+
+        /* 부동산 유형 필터 버튼 (Capsule Button): 최고 대비 스타일 */
+        .prop-item label {
+            transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+        .prop-item label:hover {
+            background-color: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .prop-item input[type="radio"]:checked + label {
+            background-color: #0f172a !important; /* 최고 대비 딥 슬레이트 블랙 */
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28) !important;
+            transform: translateY(-1px);
+        }
+        .prop-item input[type="radio"]:checked + label:hover {
+            background-color: #1e293b !important;
+            border-color: #1e293b !important;
+            color: #ffffff !important;
+        }
+        .prop-item input[type="radio"]:disabled + label {
+            opacity: 0.35 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            background-color: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+            color: #94a3b8 !important;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -216,16 +267,16 @@
                     <label class="text-xs font-bold text-slate-500 block mb-2">거래 유형</label>
                     <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
                         <div class="segmented-item flex-1">
-                            <input type="radio" id="trade_sale" name="trade_type" value="sale" class="hidden" checked onchange="onTradeTypeChange()">
-                            <label for="trade_sale" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">매매</label>
+                            <input type="radio" id="trade_sale" name="trade_type" value="sale" class="peer hidden" checked onchange="onTradeTypeChange()">
+                            <label for="trade_sale" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:font-bold peer-checked:shadow-sm">매매</label>
                         </div>
                         <div class="segmented-item flex-1">
-                            <input type="radio" id="trade_jeonse" name="trade_type" value="jeonse" class="hidden" onchange="onTradeTypeChange()">
-                            <label for="trade_jeonse" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">전세</label>
+                            <input type="radio" id="trade_jeonse" name="trade_type" value="jeonse" class="peer hidden" onchange="onTradeTypeChange()">
+                            <label for="trade_jeonse" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:font-bold peer-checked:shadow-sm">전세</label>
                         </div>
                         <div class="segmented-item flex-1">
-                            <input type="radio" id="trade_rent" name="trade_type" value="rent" class="hidden" onchange="onTradeTypeChange()">
-                            <label for="trade_rent" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium">월세</label>
+                            <input type="radio" id="trade_rent" name="trade_type" value="rent" class="peer hidden" onchange="onTradeTypeChange()">
+                            <label for="trade_rent" class="w-full py-2 text-center text-xs text-slate-500 rounded-lg cursor-pointer transition-all flex items-center justify-center font-medium hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:font-bold peer-checked:shadow-sm">월세</label>
                         </div>
                     </div>
                 </div>
@@ -234,24 +285,24 @@
                     <label class="text-xs font-bold text-slate-500 block mb-2">부동산 유형</label>
                     <div class="flex flex-wrap gap-1.5">
                         <div class="prop-item">
-                            <input type="radio" id="prop_apt" name="prop_type" value="apt" class="hidden" checked onchange="onScopeChange()">
-                            <label for="prop_apt" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">아파트</label>
+                            <input type="radio" id="prop_apt" name="prop_type" value="apt" class="peer hidden" checked onchange="onScopeChange()">
+                            <label for="prop_apt" class="px-3.5 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 bg-slate-50 cursor-pointer transition-all inline-block hover:bg-slate-100 hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 peer-checked:font-bold peer-checked:shadow-md">아파트</label>
                         </div>
                         <div class="prop-item">
-                            <input type="radio" id="prop_officetel" name="prop_type" value="officetel" class="hidden" onchange="onScopeChange()">
-                            <label for="prop_officetel" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">오피스텔</label>
+                            <input type="radio" id="prop_officetel" name="prop_type" value="officetel" class="peer hidden" onchange="onScopeChange()">
+                            <label for="prop_officetel" class="px-3.5 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 bg-slate-50 cursor-pointer transition-all inline-block hover:bg-slate-100 hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 peer-checked:font-bold peer-checked:shadow-md">오피스텔</label>
                         </div>
                         <div class="prop-item">
-                            <input type="radio" id="prop_rowhouse" name="prop_type" value="rowhouse" class="hidden" onchange="onScopeChange()">
-                            <label for="prop_rowhouse" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">연립·다세대</label>
+                            <input type="radio" id="prop_rowhouse" name="prop_type" value="rowhouse" class="peer hidden" onchange="onScopeChange()">
+                            <label for="prop_rowhouse" class="px-3.5 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 bg-slate-50 cursor-pointer transition-all inline-block hover:bg-slate-100 hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 peer-checked:font-bold peer-checked:shadow-md">연립·다세대</label>
                         </div>
                         <div class="prop-item">
-                            <input type="radio" id="prop_singlehouse" name="prop_type" value="singlehouse" class="hidden" onchange="onScopeChange()">
-                            <label for="prop_singlehouse" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">단독·다가구</label>
+                            <input type="radio" id="prop_singlehouse" name="prop_type" value="singlehouse" class="peer hidden" onchange="onScopeChange()">
+                            <label for="prop_singlehouse" class="px-3.5 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 bg-slate-50 cursor-pointer transition-all inline-block hover:bg-slate-100 hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 peer-checked:font-bold peer-checked:shadow-md">단독·다가구</label>
                         </div>
                         <div class="prop-item">
-                            <input type="radio" id="prop_land" name="prop_type" value="land" class="hidden" onchange="onScopeChange()">
-                            <label for="prop_land" id="label-land" class="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 cursor-pointer transition-all inline-block hover:bg-slate-50">토지</label>
+                            <input type="radio" id="prop_land" name="prop_type" value="land" class="peer hidden" onchange="onScopeChange()">
+                            <label for="prop_land" id="label-land" class="px-3.5 py-1.5 rounded-full border border-slate-200 text-xs text-slate-600 bg-slate-50 cursor-pointer transition-all inline-block hover:bg-slate-100 hover:text-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 peer-checked:font-bold peer-checked:shadow-md">토지</label>
                         </div>
                     </div>
                 </div>
