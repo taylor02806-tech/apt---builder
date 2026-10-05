@@ -65,8 +65,14 @@
                 border-top-left-radius: 1.5rem !important;
                 border-top-right-radius: 1.5rem !important;
                 box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15) !important;
-                transition: transform 0.3s ease-out, height 0.3s ease-out !important;
+                transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) !important;
                 margin-left: 0 !important;
+                will-change: height, transform;
+                -webkit-backface-visibility: hidden;
+                backface-visibility: hidden;
+            }
+            #sidePanel.is-dragging {
+                transition: none !important;
             }
             #sidePanel.panel-closed {
                 margin-left: 0 !important;
@@ -83,6 +89,9 @@
             }
             .mobile-drag-handle {
                 display: flex !important;
+                touch-action: none;
+                -webkit-user-select: none;
+                user-select: none;
             }
             main {
                 position: absolute !important;
@@ -234,8 +243,8 @@
         </script>
         
         <!-- 모바일 전용 드래그 핸들 -->
-        <div id="dragHandle" class="mobile-drag-handle flex items-center justify-center pt-4 pb-2 relative shrink-0 z-[1001] cursor-pointer" style="touch-action: none;">
-            <div class="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+        <div id="dragHandle" class="mobile-drag-handle flex items-center justify-center py-3.5 min-h-[44px] relative shrink-0 z-[1001] cursor-pointer select-none active:bg-slate-50/50 transition-colors" style="touch-action: none;">
+            <div class="w-12 h-1.5 bg-slate-300 rounded-full transition-all"></div>
             <button type="button" onclick="event.preventDefault(); event.stopPropagation(); togglePanel(false);" ontouchend="event.preventDefault(); event.stopPropagation(); togglePanel(false);" class="absolute right-4 top-2 p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 z-[1002]">
                 <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
@@ -4882,13 +4891,15 @@
         marker.setMap(map);
         setTimeout(() => { fetchRegionInfo(mapOption.center); }, 500);
 
-        // 모바일 핸들바 실시간 자유 드래그 및 높이 조절 로직
+        // 모바일 핸들바 실시간 자유 드래그 및 초고속 높이 조절 로직
         const dragHandle = document.getElementById('dragHandle');
         const sidePanelEl = document.getElementById('sidePanel');
         let dragStartY = 0;
         let dragStartHeight = 0;
         let isDraggingPanel = false;
         let hasMovedDrag = false;
+        let touchStartTime = 0;
+        let rAFId = null;
 
         if (dragHandle && sidePanelEl) {
             dragHandle.addEventListener('touchstart', (e) => {
@@ -4896,16 +4907,11 @@
 
                 isDraggingPanel = true;
                 hasMovedDrag = false;
+                touchStartTime = Date.now();
                 dragStartY = e.touches[0].clientY;
                 dragStartHeight = sidePanelEl.getBoundingClientRect().height;
 
-                if (sidePanelEl.classList.contains('panel-full')) {
-                    sidePanelEl.classList.remove('panel-full');
-                    sidePanelEl.style.height = `${dragStartHeight}px`;
-                }
-
-                sidePanelEl.classList.remove('transition-all', 'duration-300');
-                sidePanelEl.style.transition = 'none';
+                sidePanelEl.classList.add('is-dragging');
             }, {passive: true});
 
             dragHandle.addEventListener('touchmove', (e) => {
@@ -4913,60 +4919,71 @@
                 const currentY = e.touches[0].clientY;
                 const deltaY = dragStartY - currentY; 
                 
-                if (Math.abs(deltaY) > 4) {
+                if (Math.abs(deltaY) > 5) {
                     hasMovedDrag = true;
                 }
 
-                let newHeight = dragStartHeight + deltaY;
-                const windowHeight = window.innerHeight;
-                
-                if (newHeight > windowHeight * 0.95) newHeight = windowHeight * 0.95;
-                if (newHeight < windowHeight * 0.15) newHeight = windowHeight * 0.15;
-
-                sidePanelEl.style.height = `${newHeight}px`;
                 if (e.cancelable) e.preventDefault();
+
+                if (rAFId) cancelAnimationFrame(rAFId);
+                rAFId = requestAnimationFrame(() => {
+                    let newHeight = dragStartHeight + deltaY;
+                    const windowHeight = window.innerHeight;
+                    
+                    if (newHeight > windowHeight * 0.92) newHeight = windowHeight * 0.92;
+                    if (newHeight < windowHeight * 0.18) newHeight = windowHeight * 0.18;
+
+                    sidePanelEl.style.height = `${newHeight}px`;
+                });
             }, {passive: false});
 
-            dragHandle.addEventListener('touchend', (e) => {
+            const finishDrag = (e) => {
                 if (!isDraggingPanel) return;
                 isDraggingPanel = false;
-                
-                sidePanelEl.style.transition = '';
-                sidePanelEl.classList.add('transition-all', 'duration-300');
-                
-                const currentHeight = sidePanelEl.getBoundingClientRect().height;
-                const windowHeight = window.innerHeight;
-                const percent = currentHeight / windowHeight;
-                
-                if (!hasMovedDrag) {
+                if (rAFId) cancelAnimationFrame(rAFId);
+
+                sidePanelEl.classList.remove('is-dragging');
+
+                const touchDuration = Date.now() - touchStartTime;
+
+                // 탭(Tap) 감지: 드래그하지 않았거나, 터치 시간이 250ms 미만이고 이동 거리가 8px 이하인 경우
+                if (!hasMovedDrag || (touchDuration < 250 && Math.abs(dragStartY - (e.changedTouches ? e.changedTouches[0].clientY : dragStartY)) < 8)) {
+                    if (e.cancelable && e.type === 'touchend') e.preventDefault();
                     sidePanelEl.style.height = '';
-                    if (sidePanelEl.classList.contains('panel-full')) {
-                        sidePanelEl.classList.remove('panel-full');
-                    } else {
-                        sidePanelEl.classList.add('panel-full');
-                    }
+                    sidePanelEl.classList.toggle('panel-full');
                     return;
                 }
 
-                if (percent < 0.18) {
-                    sidePanelEl.style.height = '';
+                // 드래그 완료 후 스냅(Snap)
+                const currentHeight = sidePanelEl.getBoundingClientRect().height;
+                const windowHeight = window.innerHeight;
+                const ratio = currentHeight / windowHeight;
+
+                sidePanelEl.style.height = '';
+                if (ratio < 0.22) {
                     sidePanelEl.classList.remove('panel-full');
                     togglePanel(false);
+                } else if (ratio > 0.55) {
+                    sidePanelEl.classList.add('panel-full');
                 } else {
-                    sidePanelEl.style.height = `${(currentHeight / windowHeight) * 100}vh`;
                     sidePanelEl.classList.remove('panel-full');
                 }
+            };
+
+            dragHandle.addEventListener('touchend', finishDrag, {passive: false});
+            dragHandle.addEventListener('touchcancel', () => {
+                isDraggingPanel = false;
+                if (rAFId) cancelAnimationFrame(rAFId);
+                sidePanelEl.classList.remove('is-dragging');
+                sidePanelEl.style.height = '';
             });
 
+            // 데스크톱 마우스 클릭 지원 (터치 기기에서는 touchend preventDefault()로 click 중복 차단)
             dragHandle.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
                 if (!hasMovedDrag) {
                     sidePanelEl.style.height = '';
-                    if (sidePanelEl.classList.contains('panel-full')) {
-                        sidePanelEl.classList.remove('panel-full');
-                    } else {
-                        sidePanelEl.classList.add('panel-full');
-                    }
+                    sidePanelEl.classList.toggle('panel-full');
                 }
             });
 
