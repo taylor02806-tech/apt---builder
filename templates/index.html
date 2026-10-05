@@ -1748,7 +1748,9 @@
             centerLat: null,
             centerLng: null,
             threshold: null,
-            dataHash: ''
+            dataHash: '',
+            propType: null,
+            tradeType: null
         };
 
         function applyClientFilters(force = false) {
@@ -1768,18 +1770,35 @@
             let minPriceThreshold = 0;
             let zoomText = '';
 
+            const currentPropType = document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
+            const currentTradeType = document.querySelector('input[name="trade_type"]:checked')?.value || 'sale';
+
+            const propMeta = {
+                apt: { name: '아파트', unit: '단지별', icon: '🏢' },
+                officetel: { name: '오피스텔', unit: '지역별', icon: '🏬' },
+                rowhouse: { name: '연립·다세대', unit: '지역별', icon: '🏡' },
+                singlehouse: { name: '단독·다가구', unit: '지역별', icon: '🏠' },
+                land: { name: '토지', unit: '지역별', icon: '🌾' }
+            };
+            const propCfg = propMeta[currentPropType] || propMeta.apt;
+            const priceLabel = currentTradeType === 'jeonse' ? '최고 전세가' : (currentTradeType === 'rent' ? '최고 월세가' : '최고가');
+
             if (isBuildingAgeActive) {
                 minPriceThreshold = 0;
                 zoomText = `🏢 연립주택·빌라 및 단지별 노후도(연식) 점 표시 중 (클릭 시 상세 정보)`;
             } else if (span >= 0.1) {
-                minPriceThreshold = 180000;
-                zoomText = `🔍 광역 축소 상태 (18억 이상 단지별 최고가 표시)`;
+                minPriceThreshold = (currentTradeType === 'rent') ? 0 : (currentTradeType === 'jeonse' ? 100000 : 180000);
+                const limitText = (currentTradeType === 'rent') ? '' : (currentTradeType === 'jeonse' ? '(10억 이상 ' : '(18억 이상 ');
+                const closeParen = (currentTradeType === 'rent') ? '' : ')';
+                zoomText = `🔍 광역 축소 상태 ${limitText}${propCfg.name} ${propCfg.unit} ${priceLabel} 표시${closeParen}`;
             } else if (span >= 0.04) {
-                minPriceThreshold = 120000;
-                zoomText = `🔍 중간 줌 상태 (12억 이상 단지별 최고가 표시)`;
+                minPriceThreshold = (currentTradeType === 'rent') ? 0 : (currentTradeType === 'jeonse' ? 60000 : 120000);
+                const limitText = (currentTradeType === 'rent') ? '' : (currentTradeType === 'jeonse' ? '(6억 이상 ' : '(12억 이상 ');
+                const closeParen = (currentTradeType === 'rent') ? '' : ')';
+                zoomText = `🔍 중간 줌 상태 ${limitText}${propCfg.name} ${propCfg.unit} ${priceLabel} 표시${closeParen}`;
             } else {
                 minPriceThreshold = 0;
-                zoomText = `🏢 아파트 단지별 최고가 표시 중`;
+                zoomText = `${propCfg.icon} ${propCfg.name} ${propCfg.unit} ${priceLabel} 표시 중`;
             }
 
             if (badgeEl) badgeEl.textContent = zoomText;
@@ -1791,8 +1810,10 @@
             const isThresholdChanged = lastFilterState.threshold !== minPriceThreshold;
             const isDataChanged = lastFilterState.dataHash !== currentDataHash;
             const isCenterMoved = latDiff > 0.0002 || lngDiff > 0.0002;
+            const isPropChanged = lastFilterState.propType !== currentPropType;
+            const isTradeChanged = lastFilterState.tradeType !== currentTradeType;
 
-            if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved) {
+            if (!force && !isLevelChanged && !isThresholdChanged && !isDataChanged && !isCenterMoved && !isPropChanged && !isTradeChanged) {
                 return;
             }
 
@@ -1801,7 +1822,9 @@
                 centerLat: currentLat,
                 centerLng: currentLng,
                 threshold: minPriceThreshold,
-                dataHash: currentDataHash
+                dataHash: currentDataHash,
+                propType: currentPropType,
+                tradeType: currentTradeType
             };
 
             const filterList = (list) => {
@@ -4408,6 +4431,7 @@
                         const targetRadio = document.getElementById(`prop_${finalPropType}`);
                         if (targetRadio) {
                             targetRadio.checked = true;
+                            applyClientFilters(true);
                             const typeLabels = { apt: '아파트', rowhouse: '연립·다세대', singlehouse: '단독·다가구', officetel: '오피스텔' };
                             const dongNotice = detectedD ? ` <strong>${detectedD}</strong>` : '';
                             showToast(`🏢 <strong>${finalName}</strong>${dongNotice} (${typeLabels[finalPropType] || '주택'} 감지)<br><span class="text-[11px] text-indigo-200">'${typeLabels[currentPropChecked] || '기존'}'에서 <strong>'${typeLabels[finalPropType] || '신규'}'</strong> 실거래가 모드로 자동 전환되었습니다.</span>`);
@@ -4675,9 +4699,11 @@
                 landLabel.classList.remove('opacity-40', 'cursor-not-allowed');
             }
 
+            const propType = document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
+            const unitWord = (propType === 'apt') ? '단지별' : '지역별';
             const titlePrefix = tradeType === 'jeonse' ? '전세가' : (tradeType === 'rent' ? '월세가' : '매매가');
             const highestTitle = document.getElementById('highestTitle');
-            if (highestTitle) highestTitle.textContent = `단지별 최고 ${titlePrefix} Top 3`;
+            if (highestTitle) highestTitle.textContent = `${unitWord} 최고 ${titlePrefix} Top 3`;
             document.getElementById('soaringTitle').textContent = `가장 많이 오른 ${titlePrefix} Top 3`;
             document.getElementById('plungingTitle').textContent = `가장 많이 떨어진 ${titlePrefix} Top 3`;
 
@@ -4686,6 +4712,14 @@
         }
 
         function onScopeChange() {
+            applyClientFilters(true);
+            const tradeType = document.querySelector('input[name="trade_type"]:checked')?.value || 'sale';
+            const propType = document.querySelector('input[name="prop_type"]:checked')?.value || 'apt';
+            const unitWord = (propType === 'apt') ? '단지별' : '지역별';
+            const titlePrefix = tradeType === 'jeonse' ? '전세가' : (tradeType === 'rent' ? '월세가' : '매매가');
+            const highestTitle = document.getElementById('highestTitle');
+            if (highestTitle) highestTitle.textContent = `${unitWord} 최고 ${titlePrefix} Top 3`;
+
             if (currentLawdCd) {
                 closeApartmentDetail();
                 fetchData(currentLawdCd, currentDongName || '');
